@@ -21,7 +21,7 @@
 | Etapa | Enfoque | Limitaciones | Tendencia Actual |
 |-------|---------|--------------|------------------|
 | **Monitoring** | Thresholds, dashboards estáticos | Reactivo, alto ruido, sin contexto de negocio | ✅ Superado |
-| **Observabilidad (Logs/Metrics/Traces)** | OTel, Prometheus, Grafana, ELK | Correlación manual, análisis post-incidente | ✅ Estándar base |
+| **Observabilidad (Logs/Metrics/Traces)** | OTel, Prometheus, Grafana, Loki | Correlación manual, análisis post-incidente | ✅ Estándar base |
 | **AIOps** | Detección de anomalías (Isolation Forest, Prophet, Autoencoders), clustering de logs | Falsos positivos, falta de explicabilidad, alto costo de entrenamiento | 🔄 En madurez |
 | **AI-Augmented / GenIA** | LLMs para RCA semántica, query en lenguaje natural, generación de runbooks, resúmenes de incidentes | Licencias restrictivas, latencia, alucinaciones, dependencia de vendor | 🚀 En adopción temprana |
 | **Predictive & Prescriptive** | Forecasting de SLO, auto-scaling, remediation guiada por políticas + LLM | Complejidad de integración, gobernanza de datos, drift de modelos | 🔬 Investigación activa |

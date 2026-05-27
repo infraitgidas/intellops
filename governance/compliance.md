@@ -16,8 +16,18 @@ IntellOps se distribuye bajo **Apache-2.0**. Todas las contribuciones deben acep
 | Licencia | Riesgo | Alternativa |
 |----------|--------|-------------|
 | SSPL v1 | No compatible con distribución comercial | Apache-2.0 / MIT |
-| AGPL v3 | Requiere distribuir código fuente si se usa como servicio | Apache-2.0 / MIT |
 | WTFPL | Sin protección legal | MIT |
+
+### Dependencias con Restricciones (AGPL-3.0)
+
+Grafana, Loki y Promtail usan licencia **AGPL-3.0**. Se permite su uso bajo las siguientes condiciones:
+
+1. **Uso sin modificar**: Se usan los binarios oficiales sin modificar el código fuente.
+2. **Infraestructura, no producto**: Son componentes de infraestructura, no parte del producto distribuidible.
+3. **Atribución**: Se mantienen los avisos de licencia en el SBOM y documentación.
+4. **No vinculación**: El código propio de IntellOps (Apache-2.0) no deriva de estos componentes.
+
+Esta interpretación sigue la guía oficial de Grafana Labs: el uso de Grafana como servicio (SaaS o self-hosted) no requiere distribuir el código fuente de la aplicación que lo consume.
 
 ## Política de Seguridad
 

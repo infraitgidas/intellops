@@ -21,7 +21,7 @@ Este documento registra las líneas de investigación activas, hipótesis, exper
 ### L3: Seguridad en Sistemas de Observabilidad Académicos
 
 - **Hipótesis**: Es posible alcanzar compliance CIS Benchmark Level 1 en infraestructura de laboratorio universitario con herramientas open-source y presupuesto cero.
-- **Método**: Auditoría con Lynis/OpenSCAP, hardening con Ansible, monitoreo con ELK Stack.
+- **Método**: Auditoría con Lynis/OpenSCAP, hardening con Ansible, monitoreo con Grafana + Loki + Prometheus.
 - **Métrica target**: Lynis score >= 70%, detección de evento simulado <= 60s.
 - **Responsable**: Federico Cavallero
 
@@ -45,7 +45,7 @@ Este documento registra las líneas de investigación activas, hipótesis, exper
 | Título Tentativo | Venue Target | Autores | Estado | Línea |
 |------------------|--------------|---------|--------|-------|
 | Observabilidad Predictiva en Recursos Escasos: IntellOps GIDAS | JAIIO 2026 / CACIC 2026 | Monfroglio, Rodriguez, Nahuel | En desarrollo | L1 |
-| Seguridad en Observabilidad Académica: Hardening CIS + ELK en IntellOps | CACIC 2026 / JAIIO 2026 | Cavallero, Rodriguez, Nahuel | Planificado | L3 |
+| Seguridad en Observabilidad Académica: Hardening CIS + Grafana/Loki/Prometheus en IntellOps | CACIC 2026 / JAIIO 2026 | Cavallero, Rodriguez, Nahuel | Planificado | L3 |
 | Adopción de DevOps y QA Automatizado en PI+D+i | JAIIO 2026 | Montanari, Rodriguez, Nahuel | Planificado | L4 |
 
 ## Datasets

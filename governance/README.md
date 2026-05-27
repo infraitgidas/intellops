@@ -22,7 +22,7 @@ El proyecto usa licencia **Apache-2.0**. Las dependencias deben tener licencias 
 - ✅ MIT, Apache-2.0, BSD, ISC
 - ✅ MPL-2.0 (con aviso)
 - ❌ SSPL (MongoDB, Elasticsearch >7.10)
-- ❌ AGPL-3.0 (Grafana >8.x)
+- ⚠️ AGPL-3.0 (Grafana >8.x, Loki) — permitido para infraestructura sin modificar, ver `compliance.md`
 - ⚠️ GPL-2.0/3.0 (evaluar caso por caso)
 
 ### Dependencias Permitidas por Capa
@@ -39,6 +39,9 @@ El proyecto usa licencia **Apache-2.0**. Las dependencias deben tener licencias 
 | React | MIT | — |
 | D3.js | ISC | — |
 | Netdata | GPL-3.0 | Evaluar |
+| Grafana | AGPL-3.0 | Usar as-is sin modificar |
+| Loki | AGPL-3.0 | Usar as-is sin modificar |
+| Promtail | AGPL-3.0 | Usar as-is sin modificar |
 
 ## Compliance Checklist (Pre-Release)
 

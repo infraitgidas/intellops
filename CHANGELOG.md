@@ -24,6 +24,8 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Migración de GitLab a GitHub como plataforma principal de control de versiones (#1)
+- Reemplazo de ELK Stack por Grafana + Loki + Prometheus en Módulo de Seguridad y stack general (#2)
+  - Ver ADR-0001 para justificación completa (licencias SSPL, footprint de recursos, unificación de stack)
 
 ### Security
 

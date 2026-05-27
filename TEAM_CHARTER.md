@@ -18,7 +18,7 @@
 |-----|--------|--------|---------|----------|
 | **Coordinador / Arquitecto** | Emanuel Rodriguez | Dirección técnica, SDD, GitHub | 2026-2027 | @ema |
 | **Director / Sponsor** | Ing. Leopoldo Nahuel | Dirección académica, laboratorio GIDAS | 2026-2027 | — |
-| **Desarrollador — Seguridad** | Federico Blanco Cavallero | Módulo de Seguridad (hardening CIS, ELK, dashboards) | Jun-Oct 2026 | @fcavallero |
+| **Desarrollador — Seguridad** | Federico Blanco Cavallero | Módulo de Seguridad (hardening CIS, Grafana + Loki + Prometheus, dashboards) | Jun-Oct 2026 | @fcavallero |
 | **Desarrollador — ML** | Romeo Lorenzo Monfroglio | Módulo ML (detección anomalías, LSTM, Isolation Forest) | May-Sep 2026 | @rmonfroglio |
 | **Desarrollador — QA** | Santiago Montanari | Módulo QA (testing automatizado, CI/CD, quality gates) | Jun-Oct 2026 | @smontanari |
 
