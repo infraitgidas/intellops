@@ -1,0 +1,75 @@
+name: IntellOps CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install flake8 pylint
+      - run: flake8 src/ tests/
+      - run: pylint src/ --fail-under=7.0
+
+  test:
+    name: Unit & Integration Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e ".[dev]"
+      - run: pytest --cov=src --cov-report=xml --cov-report=term-missing
+      - uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  contract:
+    name: Contract Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install schemathesis
+      - run: |
+          # Iniciar servidor en background y correr contract tests
+          # docker compose up -d api
+          # schemathesis run openspec/specs/openapi.yaml --base-url=http://localhost:8000
+
+  license-scan:
+    name: License Scan & SBOM
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anchore/sbom-action@v0
+        with:
+          path: ./
+          format: cyclonedx
+          output-file: ./governance/sbom.json
+      - run: |
+          # Verificar que no haya dependencias con licencias restrictivas
+          # pip install license-checker
+          # license-checker --fail-on SSPL AGPL
+
+  docker:
+    name: Docker Build
+    needs: [test, contract, license-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build

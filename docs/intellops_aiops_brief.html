@@ -1,0 +1,465 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);color:var(--color-text-primary);background:transparent}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2rem;padding-bottom:1rem;border-bottom:0.5px solid var(--color-border-tertiary)}
+nav button{font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer;transition:all .15s}
+nav button.active{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+.section{display:none}.section.active{display:block}
+h2{font-size:18px;font-weight:500;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:0.5px solid var(--color-border-tertiary)}
+h3{font-size:15px;font-weight:500;margin:1.25rem 0 .6rem;color:var(--color-text-primary)}
+p{font-size:14px;line-height:1.7;color:var(--color-text-secondary);margin-bottom:.75rem}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:.75rem}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:1rem}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.85rem 1rem}
+.metric .label{font-size:12px;color:var(--color-text-secondary);margin-bottom:.25rem}
+.metric .val{font-size:20px;font-weight:500}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin-right:4px;margin-bottom:3px}
+.badge-blue{background:var(--color-background-info);color:var(--color-text-info)}
+.badge-green{background:var(--color-background-success);color:var(--color-text-success)}
+.badge-warn{background:var(--color-background-warning);color:var(--color-text-warning)}
+.badge-err{background:var(--color-background-danger);color:var(--color-text-danger)}
+.badge-neu{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:520px){.row2,.row3{grid-template-columns:1fr}}
+table{width:100%;font-size:13px;border-collapse:collapse;margin-bottom:.75rem}
+th{text-align:left;font-weight:500;font-size:12px;color:var(--color-text-secondary);padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary)}
+td{padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);vertical-align:top}
+td:first-child{color:var(--color-text-primary);font-weight:500}
+.timeline{position:relative;padding-left:1.5rem;margin-bottom:.75rem}
+.timeline::before{content:'';position:absolute;left:5px;top:4px;bottom:4px;width:1px;background:var(--color-border-secondary)}
+.tl-item{position:relative;margin-bottom:.85rem}
+.tl-dot{position:absolute;left:-1.5rem;top:4px;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--color-border-info);background:var(--color-background-info)}
+.tl-label{font-size:11px;font-weight:500;color:var(--color-text-info);margin-bottom:2px}
+.tl-text{font-size:13px;color:var(--color-text-secondary);line-height:1.5}
+.ux-pain{border-left:3px solid var(--color-border-warning);padding:.6rem 1rem;margin-bottom:.6rem;background:var(--color-background-warning);border-radius:0 var(--border-radius-md) var(--border-radius-md) 0}
+.ux-pain .q{font-size:13px;font-weight:500;color:var(--color-text-warning)}
+.ux-pain .a{font-size:13px;color:var(--color-text-secondary);margin-top:2px}
+.spec-block{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem 1rem;margin-bottom:.6rem;border-left:3px solid var(--color-border-info)}
+.spec-id{font-size:11px;font-weight:500;color:var(--color-text-info);margin-bottom:3px}
+.spec-text{font-size:13px;color:var(--color-text-secondary);line-height:1.5}
+.arch-layer{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:.7rem 1rem;margin-bottom:.5rem}
+.arch-layer .lt{font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.04em}
+.arch-layer .items{display:flex;flex-wrap:wrap;gap:6px}
+.arch-item{font-size:12px;padding:3px 10px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-primary);border:0.5px solid var(--color-border-tertiary)}
+.qa-row{display:flex;align-items:center;gap:8px;margin-bottom:.5rem}
+.qa-row .attr{font-size:13px;font-weight:500;min-width:160px}
+.qa-bar{flex:1;height:6px;background:var(--color-border-tertiary);border-radius:3px;overflow:hidden}
+.qa-fill{height:100%;border-radius:3px;background:var(--color-background-info)}
+.qa-label{font-size:12px;color:var(--color-text-secondary);min-width:40px;text-align:right}
+.sprint-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:.75rem 1rem;margin-bottom:.5rem}
+.sprint-num{font-size:11px;font-weight:500;color:var(--color-text-info);margin-bottom:.25rem}
+.sprint-title{font-size:14px;font-weight:500;margin-bottom:.35rem}
+.sprint-items{list-style:none;padding:0}
+.sprint-items li{font-size:12px;color:var(--color-text-secondary);padding:2px 0;display:flex;align-items:center;gap:6px}
+.sprint-items li::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--color-border-info);flex-shrink:0}
+.sendBtn{font-size:12px;padding:5px 12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-top:.5rem}
+.sendBtn:hover{background:var(--color-background-secondary)}
+.constraint-box{border:0.5px solid var(--color-border-warning);border-radius:var(--border-radius-md);padding:.75rem 1rem;margin-bottom:.6rem;background:var(--color-background-warning)}
+.constraint-title{font-size:13px;font-weight:500;color:var(--color-text-warning);margin-bottom:.4rem}
+.constraint-text{font-size:12px;color:var(--color-text-secondary);line-height:1.5}
+</style>
+
+<h2 class="sr-only">IntellOps AIOps — brief integral del proyecto: caso de negocio, estado del arte, arquitectura y roadmap</h2>
+
+<nav id="nav">
+  <button class="active" onclick="show('exec')">Resumen ejecutivo</button>
+  <button onclick="show('biz')">Caso de negocio UX</button>
+  <button onclick="show('art')">Estado del arte</button>
+  <button onclick="show('market')">Mercado y OSS</button>
+  <button onclick="show('product')">Definición del producto</button>
+  <button onclick="show('qa')">Atributos de calidad</button>
+  <button onclick="show('constraint')">Ingeniería de recursos escasos</button>
+  <button onclick="show('sdd')">Brief SDD + DevOps</button>
+  <button onclick="show('roadmap')">Roadmap y sprints</button>
+</nav>
+
+<div id="exec" class="section active">
+  <h2>Resumen ejecutivo — IntellOps AIOps</h2>
+  <div class="card-grid">
+    <div class="metric"><div class="label">Tipo de proyecto</div><div class="val" style="font-size:14px;margin-top:3px">PI+D+i · I+D aplicada</div></div>
+    <div class="metric"><div class="label">Categoría Gartner 2025</div><div class="val" style="font-size:14px;margin-top:3px">Event Intelligence Solutions</div></div>
+    <div class="metric"><div class="label">Estándar de referencia</div><div class="val" style="font-size:14px;margin-top:3px">OpenTelemetry (CNCF)</div></div>
+    <div class="metric"><div class="label">Costo infraestructura</div><div class="val" style="font-size:14px;margin-top:3px;color:var(--color-text-success)">USD 0</div></div>
+  </div>
+
+  <div class="card">
+    <h3>¿Qué es IntellOps?</h3>
+    <p>IntellOps es una plataforma de observabilidad predictiva de código abierto, alineada al estándar OpenTelemetry (OTel), que centraliza métricas, logs, trazas y señales de experiencia del usuario final (RUM) en un sistema unificado con inteligencia artificial incorporada. A diferencia de las herramientas comerciales (Datadog, Dynatrace, New Relic), IntellOps está diseñada para ejecutarse en hardware on-premise de bajo rendimiento y servicios cloud en free tier, siendo completamente reproducible en entornos académicos e institucionales con presupuesto USD cero.</p>
+    <p>El proyecto combina el desarrollo de un producto de software con investigación aplicada en AIOps, generando publicaciones científicas sobre la adopción de observabilidad con IA en contextos de recursos escasos.</p>
+  </div>
+
+  <div class="row2">
+    <div class="card">
+      <h3>Problema central</h3>
+      <p style="font-size:13px">Los equipos técnicos del laboratorio GIDAS no tienen visibilidad del estado real de sus sistemas desde la perspectiva del usuario. Las herramientas de monitoreo tradicionales generan alertas reactivas y ruidosas. El tiempo de detección de anomalías (MTTD) es alto. No existe inteligencia predictiva que anticipe degradaciones antes de que impacten al usuario final.</p>
+    </div>
+    <div class="card">
+      <h3>Solución IntellOps</h3>
+      <p style="font-size:13px">Plataforma unificada con cuatro módulos complementarios: (1) captura OTel de métricas + RUM (experiencia del usuario real), (2) pipeline de ingesta y almacenamiento en series temporales, (3) motor AIOps con ML/LLM para detección de anomalías y análisis de causa raíz, (4) dashboard interactivo con vistas orientadas al rol del usuario (operador, investigador, director).</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Tres módulos de PPS · Un producto</h3>
+    <table>
+      <tr><th>Módulo</th><th>Responsable</th><th>Foco técnico</th><th>Pregunta que responde</th></tr>
+      <tr><td>Core ML + Backend</td><td>Romeo Monfroglio</td><td>OTel · FastAPI · TimescaleDB · LSTM/IForest</td><td>¿Qué está pasando y qué pasará?</td></tr>
+      <tr><td>Seguridad ELK</td><td>Federico Blanco Cavallero</td><td>CIS Benchmarks · ELK Stack · Kibana</td><td>¿Está siendo comprometido?</td></tr>
+      <tr><td>QA + CI/CD</td><td>Santiago Montanari</td><td>pytest · GitLab CI · Locust</td><td>¿El código funciona correctamente?</td></tr>
+    </table>
+  </div>
+  <button class="sendBtn" onclick="sendPrompt('Desarrolla el caso de negocio UX de IntellOps en mayor detalle')">Profundizar en caso de negocio ↗</button>
+</div>
+
+<div id="biz" class="section">
+  <h2>Caso de negocio — Observabilidad desde la perspectiva UX</h2>
+
+  <p>La observabilidad no es solo un problema técnico: es un problema de experiencia. Los usuarios de plataformas de observabilidad son personas con roles, contextos y necesidades distintas. El diseño centrado en el usuario (UX) es la dimensión más descuidada en las herramientas de observabilidad académicas.</p>
+
+  <h3>Personas de usuario — quién usa IntellOps</h3>
+  <div class="row3">
+    <div class="card">
+      <div class="badge badge-blue">Operador / SRE</div>
+      <p style="font-size:13px;margin-top:.5rem">Necesita saber en segundos si hay un incidente activo, dónde está y qué tan grave es. Prioriza tiempo de respuesta sobre profundidad de análisis. Pain point: demasiadas alertas, poco contexto.</p>
+    </div>
+    <div class="card">
+      <div class="badge badge-green">Investigador / Dev</div>
+      <p style="font-size:13px;margin-top:.5rem">Necesita entender tendencias, validar hipótesis sobre el comportamiento del sistema y correlacionar métricas de infraestructura con comportamiento de usuario. Pain point: datos en silos, sin correlación automática.</p>
+    </div>
+    <div class="card">
+      <div class="badge badge-neu">Director / Gestor</div>
+      <p style="font-size:13px;margin-top:.5rem">Necesita una vista de alto nivel del estado del sistema: disponibilidad, tendencias de degradación y evidencia para justificar inversiones. Pain point: dashboards técnicos no traducen impacto de negocio.</p>
+    </div>
+  </div>
+
+  <h3>Pain points UX identificados en observabilidad</h3>
+  <div class="ux-pain"><div class="q">Alert fatigue — fatiga de alertas</div><div class="a">Las herramientas basadas en umbrales fijos generan falsos positivos masivos. Un estudio de 2025 muestra que los equipos ignoran el 70–80% de las alertas por ruido excesivo. Sin correlación contextual, cada alerta es un dato aislado sin narrativa.</div></div>
+  <div class="ux-pain"><div class="q">Swivel-chair analysis — análisis en silla giratoria</div><div class="a">Los operadores deben alternar entre herramientas distintas (Prometheus para métricas, ELK para logs, Jaeger para trazas) para reconstruir la cadena de causalidad de un incidente. El promedio es 3–5 herramientas por investigación de incidente. Tiempo promedio perdido: 40–60 minutos por incidente.</div></div>
+  <div class="ux-pain"><div class="q">Threshold blindness — ceguera al umbral</div><div class="a">Los umbrales estáticos no capturan degradación gradual ni patrones estacionales. Un sistema que pasa de responder en 200ms a 450ms en 3 días no dispara ninguna alerta con umbrales convencionales, pero el usuario final ya percibe degradación. Las anomalías reales suelen estar debajo del umbral de alerta.</div></div>
+  <div class="ux-pain"><div class="q">Instrumentación como fricción para el desarrollador</div><div class="a">Integrar herramientas de observabilidad en una aplicación requiere aprender APIs propietarias. Sin un estándar como OTel, cada herramienta exige reescribir la instrumentación. 73% de los desarrolladores (encuesta CNCF 2025) identifican esto como el principal obstáculo para adoptar observabilidad.</div></div>
+  <div class="ux-pain"><div class="q">Sin visión del usuario final — infra vs. UX</div><div class="a">Las herramientas de infraestructura miden CPU, memoria y latencia de red. Pero el usuario experimenta: ¿cuánto tardó la página en ser interactiva? ¿Hubo errores en la UI? ¿El flujo de checkout completó sin errores? Esta perspectiva (Real User Monitoring, RUM) está ausente en la mayoría de las soluciones on-premise.</div></div>
+
+  <h3>Métricas que importan al usuario final</h3>
+  <table>
+    <tr><th>Métrica</th><th>Perspectiva del usuario</th><th>Métrica técnica correlacionada</th></tr>
+    <tr><td>¿La app responde?</td><td>Tiempo de carga percibido</td><td>TTFB, LCP (Largest Contentful Paint)</td></tr>
+    <tr><td>¿Puedo completar mi tarea?</td><td>Tasa de completado de flujos</td><td>Error rate, tasa de timeout en endpoints críticos</td></tr>
+    <tr><td>¿La app es confiable hoy?</td><td>Frecuencia de errores percibida</td><td>SLO compliance rate, tasa de errores 5xx</td></tr>
+    <tr><td>¿Mejoró o empeoró esta semana?</td><td>Tendencia percibida de calidad</td><td>p50/p99 latencia, tendencia de anomalías detectadas</td></tr>
+  </table>
+
+  <button class="sendBtn" onclick="sendPrompt('Profundiza en el estado del arte de AIOps y observabilidad con ML/LLM')">Ver estado del arte ↗</button>
+</div>
+
+<div id="art" class="section">
+  <h2>Estado del arte — AIOps y observabilidad con IA</h2>
+
+  <h3>Evolución del campo (2020–2026)</h3>
+  <div class="timeline">
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">2020–2022</div><div class="tl-text">Primera generación de AIOps: ML clásico (Isolation Forest, LSTM) para detección de anomalías en métricas de infraestructura. Herramientas siloed, sin estándar de datos. Gartner acuña el término "AIOps Platform".</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">2022–2023</div><div class="tl-text">OpenTelemetry (OTel) alcanza madurez como estándar CNCF. Fusión de OpenTracing + OpenCensus. Se convierte en el estándar de facto para instrumentación. 48% de organizaciones lo usan o planean usar (Apica Survey 2025).</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">2023–2024</div><div class="tl-text">Integración de LLMs en AIOps: BERT y GPT para análisis de logs no estructurados. Transformer-based anomaly detection supera ML clásico en datos de texto. Aparecen los primeros "AI SRE Agents" (OpenObserve, Dynatrace Davis).</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">2025</div><div class="tl-text">Gartner renombra la categoría a "Event Intelligence Solutions". Foco en correlación de eventos cross-domain. LLMs para análisis de causa raíz (RCA) automatizado. OTel RUM (Real User Monitoring) con JS SDK para frontend. 75% de organizaciones usan OSS en observabilidad.</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">2026</div><div class="tl-text">Maduración de autonomous remediation con human-in-the-loop. Natural language querying sobre telemetría. AI Anomaly Detection como componente core de AIOps: Random Cut Forest (streaming), Isolation Forest (batch), LSTM (estacionalidad compleja). Reducción de MTTD 20–40 min antes del impacto al usuario.</div></div>
+  </div>
+
+  <h3>Algoritmos de detección de anomalías — comparativa</h3>
+  <table>
+    <tr><th>Algoritmo</th><th>Tipo</th><th>Mejor caso de uso</th><th>Limitación</th><th>Recursos</th></tr>
+    <tr><td>Isolation Forest</td><td>No supervisado</td><td>Detección de outliers en batch · sin datos etiquetados</td><td>No captura estacionalidad</td><td>Bajo (scikit-learn)</td></tr>
+    <tr><td>LSTM</td><td>Supervisado / semi-sup</td><td>Series temporales con patrones complejos y estacionalidad</td><td>Requiere 3–7 días mín. de entrenamiento</td><td>Medio (PyTorch)</td></tr>
+    <tr><td>Prophet</td><td>No supervisado</td><td>Forecasting y tendencias con estacionalidad conocida</td><td>No detecta anomalías puntuales bien</td><td>Bajo (Meta OSS)</td></tr>
+    <tr><td>Random Cut Forest</td><td>No supervisado (streaming)</td><td>Datos en tiempo real · detección incremental</td><td>Sensible a configuración de ventana</td><td>Medio</td></tr>
+    <tr><td>Z-score / IQR</td><td>Estadístico</td><td>Baseline inicial · métricas simples sin estacionalidad</td><td>Alto tasa de falsos positivos</td><td>Mínimo</td></tr>
+    <tr><td>LLM (BERT/GPT local)</td><td>NLP</td><td>Análisis de logs no estructurados · RCA narrativo</td><td>Alto costo computacional</td><td>Alto (GPU recomendada)</td></tr>
+  </table>
+
+  <h3>Estándares de la industria IT relevantes</h3>
+  <div class="card-grid">
+    <div class="card"><div class="badge badge-blue">OpenTelemetry (OTel)</div><p style="font-size:12px;margin-top:.4rem">Estándar CNCF para métricas, logs, trazas y RUM. Vendor-neutral. Exporta a cualquier backend. Ya adoptado por Prometheus, Grafana, Datadog, Elastic. El estándar que IntellOps debe implementar para evitar vendor lock-in.</p></div>
+    <div class="card"><div class="badge badge-green">SLO / SLI / SLA</div><p style="font-size:12px;margin-top:.4rem">Service Level Objectives como marco para definir y medir calidad del servicio desde la perspectiva del usuario. Error budgets orientan decisiones de inversión. Marco de Google SRE. Fundamental para el dashboard de IntellOps.</p></div>
+    <div class="card"><div class="badge badge-warn">DORA Metrics</div><p style="font-size:12px;margin-top:.4rem">Deployment Frequency, Lead Time, MTTR, Change Failure Rate. Las cuatro métricas que correlacionan DevOps performance con resultados de negocio. IntellOps puede calcularlas desde los datos de CI/CD y observabilidad.</p></div>
+    <div class="card"><div class="badge badge-neu">OpenMetrics</div><p style="font-size:12px;margin-top:.4rem">Estándar para el formato de métricas (evolución de Prometheus exposition format). Compatible con OTel. Define el modelo de datos que IntellOps usa para métricas de infraestructura.</p></div>
+  </div>
+  <button class="sendBtn" onclick="sendPrompt('Analiza los productos del mercado y proyectos open source de observabilidad')">Ver análisis de mercado ↗</button>
+</div>
+
+<div id="market" class="section">
+  <h2>Mercado y ecosistema open source</h2>
+
+  <h3>Productos comerciales — por qué no son opciones</h3>
+  <table>
+    <tr><th>Producto</th><th>Fortaleza</th><th>Costo estimado</th><th>Bloqueo</th></tr>
+    <tr><td>Datadog</td><td>AIOps completo · dashboards · alerting</td><td>$23+/host/mes · $0.10/GB logs</td><td>Vendor lock-in total · sin on-premise</td></tr>
+    <tr><td>Dynatrace</td><td>Davis AI · full-stack · RCA automático</td><td>$69+/host/mes</td><td>Propietario · costoso · cloud-only</td></tr>
+    <tr><td>New Relic</td><td>Free tier limitado · RUM incluido</td><td>Free hasta 100GB/mes · luego $0.30/GB</td><td>Datos fuera de la institución · GDPR</td></tr>
+    <tr><td>Splunk</td><td>Análisis de logs · SIEM · AIOps</td><td>$150+/GB/día indexado</td><td>Inviable USD · complejo · costoso</td></tr>
+    <tr><td>Honeycomb</td><td>High-cardinality · developer-centric</td><td>Free hasta 20M events/mes</td><td>Cloud-only · límites en free tier</td></tr>
+  </table>
+
+  <h3>Stack open source — opciones viables para IntellOps</h3>
+  <div class="row2">
+    <div class="card">
+      <div class="badge badge-green">Stack LGTM (Grafana)</div>
+      <p style="font-size:12px;margin-top:.4rem"><strong style="font-weight:500">Loki + Grafana + Tempo + Mimir/Prometheus</strong>. Cero costo. Respaldado por CNCF. El 75% de organizaciones ya usa OSS en observabilidad (Grafana Survey 2025). Docker image <code>grafana/otel-lgtm</code> arranca en &lt;5 seg. Debilidad: alta carga operativa (4 servicios independientes).</p>
+      <div class="badge badge-green">Recomendado</div>
+    </div>
+    <div class="card">
+      <div class="badge badge-blue">OpenObserve (O2)</div>
+      <p style="font-size:12px;margin-top:.4rem">Plataforma unificada (logs + métricas + trazas + RUM). Un solo binario. 140x menor costo de almacenamiento que Elasticsearch (Apache Parquet). SQL + PromQL. AI SRE Agent incorporado. 6000+ organizaciones. <strong style="font-weight:500">Mejor opción para recursos escasos.</strong></p>
+      <div class="badge badge-green">Recomendado</div>
+    </div>
+    <div class="card">
+      <div class="badge badge-neu">ClickStack (HyperDX)</div>
+      <p style="font-size:12px;margin-top:.4rem">OTel Collector + ClickHouse (DB columnar) + HyperDX (UI). Arquitectura unificada que resuelve la correlación cross-signal nativa. Alta performance en queries. Más complejo de operar. Alternativa a LGTM para teams con capacidad DevOps.</p>
+    </div>
+    <div class="card">
+      <div class="badge badge-warn">ELK Stack</div>
+      <p style="font-size:12px;margin-top:.4rem">Elasticsearch + Logstash + Kibana. Maduro para logs y seguridad. Elastic ha adoptado OTel oficialmente (via APM Server bridge). <strong style="font-weight:500">Usado por Federico para el módulo de seguridad</strong>. Alto consumo de RAM (Elasticsearch mín. 4GB). No recomendado como backend principal.</p>
+    </div>
+  </div>
+
+  <h3>Proyectos de investigación activos (2024–2026)</h3>
+  <div class="card">
+    <table>
+      <tr><th>Proyecto / Paper</th><th>Institución</th><th>Aporte relevante para IntellOps</th></tr>
+      <tr><td>AIOps for log anomaly detection: LLMs (ScienceDirect, Nov 2025)</td><td>Revisión sistemática</td><td>Comparativa BERT/GPT vs ML clásico para detección en logs. LLMs superan ML en datos no estructurados. ML clásico sigue siendo mejor en métricas numéricas.</td></tr>
+      <tr><td>OTel RUM + LLM observability (Honeycomb/KubeCon 2025)</td><td>Honeycomb · CNCF</td><td>OTel JS SDK para RUM en frontend. LLMs introducen nueva clase de observabilidad: non-deterministic outputs. SLOs basados en UX como respuesta.</td></tr>
+      <tr><td>Cost-effective observability with OTel (CNCF Blog, Ene 2026)</td><td>Múltiples</td><td>84% de organizaciones redujo costos ≥10% migrando a OTel. Modelo multi-tenant con LGTM. Sin modificar código de aplicación con auto-instrumentación.</td></tr>
+      <tr><td>AI Anomaly Detection Guide (OpenObserve, Abr 2026)</td><td>OpenObserve</td><td>3–7 días mínimo de datos de entrenamiento. Random Cut Forest para streaming. LSTM para estacionalidad compleja. Reducción de MTTD 20–40 min con AI vs umbrales estáticos.</td></tr>
+    </table>
+  </div>
+  <button class="sendBtn" onclick="sendPrompt('Define el producto IntellOps: scope, características y objetivos del PI+D+i redefinidos')">Definir el producto ↗</button>
+</div>
+
+<div id="product" class="section">
+  <h2>Definición del producto — IntellOps redefinido</h2>
+
+  <div class="card">
+    <h3>Objetivo PI+D+i redefinido</h3>
+    <p>Diseñar, desarrollar y validar una plataforma de observabilidad predictiva (IntellOps) alineada al estándar OpenTelemetry, que integre modelos de detección de anomalías con Machine Learning, observabilidad de experiencia del usuario final (RUM) y visualización orientada al rol, ejecutable en hardware on-premise de bajo rendimiento y servicios cloud en free tier, con presupuesto USD cero. El proyecto genera conocimiento científico sobre la aplicación de AIOps en entornos académicos de recursos escasos.</p>
+  </div>
+
+  <h3>Scope del producto — qué incluye y qué no</h3>
+  <div class="row2">
+    <div class="card">
+      <div class="badge badge-green">En scope (MVP)</div>
+      <p style="font-size:12px;margin-top:.5rem">
+        · Agente OTel JS (RUM): captura latencias, errores y trazas del browser<br>
+        · Backend OTel Collector + FastAPI de ingesta<br>
+        · TimescaleDB como base de datos de series temporales<br>
+        · Modelos ML: Isolation Forest (baseline), LSTM (avanzado), Prophet (forecasting)<br>
+        · Pipeline de inferencia en tiempo real (endpoint REST)<br>
+        · Dashboard unificado con vistas por rol (operador, investigador, director)<br>
+        · Módulo de seguridad: hardening CIS + ELK observabilidad de eventos<br>
+        · Pipeline CI/CD con quality gates (GitLab CI + pytest)<br>
+        · Exportación de datos en formato OTel estándar
+      </p>
+    </div>
+    <div class="card">
+      <div class="badge badge-err">Fuera de scope (MVP)</div>
+      <p style="font-size:12px;margin-top:.5rem">
+        · Autonomous remediation (ejecución automática sin human-in-the-loop)<br>
+        · LLM como motor principal de detección (solo como asistente de análisis)<br>
+        · Kubernetes native / service mesh observability<br>
+        · Multi-tenancy (un solo tenant: GIDAS)<br>
+        · APM de código propietario externo<br>
+        · Integración con sistemas ITSM (Jira, ServiceNow)<br>
+        · SaaS o cloud deployment (solo on-premise + free tier)<br>
+        · Soporte oficial / SLA de respuesta
+      </p>
+    </div>
+  </div>
+
+  <h3>Arquitectura de módulos del sistema</h3>
+  <div class="arch-layer"><div class="lt">Capa de captura (Módulo Romeo)</div><div class="items"><span class="arch-item">Agente JS OTel RUM</span><span class="arch-item">OTel Collector</span><span class="arch-item">Browser metrics (LCP, TTFB, errores)</span><span class="arch-item">Traces distribuidas</span></div></div>
+  <div class="arch-layer"><div class="lt">Capa de ingesta y almacenamiento (Módulo Romeo)</div><div class="items"><span class="arch-item">FastAPI (REST API + OTel endpoint)</span><span class="arch-item">TimescaleDB (series temporales)</span><span class="arch-item">Hypertables + políticas de retención</span></div></div>
+  <div class="arch-layer"><div class="lt">Capa de inteligencia AIOps (Módulo Romeo)</div><div class="items"><span class="arch-item">Isolation Forest (outliers)</span><span class="arch-item">LSTM (series temporales)</span><span class="arch-item">Prophet (forecasting)</span><span class="arch-item">Endpoint de inferencia RT</span></div></div>
+  <div class="arch-layer" style="border-color:var(--color-border-warning)"><div class="lt">Capa de seguridad (Módulo Federico)</div><div class="items"><span class="arch-item">CIS Benchmark Level 1</span><span class="arch-item">Ansible hardening</span><span class="arch-item">Filebeat + Auditbeat</span><span class="arch-item">Logstash + Elasticsearch</span><span class="arch-item">Kibana dashboards</span></div></div>
+  <div class="arch-layer" style="border-color:var(--color-border-success)"><div class="lt">Capa de calidad (Módulo Santiago)</div><div class="items"><span class="arch-item">pytest (unitarios + integración)</span><span class="arch-item">GitLab CI/CD</span><span class="arch-item">Docker Compose (test envs)</span><span class="arch-item">E2E tests</span><span class="arch-item">Locust (carga)</span><span class="arch-item">Quality gates</span></div></div>
+  <div class="arch-layer"><div class="lt">Capa de visualización (Módulo Romeo)</div><div class="items"><span class="arch-item">React / Vite</span><span class="arch-item">Vista operador (alertas, anomalías)</span><span class="arch-item">Vista investigador (tendencias, correlación)</span><span class="arch-item">Vista director (SLOs, DORA)</span><span class="arch-item">API GraphQL / REST</span></div></div>
+
+  <h3>Decisiones arquitectónicas clave (ADRs)</h3>
+  <div class="spec-block"><div class="spec-id">ADR-001 · Estándar de instrumentación</div><div class="spec-text">Adoptar OpenTelemetry como único estándar de instrumentación. Justificación: vendor-neutral, respaldado por CNCF, adoptado por el 70% de la industria, permite migrar backends sin modificar el código de la aplicación.</div></div>
+  <div class="spec-block"><div class="spec-id">ADR-002 · Base de datos de series temporales</div><div class="spec-text">TimescaleDB (extensión de PostgreSQL) sobre InfluxDB o Prometheus TSDB. Justificación: SQL familiar para el equipo, soporte nativo de joins complejos, menor curva de aprendizaje, licencia open source.</div></div>
+  <div class="spec-block"><div class="spec-id">ADR-003 · Backend de observabilidad principal</div><div class="spec-text">LGTM stack (Grafana + Loki + Tempo + Prometheus) como visualización de referencia. FastAPI + TimescaleDB como backend propio de IntellOps. Justificación: reutilizar estándares probados para visualización, mantener control del pipeline ML.</div></div>
+  <div class="spec-block"><div class="spec-id">ADR-004 · Motor ML para MVP</div><div class="spec-text">Prioridad de implementación: Z-score (baseline, semana 1) → Isolation Forest (semana 4) → Prophet (semana 8) → LSTM (semana 12). Justificación: iterar desde lo simple hacia lo complejo, validar con datos reales antes de invertir en modelos costosos.</div></div>
+  <div class="spec-block"><div class="spec-id">ADR-005 · LLM como asistente, no como motor</div><div class="spec-text">Usar modelos LLM ligeros (Llama 3.1 8B via Ollama) opcionalmente para análisis de causa raíz narrativo, no como motor de detección. Justificación: los LLMs no superan a ML clásico en métricas numéricas; requieren GPU; son aspiracionales en el MVP.</div></div>
+</div>
+
+<div id="qa" class="section">
+  <h2>Atributos de calidad del software y del proceso I+D+i</h2>
+
+  <h3>Atributos de calidad del producto (ISO/IEC 25010)</h3>
+  <div class="qa-row"><span class="attr">Fiabilidad (reliability)</span><div class="qa-bar"><div class="qa-fill" style="width:90%"></div></div><span class="qa-label">crítico</span></div>
+  <div class="qa-row"><span class="attr">Eficiencia de rendimiento</span><div class="qa-bar"><div class="qa-fill" style="width:85%;background:var(--color-background-warning)"></div></div><span class="qa-label">alto</span></div>
+  <div class="qa-row"><span class="attr">Mantenibilidad</span><div class="qa-bar"><div class="qa-fill" style="width:90%"></div></div><span class="qa-label">crítico</span></div>
+  <div class="qa-row"><span class="attr">Portabilidad (on-premise)</span><div class="qa-bar"><div class="qa-fill" style="width:95%"></div></div><span class="qa-label">crítico</span></div>
+  <div class="qa-row"><span class="attr">Seguridad</span><div class="qa-bar"><div class="qa-fill" style="width:80%;background:var(--color-background-warning)"></div></div><span class="qa-label">alto</span></div>
+  <div class="qa-row"><span class="attr">Usabilidad (UX)</span><div class="qa-bar"><div class="qa-fill" style="width:75%;background:var(--color-background-warning)"></div></div><span class="qa-label">alto</span></div>
+  <div class="qa-row"><span class="attr">Compatibilidad (OTel std.)</span><div class="qa-bar"><div class="qa-fill" style="width:95%"></div></div><span class="qa-label">crítico</span></div>
+  <div class="qa-row"><span class="attr">Funcionalidad (ML accuracy)</span><div class="qa-bar"><div class="qa-fill" style="width:70%"></div></div><span class="qa-label">F1≥0.75</span></div>
+
+  <h3>Métricas de calidad del producto — metas del MVP</h3>
+  <table>
+    <tr><th>Métrica</th><th>Meta MVP</th><th>Cómo se mide</th></tr>
+    <tr><td>MTTD (tiempo de detección de anomalías)</td><td>≤60 segundos</td><td>Test con evento simulado en staging</td></tr>
+    <tr><td>Latencia de ingesta del agente OTel</td><td>≤500 ms p99</td><td>Locust · k6 carga estándar</td></tr>
+    <tr><td>Cobertura de tests del backend</td><td>≥70% módulos críticos</td><td>pytest-cov en pipeline CI/CD</td></tr>
+    <tr><td>F1-score del modelo ML principal</td><td>≥0.75</td><td>Evaluación con dataset real del GIDAS</td></tr>
+    <tr><td>Lynis compliance score (CIS)</td><td>≥70%</td><td>Lynis audit post-hardening</td></tr>
+    <tr><td>Tiempo de ejecución pipeline CI/CD</td><td>≤10 minutos</td><td>GitLab CI pipeline duration</td></tr>
+    <tr><td>Disponibilidad del sistema</td><td>≥99% en horario laboral</td><td>Heartbeat check cada 60 segundos</td></tr>
+    <tr><td>Costo operativo total</td><td>USD 0</td><td>Auditoría mensual de herramientas usadas</td></tr>
+  </table>
+
+  <h3>Atributos de calidad del proceso I+D+i</h3>
+  <div class="card-grid">
+    <div class="metric"><div class="label">Reproducibilidad</div><div class="val" style="font-size:13px;margin-top:3px">Todo el entorno via Docker Compose. Un comando levanta el sistema completo en cualquier máquina.</div></div>
+    <div class="metric"><div class="label">Trazabilidad</div><div class="val" style="font-size:13px;margin-top:3px">Cada decisión → ADR numerado. Cada feature → spec en Markdown. GitLab issue tracker cierra el loop.</div></div>
+    <div class="metric"><div class="label">Apertura</div><div class="val" style="font-size:13px;margin-top:3px">100% open source. Repositorio público. Licencia MIT. Documentación en wiki del proyecto.</div></div>
+    <div class="metric"><div class="label">Publicabilidad</div><div class="val" style="font-size:13px;margin-top:3px">Cada módulo genera un paper independiente. Datos de evaluación publicados junto al código.</div></div>
+  </div>
+</div>
+
+<div id="constraint" class="section">
+  <h2>Ingeniería de recursos escasos — USD 0 on-premise</h2>
+
+  <p>El diseño de IntellOps parte de una restricción real e inamovible: presupuesto USD cero. Esta restricción no es solo un límite — es un driver de innovación que orienta todas las decisiones de arquitectura hacia soluciones open source, eficientes en recursos y reproducibles.</p>
+
+  <h3>Perfil de hardware del laboratorio GIDAS</h3>
+  <div class="card-grid">
+    <div class="metric"><div class="label">CPU típica</div><div class="val" style="font-size:14px;margin-top:3px">4–8 cores (Intel i5/i7 gen 8-10)</div></div>
+    <div class="metric"><div class="label">RAM disponible</div><div class="val" style="font-size:14px;margin-top:3px">8–16 GB (sin GPU dedicada)</div></div>
+    <div class="metric"><div class="label">Almacenamiento</div><div class="val" style="font-size:14px;margin-top:3px">HDD/SSD 256–512 GB</div></div>
+    <div class="metric"><div class="label">Red</div><div class="val" style="font-size:14px;margin-top:3px">LAN universitaria · sin IP pública fija</div></div>
+  </div>
+
+  <h3>Estrategia de recursos escasos por capa</h3>
+
+  <div class="constraint-box">
+    <div class="constraint-title">Base de datos de series temporales</div>
+    <div class="constraint-text"><strong style="font-weight:500">Decisión:</strong> TimescaleDB (extensión PostgreSQL) en lugar de Elasticsearch o InfluxDB Enterprise. <strong style="font-weight:500">Por qué:</strong> PostgreSQL corre en 512 MB RAM. Elasticsearch requiere mín. 4 GB. Para el volumen de datos del GIDAS (decenas de métricas, no millones), TimescaleDB es 10x más eficiente en recursos. OpenObserve (O2) como alternativa: 140x menos costo de almacenamiento que Elasticsearch gracias a Apache Parquet.</div>
+  </div>
+  <div class="constraint-box">
+    <div class="constraint-title">Motor de ML — estrategia de fallback progresivo</div>
+    <div class="constraint-text"><strong style="font-weight:500">Decisión:</strong> Jerarquía de modelos según recursos disponibles. (1) Z-score estadístico: 0 GPU, &lt;50 MB RAM — siempre disponible como baseline. (2) Isolation Forest: CPU only, ~200 MB RAM — disponible en todo el hardware del laboratorio. (3) Prophet: CPU only, ~500 MB RAM. (4) LSTM: CPU entrenamiento lento (12–24hs) o GPU 6GB si disponible. El sistema usa el modelo más potente disponible dado el hardware presente.</div>
+  </div>
+  <div class="constraint-box">
+    <div class="constraint-title">LLM como asistente opcional (no requerido para MVP)</div>
+    <div class="constraint-text"><strong style="font-weight:500">Decisión:</strong> Ollama + Llama 3.1 8B como opción de LLM local. Requiere GPU con ≥6GB VRAM o 16 GB RAM (modo CPU lento). Solo se activa si el hardware lo permite. La plataforma funciona completamente sin LLM. El LLM agrega análisis narrativo de causa raíz — no es la función de detección principal. Free tier cloud: Groq API free tier (Llama 3 8B, 14400 req/día) como alternativa en cloud.</div>
+  </div>
+  <div class="constraint-box">
+    <div class="constraint-title">Stack de visualización</div>
+    <div class="constraint-text"><strong style="font-weight:500">Decisión:</strong> Grafana OSS (docker, ~512 MB) + dashboard React/Vite propio para vistas rol-específicas. Alternativa todo-en-uno: OpenObserve (un solo binario, ~200 MB en producción). La imagen Docker <code>grafana/otel-lgtm</code> arranca el stack LGTM completo en &lt;5 segundos. Para CI/CD de testing: entornos Docker Compose que reproducen el sistema completo en cualquier máquina.</div>
+  </div>
+
+  <h3>Free tier cloud — servicios habilitados USD 0</h3>
+  <table>
+    <tr><th>Servicio</th><th>Free tier útil</th><th>Caso de uso en IntellOps</th></tr>
+    <tr><td>Grafana Cloud</td><td>50 GB logs · 10K series métricas · 50 GB trazas/mes</td><td>Espejo cloud del sistema on-premise para demos y publicaciones</td></tr>
+    <tr><td>GitLab.com Free</td><td>400 min CI/CD/mes · repositorios ilimitados</td><td>Repositorio del proyecto + pipeline CI/CD</td></tr>
+    <tr><td>Render.com Free</td><td>1 servicio web · 750 hs/mes · 512 MB RAM</td><td>Demo pública del frontend de IntellOps</td></tr>
+    <tr><td>Groq API Free</td><td>14400 req/día · Llama 3 8B</td><td>Análisis narrativo de causa raíz (LLM)</td></tr>
+    <tr><td>Supabase Free</td><td>500 MB PostgreSQL · 2GB bandwith</td><td>Respaldo en cloud de metadatos del sistema</td></tr>
+    <tr><td>GitHub Free</td><td>Repositorios públicos + Actions 2000 min/mes</td><td>Mirror público para publicaciones y contribuciones OSS</td></tr>
+  </table>
+</div>
+
+<div id="sdd" class="section">
+  <h2>Brief del proyecto — Agile · DevOps · SDD · OpenSpec</h2>
+
+  <div class="card">
+    <h3>Marco de desarrollo: Spec Driven Development (SDD)</h3>
+    <p style="font-size:13px">SDD combina la agilidad de Scrum con la rigor de la especificación formal. Cada feature se define como una <strong style="font-weight:500">spec</strong> antes de comenzar a codificar: comportamiento esperado, interfaz pública (API contract), criterios de aceptación y escenarios de fallo. La spec es el artefacto central que guía el desarrollo, los tests y la documentación simultáneamente.</p>
+    <p style="font-size:13px">En IntellOps, cada módulo comienza con una spec en Markdown que incluye: descripción funcional, contrato de API (OpenAPI 3.1), criterios de aceptación (Gherkin-style) y ADRs de decisiones de diseño. La spec se versiona en el repositorio y evoluciona junto al código.</p>
+  </div>
+
+  <h3>Jerarquía de artefactos SDD del proyecto</h3>
+  <div class="timeline">
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">Nivel 0 — Project Brief (este documento)</div><div class="tl-text">Visión del producto, scope, stakeholders, restricciones. Actualizado en cada revisión de fase. Fuente de verdad para el proyecto completo.</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">Nivel 1 — Architecture Decision Records (ADRs)</div><div class="tl-text">Un ADR por decisión técnica significativa. Formato: Contexto → Opciones consideradas → Decisión → Consecuencias. Inmutables una vez aprobados (se reemplazan con nuevos ADRs, no se editan).</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">Nivel 2 — Feature Specs (OpenSpec)</div><div class="tl-text">Una spec por feature. Incluye: descripción funcional, contrato API (OpenAPI 3.1 YAML), criterios de aceptación (Gherkin: Given/When/Then), schema de datos y ejemplos de request/response. Aprobada por el supervisor antes de implementar.</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">Nivel 3 — User Stories (GitLab Issues)</div><div class="tl-text">Descomposición de la spec en tareas implementables. Formato: Como [rol], quiero [acción] para [beneficio]. Estimadas en story points. Priorizadas en el backlog del sprint.</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="tl-label">Nivel 4 — Tests (viven junto al código)</div><div class="tl-text">Los criterios de aceptación de la spec se implementan directamente como tests automatizados. Un feature spec sin tests no está completo. Cobertura mínima: 70% en módulos críticos.</div></div>
+  </div>
+
+  <h3>Feature specs priorizadas — IntellOps MVP</h3>
+  <div class="spec-block"><div class="spec-id">SPEC-001 · Agente OTel JS — captura de métricas RUM</div><div class="spec-text">POST /v1/metrics con payload OTel-compatible. Captura: Web Vitals (LCP, TTFB, FID, CLS), errores JS, trazas de fetch/XHR. Latencia de envío &lt;50ms. Funciona en Chrome, Firefox, Safari modernos sin instalación. Spec: OpenAPI 3.1 YAML en /docs/specs/agent.yaml</div></div>
+  <div class="spec-block"><div class="spec-id">SPEC-002 · Backend de ingesta FastAPI</div><div class="spec-text">Endpoints: POST /ingest (métricas), GET /metrics (query), GET /anomalies (detección). Auth: API key. Rate limiting: 1000 req/min. Latencia p99 &lt;500ms bajo carga. Spec: /docs/specs/backend.yaml</div></div>
+  <div class="spec-block"><div class="spec-id">SPEC-003 · Pipeline ML — detección de anomalías</div><div class="spec-text">Entrenamiento: background job cada 24hs con últimas 7 días de datos. Inferencia: sync RT en &lt;200ms. Modelos: IForest (default) → LSTM (si GPU disponible). Output: {metric, anomaly_score, is_anomaly, confidence, timestamp}. F1 ≥0.75 en dataset de validación.</div></div>
+  <div class="spec-block"><div class="spec-id">SPEC-004 · Dashboard React — vista operador</div><div class="spec-text">Componentes: StatusBar (sistema up/down), AnomalyFeed (anomalías últimas 24hs, severidad, métrica afectada), LatencyChart (p50/p95/p99 en tiempo real), AlertQueue (alertas activas con ACK). Actualización: WebSocket cada 30 segundos. Responsive: ≥768px.</div></div>
+  <div class="spec-block"><div class="spec-id">SPEC-005 · Módulo ELK — seguridad</div><div class="spec-text">Pipeline: Filebeat → Logstash (grok SSH, auth) → Elasticsearch → Kibana. Dashboards: AuthEvents, UnauthorizedAccess, ConfigChanges, Alerts. MTTD para evento simulado ≤60s. Playbooks Ansible para hardening CIS Level 1 versionados en /infra/ansible/.</div></div>
+  <div class="spec-block"><div class="spec-id">SPEC-006 · Pipeline CI/CD — calidad</div><div class="spec-text">Stages: lint → unit-test → integration-test → build → deploy-staging. Quality gates: cobertura ≥70%, 0 tests fallidos (bloqueante). Tiempo total ≤10 min. Docker Compose para entornos de test aislados. Notificación en canal del equipo ante fallos.</div></div>
+
+  <h3>Repositorio — estructura OpenSpec</h3>
+  <div class="card" style="font-family:var(--font-mono);font-size:12px;line-height:1.8;color:var(--color-text-secondary)">
+    intellops/<br>
+    ├── docs/<br>
+    │   ├── specs/         ← Feature specs en OpenAPI 3.1 YAML<br>
+    │   ├── adrs/          ← Architecture Decision Records<br>
+    │   ├── runbooks/      ← Procedimientos operativos<br>
+    │   └── wiki/          ← Documentación del proyecto<br>
+    ├── src/<br>
+    │   ├── agent/         ← Agente OTel JS (RUM)<br>
+    │   ├── backend/       ← FastAPI + TimescaleDB<br>
+    │   ├── ml/            ← Modelos y pipeline ML<br>
+    │   ├── dashboard/     ← Frontend React/Vite<br>
+    │   └── infra/         ← Ansible + Docker Compose<br>
+    ├── tests/             ← pytest + tests E2E<br>
+    ├── .gitlab-ci.yml     ← Pipeline CI/CD<br>
+    └── docker-compose.yml ← Entorno completo en un comando
+  </div>
+</div>
+
+<div id="roadmap" class="section">
+  <h2>Roadmap y sprints — IntellOps 2026</h2>
+
+  <div class="card-grid">
+    <div class="metric"><div class="label">Duración total</div><div class="val" style="font-size:14px;margin-top:3px">Jun 2026 – Mar 2027</div></div>
+    <div class="metric"><div class="label">Sprints de 2 semanas</div><div class="val">20 sprints</div></div>
+    <div class="metric"><div class="label">Módulos en paralelo</div><div class="val">3 (Romeo · Federico · Santiago)</div></div>
+    <div class="metric"><div class="label">Releases planificadas</div><div class="val">v0.1 · v0.5 · v1.0</div></div>
+  </div>
+
+  <h3>Fase 1 — Fundamentos (May–Jun 2026)</h3>
+  <div class="sprint-card"><div class="sprint-num">Sprint 1–2 · May 4 – May 29</div><div class="sprint-title">Arquitectura y especificaciones</div><ul class="sprint-items"><li>Project brief aprobado · ADR-001 al ADR-005</li><li>Feature specs SPEC-001 a SPEC-006 en revisión</li><li>Repositorio GitLab configurado con estructura OpenSpec</li><li>Docker Compose base (FastAPI + TimescaleDB + Grafana)</li></ul></div>
+
+  <h3>Fase 2 — Core engine + CI/CD (Jun–Jul 2026)</h3>
+  <div class="sprint-card"><div class="sprint-num">Sprint 3–4 · Jun 1 – Jun 27</div><div class="sprint-title">Agente OTel + Backend + Pipeline CI/CD base</div><ul class="sprint-items"><li>Agente JS OTel RUM — Web Vitals capturados</li><li>FastAPI ingest endpoint operativo</li><li>TimescaleDB schema inicial</li><li>GitLab CI — stages lint + unit-test activos (Santiago)</li><li>Análisis estático codebase + baseline cobertura (Santiago)</li></ul></div>
+  <div class="sprint-card"><div class="sprint-num">Sprint 5–6 · Jun 30 – Jul 25</div><div class="sprint-title">ML baseline + Hardening CIS</div><ul class="sprint-items"><li>Z-score / Isolation Forest — detección inicial operativa</li><li>Auditoría Lynis inicial · gap analysis CIS (Federico)</li><li>ADR stack ELK aprobado (Federico)</li><li>Suite tests unitarios backend ≥50% cobertura (Santiago)</li><li>Informe Parcial 1 — todos los módulos</li></ul></div>
+
+  <h3>Fase 3 — Inteligencia + Seguridad (Ago 2026)</h3>
+  <div class="sprint-card"><div class="sprint-num">Sprint 7–9 · Jul 28 – Ago 28</div><div class="sprint-title">LSTM + ELK + Tests integración · Hito 50%</div><ul class="sprint-items"><li>LSTM entrenado con datos reales del GIDAS</li><li>Hardening CIS Level 1 aplicado · Lynis ≥70% (Federico)</li><li>Pipeline ELK Filebeat+Logstash+Elasticsearch (Federico)</li><li>Tests integración API REST ≥70% cobertura (Santiago)</li><li>Quality gates activos en pipeline CI/CD (Santiago)</li><li>Informe Parcial 2 — todos los módulos</li></ul></div>
+
+  <h3>Fase 4 — Dashboard + Dashboards Kibana (Sep 2026) · v0.5</h3>
+  <div class="sprint-card"><div class="sprint-num">Sprint 10–12 · Sep 1 – Sep 26</div><div class="sprint-title">Frontend integrado + Kibana security views</div><ul class="sprint-items"><li>Dashboard React — vista operador + investigador</li><li>Prophet integrado · forecasting operativo</li><li>Kibana: 4 dashboards de seguridad funcionales · MTTD ≤60s (Federico)</li><li>Tests E2E flujo completo (Santiago)</li><li>Release v0.5 — sistema demostrable</li></ul></div>
+
+  <h3>Fase 5 — Cierre, papers y v1.0 (Oct–Mar 2027)</h3>
+  <div class="sprint-card"><div class="sprint-num">Sprint 13–20 · Oct 2026 – Mar 2027</div><div class="sprint-title">Refinamiento · LLM opcional · Publicaciones · v1.0</div><ul class="sprint-items"><li>Integración Ollama/Groq para análisis narrativo (aspiracional)</li><li>Vista director: SLOs, DORA metrics</li><li>Tests de carga Locust · informe de rendimiento (Santiago)</li><li>Papers JAIIO 2026 / CACIC 2026 (los tres módulos)</li><li>Wiki completa · runbooks · manual de despliegue</li><li>Release v1.0 — producto completo</li></ul></div>
+
+  <h3>Criterios de done — por nivel</h3>
+  <table>
+    <tr><th>Nivel</th><th>Criterio de done</th></tr>
+    <tr><td>Feature (story)</td><td>Spec aprobada · tests unitarios ≥70% · PR revisado por supervisor · pipeline CI verde · wiki actualizada</td></tr>
+    <tr><td>Sprint</td><td>Todas las stories done · demo a equipo InfraIT · métricas DORA actualizadas · velocity documentada</td></tr>
+    <tr><td>Módulo (PPS)</td><td>Todos los entregables del plan de trabajo · integración al repositorio · Informe Final aprobado · paper base producido</td></tr>
+    <tr><td>Release (v0.5/v1.0)</td><td>Todos los tests pasando en CI · Docker Compose funcional en máquina limpia · README con instrucciones de despliegue · changelog generado</td></tr>
+  </table>
+  <button class="sendBtn" onclick="sendPrompt('Genera las feature specs OpenAPI para el agente OTel JS de IntellOps')">Generar specs OpenAPI ↗</button>
+  <button class="sendBtn" onclick="sendPrompt('Define los SLOs del sistema IntellOps para el dashboard de director')">Definir SLOs ↗</button>
+</div>
+
+<script>
+function show(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const btns=document.querySelectorAll('nav button');
+  const map={exec:0,biz:1,art:2,market:3,product:4,qa:5,constraint:6,sdd:7,roadmap:8};
+  if(map[id]!==undefined) btns[map[id]].classList.add('active');
+}
+</script>

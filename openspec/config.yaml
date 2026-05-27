@@ -1,0 +1,84 @@
+# openspec/config.yaml
+# IntellOps — Sistema de Observabilidad Predictiva UX-Céntrica + AI/LLM Open-Source
+# PI+D+i | Grupo GIDAS | UTN FrLP | Equipo InfraIT
+schema: spec-driven
+
+context: |
+  Proyecto: IntellOps — Observabilidad Predictiva con ML y GenIA para Infraestructura IT
+  Organización: Grupo GIDAS — UTN Facultad Regional La Plata
+  Equipo: InfraIT (Coordinador: Emanuel Rodriguez)
+  Director: Ing. Leopoldo Nahuel
+  Stack: FastAPI + React + SQLite + scikit-learn + Llama 3.2 1B (llama.cpp) + sentence-transformers + Chroma + Docker Compose + Netdata
+  Arquitectura: Monolito modular, API-first (OpenAPI 3.1 + AsyncAPI 3.0), contract-driven
+  Testing: pytest + pytest-cov (unit), Locust/k6 (carga), schemathesis (contract)
+  Estilo: PEP8 (Flake8) + Pylint, OpenAPI 3.1 para contratos
+  Recursos: < 2GB RAM, CPU-only, $0/mes operativo
+
+rules:
+  proposal:
+    - Incluir plan de rollback para cambios riesgosos
+    - Identificar módulos afectados (seguridad, ML, QA, captura, dashboard)
+    - Vincular con objetivo de investigación (paper, experimento, extensión)
+    - Estimar impacto en footprint de recursos (< 2GB RAM, CPU-only)
+  specs:
+    - Usar formato Given/When/Then para escenarios
+    - Usar palabras clave RFC 2119 (MUST, SHALL, SHOULD, MAY)
+    - Incluir criterios de aceptación ML (precisión, recall, F1)
+    - Especificar límites de recursos (RAM, CPU, latencia)
+  design:
+    - Incluir diagramas de secuencia Mermaid para flujos complejos
+    - Documentar decisiones de arquitectura con ADRs (formato Nygard)
+    - Justificar trade-offs de recursos escasos vs funcionalidad
+    - Incluir diagrama C4 contextual para nuevos integrantes
+  tasks:
+    - Agrupar por fase (infraestructura, implementación, testing, documentación)
+    - Usar numeración jerárquica (1.1, 1.2, etc.)
+    - Mantener tareas completables en una sesión (máx 4h)
+    - Identificar dependencias entre módulos (seguridad ← ML ← QA)
+  apply:
+    - Seguir patrones de código existentes
+    - Respetar contractos OpenAPI/AsyncAPI — no romper backward compatibility
+    - tdd: true
+    - test_command: "pytest"
+  verify:
+    - test_command: "pytest --cov=src --cov-report=term-missing"
+    - build_command: "docker compose build"
+    - coverage_threshold: 70
+    - Validar que ML metrics no degraden vs baseline
+  archive:
+    - Advertir antes de mergear deltas destructivos
+    - Verificar que CITATION.cff y experimentos ML estén actualizados
+    - Confirmar que ADR de la decisión esté registrado
+
+testing:
+  strict_tdd: true
+  detected: "2026-05-27"
+  test_runner:
+    command: "pytest"
+    framework: pytest
+  test_layers:
+    unit:
+      available: true
+      tool: pytest + pytest-cov
+    integration:
+      available: true
+      tool: pytest + httpx (AsyncClient)
+    e2e:
+      available: true
+      tool: Locust / k6
+    contract:
+      available: true
+      tool: schemathesis
+  coverage:
+    available: true
+    command: "pytest --cov=src --cov-report=xml"
+  quality_tools:
+    linter:
+      available: true
+      command: "flake8 src/ && pylint src/"
+    type_checker:
+      available: false
+      command: ""
+    formatter:
+      available: false
+      command: ""
