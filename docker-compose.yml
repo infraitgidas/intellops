@@ -1,0 +1,45 @@
+# IntellOps — Docker Compose Development Stack
+# PI+D+i | Grupo GIDAS | UTN FrLP | Equipo InfraIT
+#
+# Recursos totales: < 2GB RAM target | CPU-only | $0/mes
+# Ver: openspec/specs/architecture/containers.md
+
+name: intellops
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+    environment:
+      - INTELLOPS_ENV=development
+      - INTELLOPS_DB_PATH=/data/intellops.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - intellops-net
+
+  # --- Servicios que se agregan en fases posteriores ---
+  # ml-engine:     (Fase H3 — ML Predictivo)
+  # llm-server:    (Fase H4 — GenIA)
+  # dashboard:     (Fase H4 — React)
+  # prometheus:    (Fase H1 — Métricas)
+  # loki:          (Fase H1 — Logs)
+  # grafana:       (Fase H1 — Dashboards)
+  # netdata:       (Fase H1 — Auto-monitoreo)
+
+networks:
+  intellops-net:
+    driver: bridge
+
+volumes:
+  intellops-data:

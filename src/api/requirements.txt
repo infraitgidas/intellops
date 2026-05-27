@@ -1,0 +1,12 @@
+# IntellOps API — Core Dependencies
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+
+# Development
+pytest>=8.0.0
+pytest-cov>=6.0.0
+httpx>=0.28.0
+flake8>=7.0.0
+pylint>=3.0.0
