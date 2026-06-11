@@ -71,13 +71,21 @@ Antes de escribir código, entendé el contexto:
 
 ### 3. Revisar tu Guía de Onboarding Individual
 
-Cada integrante tiene una guía personalizada con sus primeros pasos específicos:
+Cada integrante tiene una guía personalizada con **dos fases secuenciales**:
 
-| Integrante | Módulo | Guía |
-|------------|--------|------|
-| Federico Cavallero | Seguridad (hardening CIS + Grafana/Loki/Prometheus) | `onboarding/cavallero.md` |
-| Romeo Monfroglio | ML / Detección de Anomalías | `onboarding/monfroglio.md` |
-| Santiago Montanari | QA / Testing / CI/CD | `onboarding/montanari.md` |
+| Integrante | Fase 1 — Fundamentos de Infra | Fase 2 — Observabilidad UX-Céntrica |
+|------------|-------------------------------|-------------------------------------|
+| Federico Cavallero | Seguridad (CIS, GLP, hardening) | User Telemetry & Tracing (RUM, OTel, Tempo, alertas multicanal) |
+| Romeo Monfroglio | ML / Detección de Anomalías (Isolation Forest, forecasting) | Agentes IA para UX Predictiva (RCA, User Health Score, clasificador reclamos) |
+| Santiago Montanari | QA / Testing / CI/CD (pipeline, quality gates) | Observability-Driven QA (synthetic journeys OTel, chaos engineering, CBAs) |
+
+Cada guía incluye el checklist completo de ambas fases:
+
+| Integrante | Guía |
+|------------|------|
+| Federico Cavallero | `onboarding/cavallero.md` |
+| Romeo Monfroglio | `onboarding/monfroglio.md` |
+| Santiago Montanari | `onboarding/montanari.md` |
 
 ### 4. Primer Cambio SDD
 
@@ -120,6 +128,23 @@ observabilidad/
 ├── .github/               ← CI/CD, templates
 └── governance/            ← SBOM, compliance, continuidad
 ```
+
+---
+
+## 6. Plan de Trabajo Detallado
+
+Después del onboarding, cada contributor sigue las tareas concretas definidas en:
+
+📋 **`governance/plan-trabajo.md`**
+
+Ese documento contiene:
+- El flujo SDD paso a paso con comandos exactos
+- Las tareas de **Fase 1** y **Fase 2** para cada contributor
+- Entregables medibles y criterios de aceptación por tarea
+- Timeline sugerido sprint a sprint
+- Formato de reporte semanal de avance
+
+Leelo después de completar este onboarding. Es tu hoja de ruta para todo el proyecto.
 
 ---
 

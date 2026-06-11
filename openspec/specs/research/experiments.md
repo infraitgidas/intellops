@@ -81,6 +81,33 @@ experiment:
 | EXP-302 | Contract testing con schemathesis | H4 | Planificado | Media |
 | EXP-303 | Pipeline time vs coverage trade-off | H4 | Planificado | Baja |
 
+### 2.5. User Telemetry & Tracing (Fase 2 — Federico Cavallero)
+
+| ID | Nombre | Hipótesis | Estado | Prioridad |
+|----|--------|-----------|--------|-----------|
+| EXP-OTel-01 | Agente RUM con OTel JS SDK — overhead y bundle size | H5 | Planificado | Alta |
+| EXP-OTel-02 | Pipeline Tempo + Loki + Grafana para trazas de request | H5 | Planificado | Alta |
+| EXP-OTel-03 | Sistema de alertas multicanal con routing por criticidad (Mail, Telegram, WhatsApp) | H5 | Planificado | Alta |
+| EXP-OTel-04 | Benchmark de overhead de instrumentación OTel en FastAPI | H5 | Planificado | Media |
+
+### 2.6. AI Agents para UX Predictiva (Fase 2 — Romeo Monfroglio)
+
+| ID | Nombre | Hipótesis | Estado | Prioridad |
+|----|--------|-----------|--------|-----------|
+| EXP-AI-01 | Clasificador de reclamos sobre dataset sintético de trazas OTel | H6 | Planificado | Alta |
+| EXP-AI-02 | Agente de RCA con LLM local (Llama 3.2 1B) + RAG sobre trazas y logs | H6 | Planificado | Alta |
+| EXP-AI-03 | Benchmark de User Health Score vs reclamos reales | H6 | Planificado | Alta |
+| EXP-AI-04 | Detección de anomalías en trazas OTel (latencia outlier, error burst) | H6 | Planificado | Media |
+
+### 2.7. Observability-Driven QA (Fase 2 — Santiago Montanari)
+
+| ID | Nombre | Hipótesis | Estado | Prioridad |
+|----|--------|-----------|--------|-----------|
+| EXP-QA-01 | Synthetic user journeys con OTel propagation y validación en Tempo | H7 | Planificado | Alta |
+| EXP-QA-02 | Quality gates basados en métricas OTel en CI/CD | H7 | Planificado | Alta |
+| EXP-QA-03 | Chaos engineering controlado midiendo User Health Score | H7 | Planificado | Media |
+| EXP-QA-04 | CBA de observabilidad: incidentes evitados, MTTR, costo del stack | H7 | Planificado | Media |
+
 ## 3. Template de Experimentos
 
 Cada experimento en `ml/experiments/EXP-XXX/` debe incluir:

@@ -21,13 +21,22 @@ C4Container
         Container(prom, "Prometheus", "Go", "Almacenamiento de métricas de infraestructura")
         Container(loki, "Loki", "Go", "Agregación de logs del sistema")
         Container(grafana, "Grafana", "Go + React", "Dashboards de seguridad y monitoreo")
-        Container(netdata, "Netdata", "C", "Auto-monitoreo del sistema IntellOps")
+        Container(otelcol, "OTel Collector", "Go", "Recepción, procesamiento y enrutamiento de señales OTel (trazas, métricas, logs)")
+    Container(tempo, "Tempo", "Go", "Almacenamiento y consulta de trazas distribuidas (OTel-native)")
+    Container(alertmgr, "Alertmanager", "Go", "Routing y notificaciones multicanal de alertas")
+    Container(netdata, "Netdata", "C", "Auto-monitoreo del sistema IntellOps")
     }
 
     Container_Ext(monitored, "Sistemas Monitoreados", "Servidores, apps, servicios GIDAS")
+    Container_Ext(notifications, "Canales de Notificación", "Mail, Telegram, WhatsApp")
 
-    Rel(agent, api, "HTTP POST /metrics/ingest", "JSON/OTel")
-    Rel(monitored, api, "HTTP", "Métricas de infraestructura")
+    Rel(agent, otelcol, "OTLP", "Trazas + métricas de frontend")
+    Rel(monitored, otelcol, "OTLP", "Señales de infraestructura")
+    Rel(otelcol, tempo, "OTLP", "Trazas")
+    Rel(otelcol, loki, "OTLP", "Logs")
+    Rel(otelcol, prom, "OTLP", "Métricas")
+    Rel(api, otelcol, "OTLP", "Auto-instrumentación FastAPI")
+    Rel(tempo, grafana, "Datasource", "Trazas")
     Rel(api, db, "Read/Write", "SQLite")
     Rel(api, ml, "gRPC/internal", "Feature vectors")
     Rel(ml, db, "Read", "Datos históricos")
@@ -35,7 +44,9 @@ C4Container
     Rel(rag, db, "Read", "Documentación y runbooks")
     Rel(dash, api, "HTTP GET", "REST API")
     Rel(sre, dash, "Visualiza", "Dashboard UX")
-    Rel(sre, grafana, "Visualiza", "Dashboards de seguridad")
+    Rel(sre, grafana, "Visualiza", "Dashboards unificados")
+    Rel(grafana, alertmgr, "Dispatch", "Alertas")
+    Rel(alertmgr, notifications, "Webhook/API", "Notificaciones multicanal")
     Rel(prom, api, "Scrape", "Métricas de la API")
     Rel(loki, api, "Read", "Logs del sistema")
     Rel(grafana, prom, "Datasource", "Métricas")
@@ -160,6 +171,39 @@ C4Container
 | **Recursos** | < 5% CPU, ~150MB RAM, auto-discovery |
 | **Métricas** | Per-second de todos los contenedores |
 
+### 2.11. OpenTelemetry Collector
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Recepción unificada de señales OTel (trazas, métricas, logs) desde agentes RUM, servicios instrumentados e infraestructura |
+| **Tecnología** | OpenTelemetry Collector (Go) con receivers OTLP |
+| **Procesamiento** | Batch processor, memory limiter, attributes processor para enriquecer trazas |
+| **Exporters** | Tempo (trazas), Loki (logs), Prometheus/Mimir (métricas) |
+| **Puertos** | 4317 (gRPC OTLP), 4318 (HTTP OTLP) |
+| **Recursos** | < 100MB RAM, < 0.5 core CPU |
+
+### 2.12. Tempo (Grafana)
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Almacenamiento y consulta de trazas distribuidas con integración nativa OTel |
+| **Protocolo** | OTLP gRPC desde OpenTelemetry Collector |
+| **Almacenamiento** | Sistema de archivos local (S3 como extensión futura) |
+| **Retención** | 30 días |
+| **Búsqueda** | Por trace ID, servicio, duración, tags |
+| **Recursos** | ~256MB RAM |
+
+### 2.13. Alertmanager
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Routing inteligente de alertas desde Grafana a múltiples canales de notificación |
+| **Canales** | Mail (SMTP), Telegram (bot API), WhatsApp (API WhatsApp Business / ntfy bridge) |
+| **Routing** | Por severidad, servicio, horario (ej: criticidad alta → WhatsApp, media → Telegram, baja → Mail) |
+| **Silenciamiento** | Ventanas de mantenimiento, deduplicación, agrupación |
+| **Tecnología** | Grafana Alertmanager o Alertmanager independiente |
+| **Recursos** | < 50MB RAM |
+
 ## 3. Footprint Total Estimado
 
 | Contenedor | RAM (MB) | CPU (cores) | Disco (GB) |
@@ -170,10 +214,13 @@ C4Container
 | LLM Server | ~600 | ~2.0 | ~0.6 |
 | RAG Engine | ~200 | ~0.5 | ~0.3 |
 | React Dashboard (Nginx) | ~50 | ~0.1 | ~0.1 |
+| OTel Collector | ~100 | ~0.5 | ~0.1 |
+| Tempo | ~256 | ~0.5 | ~5 |
 | Prometheus | ~256 | ~0.5 | ~2 |
 | Loki | ~256 | ~0.5 | ~5 |
 | Grafana | ~256 | ~0.3 | ~0.5 |
+| Alertmanager | ~50 | ~0.1 | ~0.1 |
 | Netdata | ~150 | ~0.3 | ~0.5 |
-| **Total** | **~1,928 MB** | **~5.3 cores** | **~10.1 GB** |
+| **Total** | **~2,334 MB** | **~6.4 cores** | **~15.3 GB** |
 
-*Nota: No todos los contenedores están activos simultáneamente al 100%. El LLM Server y ML Engine se activan bajo demanda. El footprint estable es < 1GB RAM.*
+*Nota: No todos los contenedores están activos simultáneamente al 100%. El LLM Server y ML Engine se activan bajo demanda. OTel Collector y Tempo son los nuevos componentes del stack LGTM. El footprint estable es < 1.5GB RAM.*

@@ -158,3 +158,149 @@ La implementación de CI/CD con quality gates (coverage ≥ 70%, lint, contract 
 - EXP-301: Pipeline CI/CD baseline
 - EXP-302: Contract testing con schemathesis
 - EXP-303: Benchmark de pipeline time vs coverage trade-off
+
+---
+
+## H5: User Telemetry & Tracing Proactivo
+
+**ID**: H5  
+**Línea**: L5 — Observabilidad UX-Céntrica con OpenTelemetry  
+**Responsable**: Federico Cavallero  
+**Fase**: 2 — Observabilidad Centrada en el Usuario (post-Fase 1)
+
+### Hipótesis Nula (H₀)
+Un agente RUM con instrumentación OpenTelemetry en frontend + backend no reduce el tiempo de detección de degradación de experiencia de usuario ni anticipa reclamos en comparación con monitoreo de infraestructura tradicional.
+
+### Hipótesis Alternativa (H₁)
+Es posible detectar degradación en experiencia de usuario real (LCP > 2.5s, INP > 200ms, error rate > 1%) con un agente RUM OTel < 30KB y un pipeline Tempo+Loki+Mimir en < 500MB RAM, anticipando reclamos de usuarios con ≥ 85% de precisión y tiempo de detección < 30s.
+
+### Variables
+
+| Tipo | Variable | Definición | Medición |
+|------|----------|------------|----------|
+| Independiente | Instrumentación OTel aplicada | RUM agent + backend OTel + Collector | Configuración del pipeline |
+| Dependiente | Tiempo de detección de degradación UX | Diferencia entre inicio de degradación real y alerta generada | Timestamps correlacionados (Tempo) |
+| Dependiente | Bundle size del agente RUM | Tamaño del JS comprimido en producción | `webpack --mode production` |
+| Dependiente | Precisión de anticipación de reclamos | % de reclamos anticipados correctamente vs reclamos reales | Correlación alertas vs issues/soportes |
+| Control | Aplicación monitoreada | API FastAPI + dashboard React del propio IntellOps | Misma app para todas las mediciones |
+| Control | Hardware | Servidor GIDAS (4GB RAM, 2 cores CPU) | docker-compose resource limits |
+
+### Criterio de Validación
+
+| Métrica | Target | Mínimo aceptable | Método de medición |
+|---------|--------|------------------|-------------------|
+| Tiempo detección degradación UX | < 15s | < 30s | Correlación trazas Tempo + alertas |
+| Bundle size agente RUM | < 20KB | < 30KB | gzip comprimido, `webpack --mode production` |
+| Precisión anticipación reclamos | > 90% | > 85% | Comparación contra reclamos reales en período de prueba |
+| Overhead en rendimiento (LCP) | < 1% | < 3% | Lighthouse con/sin agente |
+| RAM pipeline OTel | < 256MB | < 500MB | `docker stats` |
+
+### Experimentos Asociados
+
+- EXP-OTel-01: Implementar agente RUM con OTel JS SDK, medir overhead
+- EXP-OTel-02: Pipeline Tempo + Loki + Grafana para trazas de request
+- EXP-OTel-03: Sistema de alertas multicanal con routing por criticidad
+- EXP-OTel-04: Benchmark de overhead de instrumentación OTel en FastAPI
+
+### Riesgos de Invalidación
+
+- La aplicación demo no genera suficiente tráfico para medir degradación realista
+- OpenTelemetry Collector consume más recursos de los estimados en hardware limitado
+- Los reclamos de usuario no pueden correlacionarse por cuestiones de privacidad
+
+---
+
+## H6: Agentes IA para UX Predictiva
+
+**ID**: H6  
+**Línea**: L6 — AI Agents for Proactive Observability  
+**Responsable**: Romeo Monfroglio  
+**Fase**: 2 — Observabilidad Centrada en el Usuario (post-Fase 1)
+
+### Hipótesis Nula (H₀)
+Un ensemble de modelos livianos sobre features de OpenTelemetry no logra predecir reclamos de usuarios con F1 > 0.70 operando en < 100MB RAM y CPU-only.
+
+### Hipótesis Alternativa (H₁)
+Un ensemble de modelos livianos (Random Forest + statistical thresholds + LLM 1B para RCA) sobre features de OpenTelemetry (latencia p99, error rate, throughput, Core Web Vitals) puede predecir reclamos de usuarios con F1 > 0.75, generar RCA en lenguaje natural, y operar en < 100MB RAM + CPU-only para modelos estadísticos, con activación bajo demanda del LLM.
+
+### Variables
+
+| Tipo | Variable | Definición | Medición |
+|------|----------|------------|----------|
+| Independiente | Configuración del ensemble de modelos | RF vs thresholds vs RF+LLM | Feature set, hiperparámetros |
+| Dependiente | Precisión de predicción de reclamos | F1-score sobre reclamos reales etiquetados | Correlación predicciones vs reclamos |
+| Dependiente | Calidad del RCA generado | % de análisis de causa raíz factualmente correctos | Revisión por experto (n=3) |
+| Dependiente | User Health Score | Score compuesto (0-100) de salud de experiencia de usuario | Algoritmo propio sobre features OTel |
+| Control | Dataset de reclamos | Reclamos simulados + históricos de laboratorio GIDAS | Mismo set para todas las corridas |
+| Control | Hardware | Servidor GIDAS (4GB RAM, 2 cores CPU) | docker-compose resource limits |
+
+### Criterio de Validación
+
+| Métrica | Target | Mínimo aceptable | Método de medición |
+|---------|--------|------------------|-------------------|
+| F1 predicción de reclamos | > 0.80 | > 0.75 | 5-fold cross-validation contra reclamos etiquetados |
+| Precisión factual RCA | > 85% | > 80% | Revisión por experto (n=3) sobre 20 incidentes |
+| User Health Score correlación | r > 0.85 | r > 0.75 | Correlación de Pearson con reclamos reales |
+| RAM en inferencia (modelos clásicos) | < 50MB | < 100MB | `memory_profiler` |
+| RAM en inferencia (LLM + RAG) | < 600MB | < 800MB | `memory_profiler` (bajo demanda) |
+
+### Experimentos Asociados
+
+- EXP-AI-01: Entrenar clasificador de reclamos sobre dataset sintético de trazas OTel
+- EXP-AI-02: Implementar agente de RCA con LLM local + RAG sobre trazas y logs
+- EXP-AI-03: Benchmark de User Health Score vs reclamos reales
+- EXP-AI-04: Detección de anomalías en trazas OTel (latencia outlier, error burst)
+
+### Riesgos de Invalidación
+
+- Dataset de reclamos sintético no representativo de la complejidad real
+- El LLM 1B puede no tener capacidad suficiente para RCA de incidentes complejos
+- Concept drift en patrones de uso que degrade la precisión del clasificador
+
+---
+
+## H7: Observability-Driven QA
+
+**ID**: H7  
+**Línea**: L7 — Calidad de Software con Señales de Observabilidad  
+**Responsable**: Santiago Montanari  
+**Fase**: 2 — Observabilidad Centrada en el Usuario (post-Fase 1)
+
+### Hipótesis Nula (H₀)
+Un quality gate basado en señales de OpenTelemetry en CI/CD no supera a tests funcionales tradicionales en detección de regresiones de experiencia de usuario.
+
+### Hipótesis Alternativa (H₁)
+Un quality gate basado en señales de OpenTelemetry (latencia p99 < 200ms, error rate < 0.1%, trazas completas validadas) en CI/CD detecta regresiones de UX con > 80% precisión, superando a tests funcionales tradicionales (precisión < 60%) en detección de problemas de performance, con un overhead de pipeline < 3 minutos.
+
+### Variables
+
+| Tipo | Variable | Definición | Medición |
+|------|----------|------------|----------|
+| Independiente | Tipo de quality gate | OTel-based vs tests funcionales vs ambos | Configuración del pipeline CI |
+| Dependiente | Precisión de detección de regresiones UX | % de regresiones detectadas correctamente | Validación contra releases con regresiones conocidas |
+| Dependiente | Overhead de pipeline | Tiempo adicional en CI por los quality gates OTel | GitHub Actions timing |
+| Dependiente | Falso positivos | % de alertas incorrectas de degradación UX | Revisión manual de cada alerta |
+| Control | Aplicación bajo prueba | IntellOps API + dashboard en entorno de staging | Misma app para todos los gates |
+| Control | Tráfico sintético | Locust con journeys de usuario OTel-instrumentados | Mismos scripts para todas las corridas |
+
+### Criterio de Validación
+
+| Métrica | Target | Mínimo aceptable | Método de medición |
+|---------|--------|------------------|-------------------|
+| Precisión detección regresiones UX | > 85% | > 80% | Validación contra 10 regresiones conocidas |
+| Overhead de pipeline | < 2 min | < 3 min | GitHub Actions timing con/sin gates OTel |
+| Falsos positivos | < 10% | < 15% | Revisión manual de alertas del quality gate |
+| Cobertura de trazas validadas | > 90% | > 80% | % de endpoints cubiertos por synthetic journeys OTel |
+
+### Experimentos Asociados
+
+- EXP-QA-01: Synthetic user journeys con OTel propagation y validación en Tempo
+- EXP-QA-02: Quality gates basados en métricas OTel en CI/CD
+- EXP-QA-03: Chaos engineering controlado midiendo User Health Score
+- EXP-QA-04: CBA de observabilidad: incidentes evitados, MTTR, costo
+
+### Riesgos de Invalidación
+
+- Synthetic journeys no representan la variabilidad del tráfico real de usuarios
+- El entorno de CI puede no tener recursos suficientes para correr OTel Collector + Tempo
+- Regresiones de UX detectadas pueden no ser accionables para el equipo de desarrollo
