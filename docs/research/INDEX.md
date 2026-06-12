@@ -206,6 +206,9 @@ Identificados a partir del análisis cruzado de todos los documentos:
 
 ---
 
+### Docs de Referencia
+- **Catálogo de venues de publicación**: `docs/research/publication-venues.md` — 50+ conferencias y revistas académicas e industriales
+
 ## 4. Timeline de Documentación
 
 ```
@@ -238,16 +241,18 @@ JUNIO 2026 — REORIENTACIÓN I+D+i
 
 ---
 
-## 5. Papers Planificados (JAIIO/CACIC 2026)
+## 5. Papers Planificados
 
-| # | Título tentativo | Autores | Basado en |
-|---|-----------------|---------|-----------|
-| 1 | Observabilidad Predictiva en Recursos Escasos: IntellOps GIDAS | Monfroglio, Rodriguez, Nahuel | H1, L1 |
-| 2 | Seguridad en Observabilidad Académica: Hardening CIS + GLP en IntellOps | Cavallero, Rodriguez, Nahuel | H3, L3 |
-| 3 | Adopción de DevOps y QA Automatizado en PI+D+i | Montanari, Rodriguez, Nahuel | H4, L4 |
-| 4 | User Telemetry con OpenTelemetry: RUM Liviano para Observabilidad UX-Céntrica en Recursos Escasos | Cavallero, Rodriguez, Nahuel | H5, L5 |
-| 5 | Predicción de Reclamos de Usuario mediante Señales de UX con ML Liviano | Monfroglio, Rodriguez, Nahuel | H6, L6 |
-| 6 | Quality Gates basados en OpenTelemetry para CI/CD en PI+D+i | Montanari, Rodriguez, Nahuel | H7, L7 |
+| # | Título tentativo | Venues primarios | Autores | Basado en |
+|---|-----------------|-----------------|---------|-----------|
+| 1 | IntellOps: Observabilidad Predictiva UX-Céntrica en Recursos Escasos | SREcon, CLEI, JSS | Monfroglio, Cavallero, Montanari, Rodriguez, Nahuel | L1 |
+| 2 | Agente RUM Liviano con OTel para Monitoreo de Experiencia de Usuario | SREcon, ObservabilityCON, SPE | Cavallero, Rodriguez, Nahuel | H5, L5 |
+| 3 | Predicción de Reclamos de Usuario mediante ML sobre Señales de UX | ISSRE, EMSE, CLEI | Monfroglio, Rodriguez, Nahuel | H6, L6 |
+| 4 | Quality Gates basados en OpenTelemetry para CI/CD en I+D+i | FSE, ASE, JSS | Montanari, Rodriguez, Nahuel | H7, L7 |
+| 5 | Seguridad en Observabilidad Académica con Stack GLP | CACIC, IEEE LATAM, JAIIO | Cavallero, Rodriguez, Nahuel | H3, L3 |
+| 6 | DevOps y QA Automatizado en PI+D+i: Estudio Empírico | EMSE, IST, JAIIO | Montanari, Rodriguez, Nahuel | H4, L4 |
+
+📄 **Ver catálogo completo de venues**: [`docs/research/publication-venues.md`](../docs/research/publication-venues.md)
 
 ---
 

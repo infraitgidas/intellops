@@ -297,7 +297,7 @@ FASE 3 ─ Validación   (Sprint 11-18)
   └── SUS testing, benchmarks, experimentos completos
 
 FASE 4 ─ Publicación  (Sprint 19-24)
-  └── 6 papers JAIIO/CACIC 2026, releases, comunidad
+  └── Publicaciones en conferencias y revistas, releases, comunidad
 ```
 
 📄 **Ver**: [`governance/plan-trabajo.md`](governance/plan-trabajo.md)
@@ -325,14 +325,16 @@ Idea → Issue (Change Proposal) → Review → Rama → Spec → Código → Te
 
 ## 📖 Publicaciones Científicas
 
-| Título Tentativo | Venue Target | Autores |
-|-----------------|--------------|---------|
-| Observabilidad Predictiva en Recursos Escasos: IntellOps GIDAS | JAIIO / CACIC 2026 | Monfroglio, Rodriguez, Nahuel |
-| Seguridad en Observabilidad Académica con GLP | CACIC / JAIIO 2026 | Cavallero, Rodriguez, Nahuel |
-| DevOps y QA Automatizado en PI+D+i | JAIIO 2026 | Montanari, Rodriguez, Nahuel |
-| User Telemetry con OTel: RUM Liviano para UX-Céntrica | JAIIO / CACIC 2026 | Cavallero, Rodriguez, Nahuel |
-| Predicción de Reclamos con ML desde Señales UX | CACIC / JAIIO 2026 | Monfroglio, Rodriguez, Nahuel |
-| Quality Gates basados en OpenTelemetry para CI/CD en PI+D+i | JAIIO 2026 | Montanari, Rodriguez, Nahuel |
+| Título Tentativo | Venues Primarios | Autores |
+|-----------------|-----------------|---------|
+| IntellOps: Observabilidad Predictiva UX-Céntrica en Recursos Escasos | SREcon, CLEI, JSS | Monfroglio, Cavallero, Montanari, Rodriguez, Nahuel |
+| Agente RUM Liviano con OpenTelemetry para Monitoreo de Experiencia de Usuario | SREcon, ObservabilityCON, SPE | Cavallero, Rodriguez, Nahuel |
+| Predicción de Reclamos de Usuario mediante ML sobre Señales de UX | ISSRE, EMSE, CLEI | Monfroglio, Rodriguez, Nahuel |
+| Quality Gates basados en OpenTelemetry para CI/CD en I+D+i | FSE, ASE, JSS | Montanari, Rodriguez, Nahuel |
+| Seguridad en Observabilidad Académica con Stack GLP | CACIC, IEEE LATAM, JAIIO | Cavallero, Rodriguez, Nahuel |
+| DevOps y QA Automatizado en Proyectos de Investigación: Un Estudio Empírico | EMSE, IST, JAIIO | Montanari, Rodriguez, Nahuel |
+
+📄 **Ver catálogo completo de venues**: [`docs/research/publication-venues.md`](docs/research/publication-venues.md)
 
 ---
 

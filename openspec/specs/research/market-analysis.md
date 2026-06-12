@@ -77,7 +77,7 @@ IntellOps se posiciona en el cuadrante **Bajo Recurso + Alta IA**, un nicho sin 
 
 | Canal | Estrategia | Timeline |
 |-------|-----------|----------|
-| **Académico** | Publicaciones en JAIIO, CACIC, SLCARS; workshops en universidades | Meses 1-12 |
+| **Académico** | Publicaciones en conferencias (JAIIO, CACIC, CLEI, ISSRE, SREcon, FSE, ASE) y revistas (JSS, SPE, EMSE, IST, IEEE LATAM, IEEE Software); workshops en universidades | Meses 1-12 |
 | **Open-source** | GitHub público, documentación bilingüe, templates de contribución | Meses 1-24 |
 | **Extension universitaria** | Demos en laboratorios UTN, convenios con otras facultades | Meses 6-18 |
 | **Comercial (futuro)** | SaaS ligero freemium, consultoría de implementación | Meses 18-24+ |

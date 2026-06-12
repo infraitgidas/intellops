@@ -50,14 +50,16 @@ Este documento registra las líneas de investigación activas, hipótesis, exper
 
 ## Publicaciones Planificadas
 
-| Título Tentativo | Venue Target | Autores | Estado | Línea |
-|------------------|--------------|---------|--------|-------|
-| Observabilidad Predictiva en Recursos Escasos: IntellOps GIDAS | JAIIO 2026 / CACIC 2026 | Monfroglio, Rodriguez, Nahuel | En desarrollo | L1 |
-| Seguridad en Observabilidad Académica: Hardening CIS + Grafana/Loki/Prometheus en IntellOps | CACIC 2026 / JAIIO 2026 | Cavallero, Rodriguez, Nahuel | Planificado | L3 |
-| Adopción de DevOps y QA Automatizado en PI+D+i | JAIIO 2026 | Montanari, Rodriguez, Nahuel | Planificado | L4 |
-| User Telemetry con OpenTelemetry: RUM Liviano para Observabilidad UX-Céntrica en Recursos Escasos | JAIIO 2026 / CACIC 2026 | Cavallero, Rodriguez, Nahuel | Planificado | L5 |
-| Predicción de Reclamos de Usuario mediante Señales de UX con ML Liviano | CACIC 2026 / JAIIO 2026 | Monfroglio, Rodriguez, Nahuel | Planificado | L1 / H6 |
-| Quality Gates basados en OpenTelemetry para CI/CD en PI+D+i | JAIIO 2026 | Montanari, Rodriguez, Nahuel | Planificado | L4 / H7 |
+| Título Tentativo | Venues Primarios | Autores | Estado | Línea |
+|------------------|-----------------|---------|--------|-------|
+| IntellOps: Observabilidad Predictiva UX-Céntrica en Recursos Escasos | SREcon, CLEI, JSS | Monfroglio, Cavallero, Montanari, Rodriguez, Nahuel | En desarrollo | L1 |
+| Agente RUM Liviano con OTel para Monitoreo de Experiencia de Usuario | SREcon, ObservabilityCON, SPE | Cavallero, Rodriguez, Nahuel | Planificado | L5 |
+| Predicción de Reclamos de Usuario mediante ML sobre Señales de UX | ISSRE, EMSE, CLEI | Monfroglio, Rodriguez, Nahuel | Planificado | L1 / H6 |
+| Quality Gates basados en OpenTelemetry para CI/CD en I+D+i | FSE, ASE, JSS | Montanari, Rodriguez, Nahuel | Planificado | L4 / H7 |
+| Seguridad en Observabilidad Académica con Stack GLP | CACIC, IEEE LATAM, JAIIO | Cavallero, Rodriguez, Nahuel | Planificado | L3 |
+| DevOps y QA Automatizado en PI+D+i: Estudio Empírico | EMSE, IST, JAIIO | Montanari, Rodriguez, Nahuel | Planificado | L4 |
+
+📄 **Ver catálogo completo de venues**: [`docs/research/publication-venues.md`](publication-venues.md)
 
 ## Datasets
 
@@ -66,6 +68,13 @@ Este documento registra las líneas de investigación activas, hipótesis, exper
 | — | — | — | — |
 
 *Los datasets se versionan con DVC y se publican en Zenodo/OSF con DOI.*
+
+## Venues de Publicación
+
+Ver el catálogo completo en [`docs/research/publication-venues.md`](publication-venues.md) con:
+- **Conferencias académicas**: JAIIO, CACIC, CLEI, ISSRE, SREcon, FSE, ASE, ICSE, LACCEL, SLCARS, WICC, SBSI, ICPC
+- **Revistas con referato**: IEEE TSE, ACM CSUR, JSS, EMSE, SPE, IEEE Software, IEEE Access, IST, IEEE LATAM, JWE, RASI
+- **Eventos de industria**: SREcon, ObservabilityCON, KubeCon, Monitorama, DevOpsDays, PlatformCon
 
 ## Hipótesis Abiertas
 

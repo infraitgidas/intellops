@@ -121,7 +121,7 @@ git checkout -b feat/agente-rum-otel develop
 - [ ] Semana 8-9: Alertas multicanal integradas (Mail + Telegram + WhatsApp)
 - [ ] Semana 12: Correlación traza-usuario funcionando con datos anonimizados
 - [ ] Semana 16: Benchmark de overhead de instrumentación completo
-- [ ] Semana 20: Informe Final + Paper JAIIO/CACIC
+- [ ] Semana 20: Informe Final + Paper en conferencia/revista académica
 
 ---
 

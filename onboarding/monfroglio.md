@@ -139,7 +139,7 @@ git checkout -b feat/clasificador-reclamos develop
 - [ ] Semana 8-9: Agente RCA con LLM local + RAG sobre trazas funcionando
 - [ ] Semana 14: MVP-1 con clasificador + User Health Score + agente RCA
 - [ ] Semana 18: Prototipo funcional completo con dashboards de correlación
-- [ ] Semana 20: Informe Final + Paper JAIIO/CACIC
+- [ ] Semana 20: Informe Final + Paper en conferencia/revista académica
 
 ---
 

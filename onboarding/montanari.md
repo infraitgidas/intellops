@@ -149,7 +149,7 @@ git checkout -b feat/quality-gates-otel develop
 - [ ] Semana 8-9: Dashboard de CBAs de observabilidad publicado
 - [ ] Semana 15: Chaos experiments controlados integrados
 - [ ] Semana 19: Quality gates OTel + informe de rendimiento completo
-- [ ] Semana 20: Informe Final + Paper JAIIO/CACIC
+- [ ] Semana 20: Informe Final + Paper en conferencia/revista académica
 
 ---
 
