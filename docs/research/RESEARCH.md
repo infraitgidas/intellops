@@ -32,6 +32,14 @@ Este documento registra las líneas de investigación activas, hipótesis, exper
 - **Métrica target**: Coverage >= 70%, pipeline <= 10 min/commit.
 - **Responsable**: Santiago Montanari
 
+### L5: Observabilidad UX-Céntrica con OpenTelemetry (Frontend)
+
+- **Hipótesis**: Es posible detectar degradación en experiencia de usuario real (LCP > 2.5s, INP > 200ms, error rate > 1%) con un agente RUM OTel < 30KB y un pipeline Tempo+Loki+Mimir en < 500MB RAM, anticipando reclamos de usuarios con ≥ 85% de precisión.
+- **Método**: Instrumentación OTel en frontend + backend, pipeline LGTM, agentes IA para RCA predictiva.
+- **Métrica target**: Bundle < 30KB, detección < 30s, precisión anticipación > 85%.
+- **Estado del arte**: `docs/research/frontend-observability.md`
+- **Responsable**: Federico Cavallero (Fase 2)
+
 ## Experimentos Activos
 
 | ID | Línea | Experimento | Estado | Fecha | MLflow |
@@ -47,6 +55,9 @@ Este documento registra las líneas de investigación activas, hipótesis, exper
 | Observabilidad Predictiva en Recursos Escasos: IntellOps GIDAS | JAIIO 2026 / CACIC 2026 | Monfroglio, Rodriguez, Nahuel | En desarrollo | L1 |
 | Seguridad en Observabilidad Académica: Hardening CIS + Grafana/Loki/Prometheus en IntellOps | CACIC 2026 / JAIIO 2026 | Cavallero, Rodriguez, Nahuel | Planificado | L3 |
 | Adopción de DevOps y QA Automatizado en PI+D+i | JAIIO 2026 | Montanari, Rodriguez, Nahuel | Planificado | L4 |
+| User Telemetry con OpenTelemetry: RUM Liviano para Observabilidad UX-Céntrica en Recursos Escasos | JAIIO 2026 / CACIC 2026 | Cavallero, Rodriguez, Nahuel | Planificado | L5 |
+| Predicción de Reclamos de Usuario mediante Señales de UX con ML Liviano | CACIC 2026 / JAIIO 2026 | Monfroglio, Rodriguez, Nahuel | Planificado | L1 / H6 |
+| Quality Gates basados en OpenTelemetry para CI/CD en PI+D+i | JAIIO 2026 | Montanari, Rodriguez, Nahuel | Planificado | L4 / H7 |
 
 ## Datasets
 
