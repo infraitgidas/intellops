@@ -173,6 +173,118 @@ make test-load
 - **No self-merge** — incluso el coordinador necesita review
 - Los PRs de especificación (spec-only) requieren review del equipo completo
 
+## Convención de commits
+
+El proyecto sigue el estándar **Conventional Commits 1.0.0**.
+
+Formato
+
+<tipo>(<scope>) <descripción>
+
+### Tipos
+
+| Tipo | Descripción |
+|-------|-------------|
+| feat | Nueva funcionalidad |
+| fix | Corrección de errores |
+| docs | Documentación |
+| refactor | Refactorización sin cambiar comportamiento |
+| test | Agregado o modificación de pruebas |
+| build | Dependencias o compilación |
+| ci | Integración continua |
+| chore | Mantenimiento |
+| perf | Mejoras de rendimiento |
+| style | Cambios de formato |
+
+---
+
+## Scope
+
+El scope representa el **módulo o carpeta principal modificada**.
+
+| Carpeta | Scope |
+|----------|-------|
+| backend/ | backend |
+| frontend/ | frontend |
+| collector/ | collector |
+| docs/business/ | business |
+| docs/research/ | research |
+| docs/architecture/ | architecture |
+| docs/requirements/ | requirements |
+| docs/diagrams/ | diagrams |
+| docs/mockups/ | mockups |
+| database/ | database |
+| docker/ | docker |
+| scripts/ | scripts |
+| tests/ | tests |
+| .github/ | github |
+| README.md | readme |
+| Configuración global | config |
+
+---
+
+## Ejemplos
+
+feat(frontend) agrega dashboard de observabilidad
+feat(backend) implementa endpoint para métricas
+fix(database) corrige migración inicial
+docs(business) agrega análisis de negocio
+docs(research) incorpora estado del arte
+docs(architecture) actualiza diagrama C4
+docs(requirements) define requerimientos no funcionales
+docs(diagrams) agrega diagrama de despliegue
+docs(mockups) incorpora prototipos de interfaz
+refactor(collector) simplifica procesamiento de eventos
+test(frontend) agrega pruebas del dashboard
+build(docker) actualiza imagen base
+ci(github) agrega workflow de integración continua
+docs(readme) actualiza guía de instalación
+
+---
+
+## Flujo de trabajo
+
+1. Actualizar la rama `develop`
+
+git checkout develop
+git pull origin develop
+
+2. Crear una rama
+
+git checkout -b feature/dashboard-observabilidad
+
+3. Realizar los cambios
+
+4. Commit
+
+git add .
+git commit -m "feat(frontend) agrega dashboard de observabilidad"
+
+5. Subir la rama
+
+git push -u origin feature/dashboard-observabilidad
+
+6. Crear un Pull Request hacia `develop`
+
+7. Luego de la revisión, realizar el merge.
+
+---
+
+## Recomendaciones
+
+- Un commit debe representar un único cambio lógico.
+- Utilizar mensajes en presente e infinitivo ("agrega", "corrige", "actualiza").
+- Evitar commits genéricos como:
+  - "cambios"
+  - "update"
+  - "fix"
+  - "varios"
+
+- Antes de abrir un Pull Request verificar que:
+  - El proyecto compila.
+  - Las pruebas pasan correctamente.
+  - La documentación fue actualizada si corresponde.
+
 ## Documentación
 
 Toda documentación sigue estos principios:
