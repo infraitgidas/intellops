@@ -179,7 +179,7 @@ El proyecto sigue el estándar **Conventional Commits 1.0.0**.
 
 Formato
 
-<tipo>(<scope>) <descripción>
+tipo(scope) descripción
 
 ### Tipos
 
