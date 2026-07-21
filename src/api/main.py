@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="IntellOps API",
-    description="Observabilidad predictiva con ML y GenIA para infra IT",
+    description="Observabilidad predictiva con ML y GenIA para infraestructura IT",
     version="0.1.0",
     contact={
         "name": "Equipo InfraIT — GIDAS UTN FrLP",

@@ -18,8 +18,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: python -m pip install --upgrade pip
-      - run: pip install ".[dev]"
+      - run: pip install flake8 pylint
       - run: flake8 src/ tests/
       - run: pylint src/ --fail-under=7.0
 
@@ -33,7 +32,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -e ".[dev]"
-      - run: pytest --cov=api --cov-report=xml --cov-report=term-missing
+      - run: pytest --cov=src --cov-report=xml --cov-report=term-missing
       - uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml

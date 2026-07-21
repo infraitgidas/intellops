@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=75","wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "intellops"
@@ -33,7 +33,7 @@ python_files = ["test_*.py"]
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["api"]
+source = ["src"]
 omit = ["*/tests/*"]
 
 [tool.coverage.report]
