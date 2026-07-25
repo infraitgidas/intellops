@@ -1,0 +1,30 @@
+# Minuta de Reunión
+
+**Fecha:** 23/07/2026
+Participantes: Federico, Romeo, Santiago
+
+## Temas tratados
+* Se revisaron las Historias de Usuario (HU) contra el DER v2, detectando desajustes de scope. Se acordaron correcciones: simplificar el login (sin 2FA ni avatares), dar de alta las aplicaciones directamente por base de datos en vez de por UI, incorporar una HU de métricas favoritas, ajustar el dashboard a las 5 métricas priorizadas por el research (TTFB, FCP, XHR Latency, Tasa de Excepciones JS, Rage Clicks), definir un flujo híbrido de IA (ML clásico detecta la anomalía y un modelo local Llama 3.2 1B la traduce a un mensaje legible) y cambiar la configuración de alertas de un umbral manual a niveles de sensibilidad (Alta/Media/Baja) más canales de notificación, para no perder el enfoque de AIOps.
+
+* Se discutió sobre la base de datos y el equipo concluyó trabajar con PostgreSQL en lugar de SQLite, por considerarse este último demasiado básico.
+
+* Se acordó comenzar a versionar la documentación utilizando el formato semántico (v1, v1.1.2, v1.2.1).
+
+* Se revisó el repositorio en busca de material innecesario para eliminar, pero el equipo acordó dejarlo sin cambios.
+
+* Se planteó coordinar una reunión con el coordinador Emanuel Rodríguez.
+
+## Tareas asignadas
+| Responsable  | Actividad
+| ------------ |---------------------------------------------------------------- |
+| Federico     | Reorganizar las Historias de Usuario y elaborar una versión 2.  |
+| ------------ |	                                                             |
+| Santiago	   | Modificar la documentación de la base de datos.                 |
+| -----------  |                                                                 |
+| Romeo	       | Dividir las tareas para comenzar el desarrollo de código.       |
+
+## Próximas acciones
+* Coordinar reunión con el coordinador Emanuel Rodríguez.
+* Fede: entregar HU v2.
+* Santiago: actualizar documentación de BD.
+* Romeo: repartir tareas de desarrollo.
