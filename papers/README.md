@@ -7,9 +7,10 @@
 
 ## Estado Actual
 
-| Paper | Carpeta | Estado | Autores | Target | Plazo |
-|-------|---------|--------|---------|--------|-------|
-| Observabilidad UX-Céntrica para Entornos con Recursos Escasos | `divulgacion-intellops/` | 📝 **Borrador completo** | Rodriguez, Cavallero, Monfroglio, Montanari, Nahuel | RASI / Ciencia y Tecnología UTN | Julio 2026 |
+| Paper | Carpeta / Archivo | Estado | Autores | Target | Plazo |
+|-------|-------------------|--------|---------|--------|-------|
+| Estrategia de publicaciones — Roadmap completo | `articulos-revistas.md` | ✅ **Plan estratégico** | Rodriguez | múltiples | Jul 2026 |
+| Observabilidad UX-Céntrica para Entornos con Recursos Escasos | `divulgacion-intellops/` | 📝 **Borrador completo** | Rodriguez, Cavallero, Monfroglio, Montanari, Nahuel | RASI / Ciencia y Tecnología UTN | Jul 2026 |
 
 ---
 

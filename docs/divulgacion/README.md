@@ -11,7 +11,7 @@ La divulgación científica es un pilar del proyecto PI+D+i. El conocimiento gen
 | Archivo | Descripción | Público Objetivo |
 |---------|-------------|------------------|
 | `que-es-intellops.md` | Explicación del proyecto en 5 minutos | Visitantes, no técnicos |
-| — | — | — |
+| _(ver `papers/`)_ | Artículos académicos y estrategia de publicaciones | Académico |
 
 ## Formato
 
