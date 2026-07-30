@@ -11,16 +11,17 @@
 | **Unidad Académica** | UTN Facultad Regional La Plata (UTN-FRLP) |
 | **Sub-proyecto** | InfraIT |
 | **Línea de Investigación** | Sistemas Inteligentes de Infraestructura IT — Ingeniería de Recursos Escasos |
+| **Enfoque I+D+i** | Observabilidad centrada en el usuario: anticipar reclamos e incidencias de usuarios reales mediante OpenTelemetry + Grafana LGTM + Agentes IA + Alertas multicanal |
 
 ## Miembros del Equipo
 
 | Rol | Nombre | Módulo | Período | Contacto |
 |-----|--------|--------|---------|----------|
-| **Coordinador / Arquitecto** | Emanuel Rodriguez | Dirección técnica, SDD, GitHub | 2026-2027 | @ema |
+| **Coordinador / Arquitecto** | Emanuel Rodriguez | Dirección técnica, SDD, GitHub, visión I+D+i | 2026-2027 | @ema |
 | **Director / Sponsor** | Ing. Leopoldo Nahuel | Dirección académica, laboratorio GIDAS | 2026-2027 | — |
-| **Desarrollador — Seguridad** | Federico Blanco Cavallero | Módulo de Seguridad (hardening CIS, Grafana + Loki + Prometheus, dashboards) | Jun-Oct 2026 | @fcavallero |
-| **Desarrollador — ML** | Romeo Lorenzo Monfroglio | Módulo ML (detección anomalías, LSTM, Isolation Forest) | May-Sep 2026 | @rmonfroglio |
-| **Desarrollador — QA** | Santiago Montanari | Módulo QA (testing automatizado, CI/CD, quality gates) | Jun-Oct 2026 | @smontanari |
+| **Desarrollador — User Telemetry** | Federico Blanco Cavallero | **Fase 1**: Seguridad (hardening CIS, GLP, dashboards). **Fase 2**: User Telemetry & Tracing (agente RUM OTel, Tempo, alertas multicanal) | Jun-Oct 2026 | @fcavallero |
+| **Desarrollador — ML/AI Agents** | Romeo Lorenzo Monfroglio | **Fase 1**: ML clásico (detección anomalías, Isolation Forest). **Fase 2**: Agentes IA para UX Predictiva (RCA, User Health Score, clasificador de reclamos) | May-Sep 2026 | @rmonfroglio |
+| **Desarrollador — QA/Observability** | Santiago Montanari | **Fase 1**: QA + CI/CD (testing, pipelines, quality gates). **Fase 2**: Observability-Driven QA (synthetic journeys OTel, chaos engineering, CBAs) | Jun-Oct 2026 | @smontanari |
 
 ## Valores del Equipo
 
@@ -39,6 +40,13 @@
 - **Comunicación**: Issues de GitHub para decisiones técnicas, Slack/Discord para lo urgente.
 - **Decisiones**: Cualquier decisión técnica se documenta en un ADR (`docs/adr/`). Sin ADR, la decisión no existe.
 
+## Estructura de Trabajo: Fase 1 + Fase 2
+
+Cada contributor completa **Fase 1** (fundamentos de infra) antes de pasar a **Fase 2** (observabilidad UX-céntrica). Las fases son secuenciales: no se salta la Fase 1, pero el objetivo final es la Fase 2.
+
+- **Fase 1**: Construcción de base técnica sobre infraestructura real del laboratorio GIDAS
+- **Fase 2**: Investigación e implementación de observabilidad predictiva centrada en el usuario con OpenTelemetry + LGTM + AI Agents
+
 ## Definiciones de "Hecho" (DoD)
 
 | Dimensión | Criterio |
@@ -49,6 +57,7 @@
 | **Documentación** | ADR escrito, sección en onboarding actualizada, changelog entry |
 | **Investigación** | Notebook exportable, experimento versionado en DVC/MLflow, paper outline |
 | **Release** | SBOM generado, CITATION.cff actualizado, tag semántico, release notes |
+| **Fase 2 (adicional)** | Trazas OTel validadas en Tempo, quality gates OTel en CI, User Health Score documentado |
 
 ## Canales de Comunicación
 

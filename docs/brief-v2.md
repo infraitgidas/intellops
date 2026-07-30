@@ -113,9 +113,13 @@ El estado del arte en 2026 muestra las siguientes líneas de investigación acti
 | **Agente de Captura** | JS/Node OpenTelemetry, 50KB bundle, sampling 10%, batch 30s | MVP-0 |
 | **Ingesta** | FastAPI async, SQLite buffer, batch insert, < 100MB RAM | MVP-0 |
 | **Storage** | SQLite con índice temporal, WAL mode, ~500MB/año datos, migrable a TSDB | MVP-0 |
+| **Agente RUM OTel** | JS OpenTelemetry SDK, bundle < 30KB, captura Core Web Vitals + trazas + errores de frontend | MVP-1 |
+| **OTel Collector** | Recepción y enrutamiento de señales OTel (trazas, métricas, logs) desde agentes RUM y servicios instrumentados | MVP-1 |
+| **Tracing (Tempo)** | Almacenamiento y consulta de trazas distribuidas con integración nativa OTel, correlación trace→log→metric | MVP-1 |
 | **ML Detection** | Isolation Forest (scikit-learn) + Z-score dinámico + seasonal decomposition, < 50MB RAM | MVP-1 |
 | **Dashboard** | React static build, 3 vistas (latencias, heatmap, predicciones), D3.js lightweight, < 1MB bundle | MVP-1 |
 | **GenIA Assistant** | Llama 3.2 1B (llama.cpp), RAG con documentación GIDAS, chat en dashboard, 5-10 tok/s en CPU | MVP-1 |
+| **Alertas Multicanal** | Grafana Alertmanager con routing a Mail, Telegram y WhatsApp según severidad | MVP-1 |
 | **Alertas** | Threshold rules + ML score > 0.8, webhooks a Discord/Slack, email (free SMTP) | MVP-1 |
 | **Backup** | Rclone sync a S3 free-tier, incremental diario, 5GB limit | MVP-1 |
 | **Self-Monitoring** | Netdata (< 5% CPU, 150MB RAM), auto-discovery, per-second metrics | MVP-1 |
@@ -131,7 +135,7 @@ El estado del arte en 2026 muestra las siguientes líneas de investigación acti
 | Redis/Kafka | Añaden complejidad operativa y RAM; SQLite buffer es suficiente para < 1K métricas/seg |
 | TimescaleDB (inicial) | Requiere PostgreSQL dedicado; SQLite es suficiente para datasets < 10GB |
 | GPU para ML/GenIA | Costo prohibitivo; todo en CPU con modelos cuantizados |
-| APM completo (tracing distribuido) | Foco en métricas de infraestructura; traces como extensión futura |
+| APM en producción real | Foco en tracing de apps del laboratorio GIDAS, no en APM de terceros |
 | Mobile app nativa | Dashboard responsive web es suficiente; PWA como mejora futura |
 | Integración con Jira/ServiceNow | Webhooks genéricos son suficientes; integraciones específicas como extensión |
 | Logs no estructurados | Foco en métricas y traces estructurados; logs planos fuera de alcance inicial |
@@ -144,20 +148,23 @@ El estado del arte en 2026 muestra las siguientes líneas de investigación acti
 | TimescaleDB migration | Servidor dedicado PostgreSQL | Sem 25-30 |
 | Redis para caching | RAM adicional 2GB | Sem 20-25 |
 | Kafka para streaming | Infraestructura adicional | Sem 30-40 |
-| Tracing distribuido completo | OTel Collector + Jaeger | Sem 25-30 |
+| Tracing multi-cluster | Tempo federado entre laboratorios GIDAS | Sem 25-30 |
 | PWA mobile | Sin requisitos adicionales | Sem 20-25 |
 
 ---
 
 ## 5. Características del Producto Redefinidas
 
-### 5.1 Core: Observabilidad Predictiva Liviana
+### 5.1 Core: Observabilidad Predictiva UX-Céntrica
 
-- **Ingesta OTel-native**: Metrics + traces estructurados vía agente JS de 50KB
+- **Stack LGTM completo**: Grafana + Loki + Tempo + Mimir, el estándar de la industria para observabilidad open-source
+- **OpenTelemetry como columna vertebral**: Instrumentación vendor-neutral de métricas, logs y trazas desde frontend hasta backend
+- **Agente RUM ultra-liviano**: JS OTel SDK < 30KB que captura Core Web Vitals (LCP, INP, CLS), trazas distribuidas y errores de frontend
+- **Tracing distribuido con Tempo**: Correlación traza→log→métrica para entender el viaje completo de cada request de usuario
 - **Storage SQLite optimizado**: Índice temporal, WAL mode, migración transparente a TimescaleDB
 - **Detección ML liviana**: Isolation Forest + estadísticos (Z-score, seasonal decomposition) en < 50MB RAM
-- **Alertas inteligentes**: Threshold + ML score con webhooks a plataformas gratuitas (Discord, Slack)
-- **3 vistas esenciales**: Latencias en tiempo real, mapa de calor de infraestructura, predicciones con forecasting
+- **Alertas inteligentes multicanal**: Threshold + ML score con routing dinámico a Mail, Telegram y WhatsApp según severidad
+- **3 vistas esenciales**: Latencias en tiempo real, mapa de calor de usuarios, predicciones con forecasting
 
 ### 5.2 Differentiator: GenIA Local Funcional
 
@@ -337,15 +344,20 @@ channels:
 
 | Capa | Tecnología | Alternativa descartada | Justificación |
 |------|-----------|----------------------|---------------|
-| **Agente** | OpenTelemetry JS (50KB) | Agentes propietarios | Estándar CNCF, vendor-neutral, bundle mínimo |
+| **Agente RUM** | OpenTelemetry JS SDK (< 30KB) | Agentes propietarios | Estándar CNCF, vendor-neutral, Core Web Vitals + trazas |
+| **OTel Collector** | OpenTelemetry Collector (Go) | Export directo | Recepción unificada OTLP, procesamiento y enrutamiento |
 | **Backend** | FastAPI + Uvicorn | Django, Flask | Async nativo, auto-docs OpenAPI, < 100MB RAM |
+| **Trazas** | Tempo (Grafana) | Jaeger, Zipkin | OTel-native, integración directa con Grafana, < 256MB RAM |
+| **Logs** | Loki (Grafana) | ELK Stack | Ver ADR-0001: reemplazo de ELK por licencias SSPL |
+| **Métricas** | Prometheus / Mimir | InfluxDB, TimescaleDB | Estándar de facto CNCF para métricas de infra |
+| **Dashboard** | Grafana + React static | Datadog, New Relic | Single pane of glass para logs, trazas y métricas |
+| **Alertas** | Grafana Alertmanager | PagerDuty, OpsGenie | Routing multicanal (Mail, Telegram, WhatsApp) |
 | **Buffer** | SQLite (WAL mode) | Redis, Kafka | Zero config, zero RAM adicional, suficiente para MVP |
 | **Storage** | SQLite + time-index | TimescaleDB (inicial) | Migrable transparente, sin PostgreSQL dedicado |
 | **ML** | scikit-learn (Isolation Forest) | PyTorch LSTM (inicial) | < 50MB RAM, CPU-only, suficiente para detección básica |
 | **GenIA** | Llama 3.2 1B (llama.cpp) | Llama 3.1 8B, GPT-4 API | 600MB RAM, 5-10 tok/s CPU, sin costo de API |
 | **RAG** | sentence-transformers + Chroma | OpenAI embeddings | Local, sin llamadas externas, privacidad garantizada |
-| **Dashboard** | React static + D3.js | Next.js, Angular | Sin SSR, < 1MB bundle, static hosting |
-| **Monitoring** | Netdata | Prometheus + Grafana | < 5% CPU, 150MB RAM, auto-discovery, per-second |
+| **Self-Monitoring** | Netdata | Prometheus + Grafana | < 5% CPU, 150MB RAM, auto-discovery, per-second |
 | **Backup** | Rclone + S3 free-tier | rsync manual | Automático, incremental, 5GB gratis |
 | **CI/CD** | GitHub Actions | GitLab CI, Jenkins | Free para repos públicos, integración nativa |
 | **Containers** | Docker Compose | Kubernetes | Single-node, setup < 30 min, sin orquestación compleja |
