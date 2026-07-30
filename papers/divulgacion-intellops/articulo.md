@@ -17,17 +17,17 @@
 
 ## Resumen
 
-La observabilidad se ha convertido en un pilar fundamental de la ingeniería de software moderna. Sin embargo, las soluciones comerciales líderes (Datadog, Dynatrace, New Relic) tienen costos que las hacen inaccesibles para universidades públicas, PYMEs y organizaciones con presupuestos limitados. Este artículo presenta IntellOps, un proyecto de investigación, desarrollo e innovación (PI+D+i) del grupo GIDAS de la UTN Facultad Regional La Plata, que diseña un sistema de observabilidad predictiva centrado en el usuario real, diseñado para operar en hardware de bajo rendimiento (< 2GB RAM, CPU sin GPU) con costo operativo cero. Se analiza el valor de la observabilidad desde la perspectiva del usuario para una organización, el estado del arte de la observabilidad UX-céntrica, el nicho inexplorado de "Bajo Recurso + Alta Inteligencia Artificial", y las oportunidades académicas y de extensión que un proyecto de esta naturaleza genera para un grupo de investigación universitario.
+La observabilidad se ha convertido en un pilar fundamental de la ingeniería de software moderna. Sin embargo, las soluciones comerciales líderes (Datadog, Dynatrace, New Relic) tienen costos que las hacen inaccesibles para universidades públicas, PYMEs y organizaciones con presupuestos limitados. Este artículo presenta IntellOps, un proyecto de investigación, desarrollo e innovación (PI+D+i) del grupo GIDAS de la UTN Facultad Regional La Plata, que diseña un sistema de observabilidad predictiva centrado en el usuario real, diseñado para operar en hardware de bajo rendimiento (< 2GB RAM, CPU sin GPU) con costo operativo cero. Se analiza el valor de la observabilidad desde la perspectiva del usuario para una organización, el estado del arte de la observabilidad UX-céntrica, el nicho inexplorado de "Bajo Recurso + Alta Inteligencia Artificial", las oportunidades académicas y de extensión del proyecto, su modelo de escalabilidad progresiva —desde un laboratorio universitario hasta un despliegue enterprise— y su aplicabilidad concreta en la industria: monitoreo de sucursales, edge computing, entornos de desarrollo, cumplimiento normativo y herramientas internas, entre otros casos de uso.
 
-**Palabras clave**: Observabilidad, UX-Céntrica, Recursos Escasos, OpenTelemetry, ML Liviano, I+D+i, Extensión Universitaria.
+**Palabras clave**: Observabilidad, UX-Céntrica, Recursos Escasos, OpenTelemetry, ML Liviano, Escalabilidad, Aplicabilidad Enterprise, I+D+i, Extensión Universitaria.
 
 ---
 
 ## Abstract
 
-Observability has become a fundamental pillar of modern software engineering. However, leading commercial solutions (Datadog, Dynatrace, New Relic) have costs that make them inaccessible to public universities, SMEs, and organizations with limited budgets. This article presents IntellOps, a research, development, and innovation project (R&D+i) from the GIDAS group at UTN La Plata Regional Faculty, which designs a predictive observability system centered on the real user, designed to operate on low-performance hardware (< 2GB RAM, CPU without GPU) with zero operational cost. We analyze the value of observability from the user's perspective for an organization, the state of the art of UX-centric observability, the unexplored niche of "Low Resource + High AI", and the academic and extension opportunities that such a project generates for a university research group.
+Observability has become a fundamental pillar of modern software engineering. However, leading commercial solutions (Datadog, Dynatrace, New Relic) have costs that make them inaccessible to public universities, SMEs, and organizations with limited budgets. This article presents IntellOps, a research, development, and innovation project (R&D+i) from the GIDAS group at UTN La Plata Regional Faculty, which designs a predictive observability system centered on the real user, designed to operate on low-performance hardware (< 2GB RAM, CPU without GPU) with zero operational cost. We analyze the value of observability from the user's perspective for an organization, the state of the art of UX-centric observability, the unexplored niche of "Low Resource + High AI", the academic and extension opportunities of the project, its progressive scalability model —from a university lab to an enterprise deployment— and its concrete applicability in industry: branch office monitoring, edge computing, development environments, regulatory compliance, and internal tools, among other use cases.
 
-**Keywords**: Observability, UX-Centric, Resource-Constrained, OpenTelemetry, Lightweight ML, R&D+i, University Extension.
+**Keywords**: Observability, UX-Centric, Resource-Constrained, OpenTelemetry, Lightweight ML, Scalability, Enterprise Applicability, R&D+i, University Extension.
 
 ---
 
@@ -223,7 +223,118 @@ Más allá de lo académico, IntellOps tiene un impacto social concreto: **democ
 
 ---
 
-## 6. Estado Actual y Trabajo Futuro
+## 6. Escalabilidad y Aplicabilidad en la Industria
+
+### 6.1. Modelo de Escalabilidad Progresiva
+
+Una de las preguntas más frecuentes sobre IntellOps es si está limitado al laboratorio universitario o si puede escalar a entornos productivos reales. La respuesta es que la arquitectura fue diseñada explícitamente con un **modelo de escalabilidad progresiva**: el sistema puede crecer desde un servidor único en un laboratorio hasta un despliegue distribuido en múltiples centros de datos, reemplazando componentes a medida que las necesidades y los recursos aumentan.
+
+```
+Fase 1 — Laboratorio / PYME (hoy)
+┌──────────────────────────────────────┐
+│  Docker Compose (single node)        │
+│  SQLite (WAL mode)                   │
+│  ML en proceso (CPU-only)            │
+│  Footprint: < 2 GB RAM               │
+└──────────────────────────────────────┘
+         │
+         ▼
+Fase 2 — Crecimiento (próximo paso)
+┌──────────────────────────────────────┐
+│  Docker Compose → Kubernetes (K3s)   │
+│  SQLite → PostgreSQL + TimescaleDB   │
+│  Agente RUM multi-aplicación         │
+│  Footprint: 4-8 GB RAM              │
+└──────────────────────────────────────┘
+         │
+         ▼
+Fase 3 — Enterprise (visión)
+┌──────────────────────────────────────┐
+│  Kubernetes completo (K8s)           │
+│  TimescaleDB + Redis + Kafka         │
+│  Múltiples OTel Collectors           │
+│  LSTM/Transformer en GPU (opcional)  │
+│  Footprint: según necesidad          │
+└──────────────────────────────────────┘
+```
+
+**Figura 2**: Modelo de escalabilidad progresiva de IntellOps.
+
+### 6.2. Dimensiones de Escalabilidad
+
+#### 6.2.1. Escalabilidad Horizontal (Múltiples Nodos)
+
+El componente central de IntellOps —el backend FastAPI— es inherentemente stateless y puede escalar horizontalmente detrás de un balanceador de carga. La base de datos SQLite es el cuello de botella, pero el diseño contempla una migración transparente a TimescaleDB (PostgreSQL optimizado para series temporales) cuando el volumen de datos lo requiera [19]. El modelo de datos en su versión V1.2 ya incluye soporte multi-tenant (tabla `APPLICATION`), lo que permite que un solo despliegue de IntellOps monitoree múltiples aplicaciones, equipos o incluso organizaciones sin mezclar datos.
+
+#### 6.2.2. Escalabilidad Vertical (Más Potencia)
+
+En el otro extremo, si una organización dispone de más recursos, IntellOps puede aprovecharlos sin cambiar de plataforma:
+- **Más RAM**: SQLite puede configurarse con buffers más grandes; los modelos ML pueden aumentar la complejidad de sus árboles
+- **GPU**: Si hay GPU disponible, la inferencia de ML puede acelerarse con ONNX Runtime, y el LLM local puede cambiarse por un modelo de 7B o 8B parámetros
+- **Almacenamiento**: La migración a PostgreSQL + TimescaleDB permite retenciones de años sin degradación de consultas
+
+#### 6.2.3. Escalabilidad Organizacional (Múltiples Equipos)
+
+El diseño multi-tenant del modelo de datos permite que un solo operador de IntellOps ofrezca observabilidad como servicio interno dentro de una organización. Cada equipo consume sus propias métricas, trazas y alertas sin ver los datos de otros equipos. Esto es particularmente relevante para:
+- **Universidades con múltiples laboratorios**: Un despliegue central monitorea todos los laboratorios de la facultad
+- **Empresas con múltiples unidades de negocio**: Cada unidad gestiona sus aplicaciones con un dashboard aislado
+- **PYMEs agrupadas**: Una cooperativa o cámara empresarial ofrece observabilidad compartida a sus miembros
+
+### 6.3. Aplicabilidad en la Industria y el Ambiente Enterprise
+
+Si bien IntellOps nace en el ámbito académico, su propuesta de valor no está limitada a él. La combinación de **bajo costo, IA local y enfoque UX-céntrico** resuelve problemas concretos en múltiples escenarios empresariales.
+
+#### 6.3.1. Casos de Uso Enterprise
+
+| Escenario | Problema | Solución IntellOps |
+|-----------|----------|-------------------|
+| **Sucursales / Edge Computing** | Una empresa con 50 sucursales no puede pagar Datadog por sitio. Cada sucursal tiene un servidor con recursos limitados | Un agente IntellOps por sucursal (< 2GB RAM), reportando a un dashboard central. Costo: $0 en licencias |
+| **Entornos de Desarrollo y Staging** | Las empresas no monitorean staging porque "no vale la pena pagar". Los bugs llegan a producción sin ser detectados | IntellOps en staging con el mismo stack que producción, sin costo adicional. Quality gates OTel en CI/CD bloquean regresiones antes de deploy |
+| **PYME Tecnológica** | Una startup de 10 personas necesita observabilidad pero no puede justificar $50K/año en herramientas | `docker compose up` y tienen observabilidad completa en 30 minutos. A medida que crecen, migran componentes sin cambiar de plataforma |
+| **IoT / Industria 4.0** | Sensores y dispositivos edge con recursos mínimos que necesitan monitoreo local con inferencia ML | Agente liviano con ML embebido (Isolation Forest en < 50MB RAM) que detecta anomalías en el dispositivo sin enviar datos a la nube |
+| **On-Premise por Compliance** | Bancos, salud, gobierno: datos sensibles que no pueden salir del datacenter | IntellOps corre 100% on-premise. Sin datos que exfiltran a la nube. Auditoría completa vía ADRs y specs públicas |
+| **Internal Tools** | Equipos que desarrollan herramientas internas y no tienen presupuesto para monitorearlas | Monitoreo de herramientas internas con el mismo estándar que las aplicaciones core, sin costo marginal |
+
+#### 6.3.2. El Argumento de Negocio para Empresas
+
+Para un CTO o CIO evaluando IntellOps, el argumento es simple:
+
+> **Costo**: $0/mes en licencias vs $500K+/año en Datadog.
+>
+> **Riesgo**: Bajo. Si no funciona, se perdió el tiempo de instalación (< 30 min) y nada más. No hay compromiso financiero.
+>
+> **Camino de migración**: Si la empresa crece y necesita más potencia, IntellOps migra a TimescaleDB + Kubernetes + GPU sin cambiar de plataforma. No hay lock-in.
+>
+> **Diferenciación**: Ninguna solución comercial ofrece un asistente GenIA local con RAG sobre la documentación de la empresa. Datadog Bits AI requiere conexión cloud permanente.
+
+#### 6.3.3. Limitaciones y Consideraciones
+
+Es importante ser transparente sobre dónde IntellOps **no** compite con soluciones enterprise:
+
+| Aspecto | IntellOps (hoy) | Datadog / Dynatrace |
+|---------|-----------------|---------------------|
+| **Soporte 24/7** | Comunidad + documentación | SLA enterprise con soporte dedicado |
+| **Cobertura de integraciones** | OpenTelemetry + plugins core | Cientos de integraciones nativas |
+| **Retención de datos** | Determinada por almacenamiento disponible | Años con tiering automático |
+| **Escala máxima** | 10K métricas/seg (SQLite) → 100K+ (TimescaleDB) | Millones de métricas/seg |
+| **Madurez** | MVP en desarrollo | Producto maduro con 10+ años |
+
+IntellOps no busca reemplazar a Datadog en una empresa que ya puede pagarlo. Busca ser la opción para las organizaciones que **no pueden pagarlo**, o para los casos de uso dentro de una empresa grande donde desplegar una solución enterprise no se justifica (staging, herramientas internas, sucursales).
+
+### 6.4. Estrategia de Adopción Empresarial
+
+Para facilitar la adopción en la industria, IntellOps propone un camino gradual:
+
+1. **Piloto técnico**: Un equipo instala IntellOps para monitorear una aplicación no crítica. Evalúa métricas, alertas y usabilidad.
+2. **Expansión controlada**: Más equipos adoptan IntellOps. Se evalúa la necesidad de migrar a TimescaleDB o Kubernetes.
+3. **Estandarización**: IntellOps se convierte en la herramienta de observabilidad estándar para entornos no críticos o de desarrollo.
+4. **Complemento**: IntellOps coexiste con soluciones enterprise para cargas críticas, sirviendo como capa de observabilidad UX-céntrica que las herramientas tradicionales no proveen.
+
+Este enfoque gradual minimiza el riesgo y permite que cada organización encuentre el punto de equilibrio entre costo, funcionalidad y cobertura.
+
+---
+
+## 7. Estado Actual y Trabajo Futuro
 
 ### 6.1. Estado del Proyecto (Julio 2026)
 
@@ -255,7 +366,7 @@ Los próximos hitos del proyecto incluyen:
 
 ---
 
-## 7. Conclusiones
+## 8. Conclusiones
 
 La observabilidad es una necesidad imperativa en la industria del software actual, pero las soluciones existentes presentan barreras económicas y técnicas significativas para organizaciones con recursos limitados. IntellOps demuestra que es posible construir un sistema de observabilidad predictiva centrado en el usuario real, con inteligencia artificial local y ML liviano, operando en hardware modesto con costo cero.
 
@@ -302,6 +413,10 @@ La decisión de adoptar estándares abiertos (OpenTelemetry, OpenAPI, AsyncAPI),
 [17] E. Rodriguez, "Frontend Observability State of the Art," IntellOps Research Documents, 2026.
 
 [18] E. Rodriguez, "RUM Agent: Deep Research and Architecture," IntellOps Research Documents, 2026.
+
+[19] R. Monfroglio, "Diagrama Entidad-Relación IntellOps V1.2 — Diccionario de Datos y Evolución Arquitectónica," IntellOps Design Documents, 2026.
+
+[20] TimescaleDB, "TimescaleDB Documentation — Time-series data," https://docs.timescale.com/, 2026.
 
 ---
 
