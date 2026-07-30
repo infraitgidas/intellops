@@ -15,8 +15,9 @@
 5. [Artículo D: Experiencia — Quality Gates OTel en I+D+i](#5-artículo-d-experiencia)
 6. [Artículo E: Caso de Estudio — Seguridad Zero-Cost en Laboratorios](#6-artículo-e-caso-de-estudio)
 7. [Artículos Cortos para Revistas Regionales](#7-artículos-cortos-regionales)
-8. [Roadmap de Publicaciones 2026-2028](#8-roadmap)
-9. [Siguientes Pasos Concretos](#9-siguientes-pasos)
+8. [Alternativas de Títulos y Enfoques para el Primer Artículo](#8-alternativas-de-títulos-y-enfoques-para-el-primer-artículo-de-divulgación)
+9. [Roadmap de Publicaciones 2026-2028](#9-roadmap-de-publicaciones-2026-2028)
+10. [Siguientes Pasos Concretos](#10-siguientes-pasos-concretos)
 
 ---
 
@@ -344,9 +345,158 @@ Los anales de JAIIO están indexados en SCA (Scielo Argentina) y son una excelen
 
 ---
 
-## 8. Roadmap de Publicaciones 2026-2028
+## 8. Alternativas de Títulos y Enfoques para el Primer Artículo de Divulgación
 
-### 8.1. Timeline Visual
+El artículo ya escrito en `papers/divulgacion-intellops/articulo.md` puede adaptarse con diferentes títulos, énfasis y estructuras según la revista target. Acá van las variantes:
+
+### 8.1. Para Ingenio Tecnológico (UTN FrLP)
+
+| Campo | Detalle |
+|-------|---------|
+| **ISSN** | 2618-4931 |
+| **Indexación** | LatIndex, DOAJ, Google Scholar, Dialnet, AmeliCA, MALENA (Caicyt-Conicet) |
+| **Estilo** | Divulgación científico-tecnológica en español, audiencia de ingeniería general |
+| **Extensión** | 6-10 páginas |
+| **Licencia** | CC BY-NC-SA 4.0 |
+
+**Título sugerido**: *"IntellOps: Un Sistema de Observabilidad Predictiva para Infraestructura Universitaria con Recursos Escasos"*
+
+**Enfoque**: 
+- Énfasis en el **origen institucional**: proyecto de la UTN FrLP, grupo GIDAS, laboratorio InfraIT
+- Lenguaje accesible para **ingenieros de todas las especialidades** (no solo informáticos)
+- Destacar el **impacto en la comunidad**: herramienta para PYMEs, universidades públicas, extensión
+- Incluir **fotos del laboratorio** y del equipo trabajando (valor editorial)
+- Mostrar la **aplicación práctica**: "cómo monitoreamos nuestros propios servidores"
+
+**Estructura propuesta**:
+```
+1. El problema: ¿Por qué es tan cara la observabilidad?
+2. ¿Qué es IntellOps? (menos técnico, más conceptual)
+3. El laboratorio GIDAS como caso de estudio
+4. Resultados esperados e impacto en la comunidad UTN
+5. Oportunidades de colaboración y extensión
+```
+
+**Diferencias con el artículo actual**:
+- Sacar sección 4.3 (stack tecnológico detallado) — muy técnico
+- Sacar tabla de limitaciones vs Datadog — no relevante para esta audiencia
+- Agregar fotos del laboratorio GIDAS
+- Agregar sección de "cómo participar" para otros grupos UTN
+- Referencias: menos papers académicos, más fuentes institucionales
+
+---
+
+### 8.2. Para RASI — Revista Argentina de Sistemas de Información
+
+| Campo | Detalle |
+|-------|---------|
+| **Indexación** | LatIndex, SCA |
+| **Estilo** | Sistemas de información, gestión de TI, academia |
+| **Extensión** | 6-8 páginas |
+
+**Título sugerido A**: *"Observabilidad UX-Céntrica como Herramienta de Gestión de Infraestructura IT en Organizaciones con Recursos Limitados"*
+
+**Enfoque A**:
+- Énfasis en **gestión de sistemas de información**
+- Valor para la **toma de decisiones organizacional** (directores de TI, CTOs)
+- La observabilidad como **función estratégica**, no solo técnica
+- Caso de aplicación en el laboratorio GIDAS
+
+**Título sugerido B**: *"IntellOps: Democratizando la Observabilidad Predictiva para el Sector Público y las PYMEs"*
+
+**Enfoque B**:
+- Ángulo de **acceso y equidad tecnológica**
+- Brecha entre soluciones enterprise y capacidades del sector público
+- Propuesta de valor social y económica
+
+---
+
+### 8.3. Para Ciencia y Tecnología (UTN FrLP)
+
+| Campo | Detalle |
+|-------|---------|
+| **Indexación** | LatIndex |
+| **Estilo** | Divulgación científica breve, extensión universitaria |
+| **Extensión** | 4-6 páginas |
+
+**Título sugerido**: *"Formación de Recursos Humanos en Observabilidad IT a través de un Proyecto I+D+i en la UTN FrLP"*
+
+**Enfoque**:
+- Énfasis en el **aspecto formativo**: 4 estudiantes de PPS aprendiendo tecnologías de vanguardia
+- La observabilidad como **competencia profesional demandada**
+- Metodología SDD + Agile como **innovación pedagógica**
+- Menos énfasis técnico, más en el **proceso de aprendizaje**
+
+---
+
+### 8.4. Para CLEI (Conferencia Latinoamericana de Informática)
+
+| Campo | Detalle |
+|-------|---------|
+| **Indexación** | Scopus, IEEE Xplore |
+| **Idioma** | Español o inglés |
+| **Extensión** | 8-12 páginas |
+
+**Título sugerido**: *"UX-Centric Observability for Resource-Constrained Environments: A Case Study from a Latin American University Lab"*
+
+**Enfoque**:
+- Énfasis en el **contexto latinoamericano**: restricciones presupuestarias, realidades regionales
+- Comparación con soluciones del norte global
+- El nicho "Bajo Recurso + Alta IA" como **oportunidad para la región**
+- Resultados preliminares de la implementación
+
+---
+
+### 8.5. Para WICC (Workshop de Investigadores en Ciencias de la Computación)
+
+| Campo | Detalle |
+|-------|---------|
+| **Estilo** | Trabajos en progreso, primeros resultados |
+| **Extensión** | 4-6 páginas |
+| **Plazo** | Mayo-Junio (anual) |
+
+**Título sugerido**: *"IntellOps: Avances en Observabilidad Predictiva con ML Liviano y GenIA Local para Entornos Académicos"*
+
+**Enfoque**:
+- Paper de **progreso**: qué hicimos, qué aprendimos, qué falta
+- Resultados parciales de la investigación
+- Oportunidad para presentar al equipo y recibir feedback temprano
+
+---
+
+### 8.6. Para SREcon / ObservabilityCON (Eventos de Industria)
+
+| Campo | Detalle |
+|-------|---------|
+| **Estilo** | Talk / Lightning talk / Poster |
+| **Audiencia** | Ingenieros de infraestructura, SREs, practitioners |
+
+**Título sugerido**: *"How We Built a $0/Month Observability Stack with Local AI and ML for a University Lab"*
+
+**Enfoque**:
+- Orientado a **practicantes** que enfrentan el mismo problema
+- Demo en vivo del sistema
+- Lecciones aprendidas, errores cometidos
+- Código abierto y replicable
+
+---
+
+### 8.7. Tabla Comparativa de Enfoques
+
+| Revista | Ángulo principal | Audiencia | Tono | Técnico? | Ideal para |
+|---------|-----------------|-----------|------|----------|------------|
+| **Ingenio Tecnológico** | Institucional + extensión | Ingenieros general | Divulgativo | Bajo | Primer paper del equipo |
+| **RASI** | Gestión de SI + equidad | Académicos SI | Académico medio | Medio | Difusión en sistemas |
+| **Ciencia y Tecnología UTN** | Formación RRHH + PPS | Comunidad UTN | Divulgativo | Bajo | Visibilidad local |
+| **CLEI** | Contexto latinoamericano | Académicos regionales | Académico alto | Alto | Paper con referato Scopus |
+| **WICC** | Trabajo en progreso | Investigadores jóvenes | Académico medio | Medio | Feedback temprano |
+| **SREcon** | Practitioner + demo | SREs, industria | Técnico coloquial | Alto | Networking + visibilidad |
+
+---
+
+## 9. Roadmap de Publicaciones 2026-2028
+
+### 9.1. Timeline Visual
 
 ```
 2026                             2027                             2028
@@ -372,11 +522,11 @@ Los anales de JAIIO están indexados en SCA (Scielo Argentina) y son una excelen
           RASI, UTN, JAIIO — artículos cortos intercalados
 ```
 
-### 8.2. Tabla de Prioridades
+### 9.2. Tabla de Prioridades
 
 | Prioridad | Artículo | Revista | Plazo submission | Autor principal |
 |-----------|----------|---------|-----------------|-----------------|
-| 🔴 **Inmediata** | Regional 1: "IntellOps: visión general" | RASI / Ciencia y Tecnología UTN | **Agosto 2026** | Emanuel |
+| 🔴 **Inmediata** | Regional 1: "IntellOps: visión general" | Ingenio Tecnológico / RASI | **Agosto 2026** | Emanuel |
 | 🔴 **Inmediata** | Regional 2: "Selección de métricas RUM" | Ciencia y Tecnología UTN | **Agosto 2026** | Romeo |
 | 🔴 **Inmediata** | JAIIO 2026: "DevOps en I+D+i" | Anales JAIIO (SLCARS) | **Jul-Ago 2026** | Santiago |
 | 🟡 **Corto plazo** | Artículo E: "Seguridad zero-cost" | IEEE Latin America Trans. | **Oct 2026** | Federico |
@@ -385,7 +535,7 @@ Los anales de JAIIO están indexados en SCA (Scielo Argentina) y son una excelen
 | 🟢 **Mediano-largo** | Artículo C: Predicción reclamos | EMSE → IEEE Access | **Ene 2027** | Romeo |
 | 🟢 **Mediano-largo** | Artículo D: Quality gates OTel | IST → IEEE Software | **Ene 2027** | Santiago |
 
-### 8.3. Estrategia de Autores
+### 9.3. Estrategia de Autores
 
 | Artículo | Primer autor | Coautores | Orden propuesto |
 |----------|-------------|-----------|-----------------|
@@ -399,9 +549,9 @@ Los anales de JAIIO están indexados en SCA (Scielo Argentina) y son una excelen
 
 ---
 
-## 9. Siguientes Pasos Concretos
+## 10. Siguientes Pasos Concretos
 
-### 9.1. Acciones para Esta Semana
+### 10.1. Acciones para Esta Semana
 
 | # | Acción | Responsable | Tiempo estimado |
 |---|--------|-------------|-----------------|
@@ -410,7 +560,7 @@ Los anales de JAIIO están indexados en SCA (Scielo Argentina) y son una excelen
 | 3 | Definir template de paper (IEEE/ACM/Elsevier según target) | **Emanuel** | 1 hora |
 | 4 | Armar esquema del paper regional 1 | **Equipo** | 2 horas |
 
-### 9.2. Estructura de Carpeta Propuesta
+### 10.2. Estructura de Carpeta Propuesta
 
 ```
 papers/
@@ -431,7 +581,7 @@ papers/
 └── ...
 ```
 
-### 9.3. Checklist para Cada Paper
+### 10.3. Checklist para Cada Paper
 
 Cada paper debe tener:
 
@@ -443,7 +593,7 @@ Cada paper debe tener:
 - [ ] **Proofreading** de inglés (si aplica) por hablante nativo o herramienta
 - [ ] **Submission** con todos los metadatos correctos
 
-### 9.4. Recursos Necesarios
+### 10.4. Recursos Necesarios
 
 | Recurso | Costo | Notas |
 |---------|-------|-------|
