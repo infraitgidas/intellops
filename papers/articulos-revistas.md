@@ -16,6 +16,9 @@
 6. [Artículo E: Caso de Estudio — Seguridad Zero-Cost en Laboratorios](#6-artículo-e-caso-de-estudio)
 7. [Artículos Cortos para Revistas Regionales](#7-artículos-cortos-regionales)
 8. [Alternativas de Títulos y Enfoques para el Primer Artículo](#8-alternativas-de-títulos-y-enfoques-para-el-primer-artículo-de-divulgación)
+   - 8.1. [Ingenio Tecnológico](#81-para-ingenio-tecnológico-utn-frlp)
+   - 8.2. [RASI](#82-para-rasi--revista-argentina-de-sistemas-de-información)
+   - 8.7. [Captación de interesados](#87-para-captación-de-interesados-y-búsqueda-de-apoyo-institucional) ⭐
 9. [Roadmap de Publicaciones 2026-2028](#9-roadmap-de-publicaciones-2026-2028)
 10. [Siguientes Pasos Concretos](#10-siguientes-pasos-concretos)
 
@@ -481,7 +484,85 @@ El artículo ya escrito en `papers/divulgacion-intellops/articulo.md` puede adap
 
 ---
 
-### 8.7. Tabla Comparativa de Enfoques
+### 8.7. Para Captación de Interesados y Búsqueda de Apoyo Institucional
+
+| Campo | Detalle |
+|-------|---------|
+| **Tipo** | Artículo comercial / White paper / Nota institucional |
+| **Publicación target** | **Revista de Extensión UTN**, **Boletín GIDAS/InfraIT**, **Blog institucional UTN FrLP**, **LinkedIn Pulse**, **Revista Gerencia & Tecnología** |
+| **Estilo** | Persuasivo, orientado a valor institucional, ROI, impacto social |
+| **Extensión** | 4-6 páginas |
+| **Audiencia** | Autoridades académicas (decano, secretarios), directores de laboratorios, posibles sponsors, empresas partners, entes de financiamiento |
+
+**Título sugerido A**: *"IntellOps: Un Proyecto Estratégico para la Soberanía Tecnológica en Observabilidad IT"*
+
+**Enfoque A — Soberanía tecnológica**:
+- **Problema**: Las universidades públicas argentinas dependen de software privado extranjero costoso para monitorear su infraestructura. Datadog, Dynatrace y New Relic exigen miles de dólares que el sistema universitario no tiene.
+- **Propuesta**: IntellOps demuestra que podemos construir nuestras propias herramientas de clase mundial con recursos locales.
+- **Llamado a la acción**: Necesitamos financiamiento para equipamiento (servidores, Raspberry Pis), becas para estudiantes investigadores, y espacio físico en el laboratorio.
+- **Valor político**: Soberanía tecnológica, recursos públicos bien invertidos, formación de RRHH en tecnologías estratégicas.
+
+**Título sugerido B**: *"Del Aula a la Industria: Cómo un Proyecto I+D+i de la UTN FrLP Puede Transformar la Gestión de Infraestructura IT en PYMEs y Organismos Públicos"*
+
+**Enfoque B — Transferencia y extensión**:
+- **Problema**: Las PYMEs y organismos públicos no tienen acceso a herramientas de observabilidad porque las soluciones comerciales están diseñadas para empresas con presupuestos enterprise.
+- **Propuesta**: IntellOps es una herramienta gratuita, open-source, que cualquier organización puede implementar en 30 minutos.
+- **Valor para el inversor/sponsor**: 
+  - **Visibilidad**: Sponsorear un proyecto de código abierto con proyección internacional
+  - **RRHH**: Acceso temprano a estudiantes formados en tecnologías de vanguardia
+  - **Responsabilidad social**: Apoyar la democratización tecnológica en el sector público
+- **Llamado a la acción**: Donación de equipamiento (servidores, equipamiento de red), becas de investigación, pasantías para estudiantes del equipo.
+
+**Título sugerido C**: *"Observabilidad Predictiva Hecha en Argentina: El Caso de IntellOps en la UTN La Plata"*
+
+**Enfoque C — Prensa/Divulgación masiva**:
+- **Tono**: Nota periodística, estilo Newsletter o blog institucional
+- **Estructura**:
+```
+1. Título gancho: "¿Sabías que tu facultad podría estar monitoreando sus servidores con inteligencia artificial sin pagar un peso?"
+2. El problema en criollo: las herramientas de monitoreo comerciales son carísimas
+3. La solución: un grupo de estudiantes y docentes de la UTN La Plata construyó su propia herramienta
+4. El diferencial: corre en PCs viejas, tiene IA, es gratis
+5. Qué necesitan: más recursos para escalar y llevar esto a otras instituciones
+6. Cómo ayudar: contacto, donaciones, colaboración
+```
+
+**Estructura propuesta (para revista institucional)**:
+```
+1. El contexto: ¿Por qué una universidad pública necesita observabilidad?
+2. El proyecto: IntellOps en palabras simples
+3. El equipo: 4 estudiantes + 2 docentes investigadores
+4. Resultados alcanzados: investigación, métricas, modelo de datos
+5. Impacto potencial: otras facultades, PYMEs, organismos públicos
+6. Necesidades y cómo apoyar:
+   - Equipamiento (servidores, Raspberry Pi para edge computing)
+   - Becas de investigación para estudiantes
+   - Espacio físico en el laboratorio
+   - Vinculación con empresas del sector
+7. Conclusión: invertir en I+D+i universitario es invertir en el futuro tecnológico del país
+```
+
+**Qué incluir que no está en el artículo académico**:
+- Fotos del equipo y del laboratorio (valor humano)
+- Testimonios de estudiantes (valor social)
+- Cotizaciones comparativas: "esto cuesta en el mercado vs. lo que cuesta acá"
+- Logros concretos en lenguaje de gestión: "4 estudiantes formados", "3 documentos de investigación", "5 métricas identificadas"
+- Datos de contacto para interesados en apoyar
+
+**Dónde publicarlo**:
+| Canal | Por qué |
+|-------|---------|
+| **Revista de Extensión UTN** | Llega a autoridades de toda la UTN |
+| **Boletín GIDAS/InfraIT** | Audiencia interna del grupo de investigación |
+| **LinkedIn (publicación del equipo)** | Visibilidad profesional, posibles sponsors |
+| **Nota en el sitio de la UTN FrLP** | Prensa institucional, difusión masiva |
+| **Presentación en Consejo Directivo** | Búsqueda de aval institucional y recursos |
+| **Revista Gerencia & Tecnología** | Llega a decisores de empresas |
+| **Foros de innovación educativa** | Conexión con otras unidades académicas |
+
+---
+
+### 8.8. Tabla Comparativa de Enfoques
 
 | Revista | Ángulo principal | Audiencia | Tono | Técnico? | Ideal para |
 |---------|-----------------|-----------|------|----------|------------|
@@ -526,6 +607,7 @@ El artículo ya escrito en `papers/divulgacion-intellops/articulo.md` puede adap
 
 | Prioridad | Artículo | Revista | Plazo submission | Autor principal |
 |-----------|----------|---------|-----------------|-----------------|
+| 🔴 **Inmediata** | Comercial 1: "IntellOps: captación de interesados" | Revista de Extensión UTN / LinkedIn | **Agosto 2026** | Emanuel |
 | 🔴 **Inmediata** | Regional 1: "IntellOps: visión general" | Ingenio Tecnológico / RASI | **Agosto 2026** | Emanuel |
 | 🔴 **Inmediata** | Regional 2: "Selección de métricas RUM" | Ciencia y Tecnología UTN | **Agosto 2026** | Romeo |
 | 🔴 **Inmediata** | JAIIO 2026: "DevOps en I+D+i" | Anales JAIIO (SLCARS) | **Jul-Ago 2026** | Santiago |
