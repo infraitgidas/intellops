@@ -1,24 +1,24 @@
-# **<u>Análisis de Caso de Negocio, Estado del Arte y Benchmark de Productos</u>** 
+# Análisis de Caso de Negocio, Estado del Arte y Benchmark de Productos 
 
-### **<u>Resumen Ejecutivo y Visión de IntellOps</u>** 
+### Resumen Ejecutivo y Visión de IntellOps 
 
-### **<u>Contexto del proyecto</u>** 
+### Contexto del proyecto 
 
 El presente documento se enmarca en las actividades científicas y académicas del Grupo de Investigación y Desarrollo Aplicado a Sistemas Informáticos y Computacionales (GIDAS), perteneciente a la Universidad Tecnológica Nacional, Facultad Regional La Plata (UTN FRLP). Específicamente, este informe consolida los fundamentos teóricos para el subproyecto denominado IntellOps (SP-2). 
 
-### **<u>Visión General</u>** 
+### Visión General 
 
 La visión estratégica de IntellOps consiste en la conceptualización y construcción de un Producto Mínimo Viable (MVP) —un prototipo funcional de software— orientado a democratizar el monitoreo continuo y el análisis predictivo de infraestructuras tecnológicas. Eludiendo la alta carga financiera de las plataformas comerciales privativas y la enorme complejidad de integración manual del ecosistema puro de código abierto, la solución propone aplicar modelos de Machine Learning de forma nativa sobre Series Temporales para lograr una verdadera detección predictiva de anomalías. Apoyado sobre un agente ligero programado en Python, el sistema permitirá ejecutar inferencia matemática en recursos locales o de borde (Edge Computing), ofreciendo protección a los valiosos clústeres de investigación universitarios sin interferir con sus cargas de trabajo principales. 
 
-### **<u>Objetivo del Documento</u>** 
+### Objetivo del Documento 
 
 El objetivo primordial de este informe es justificar de manera teórica, técnica y analítica la viabilidad y necesidad del desarrollo del MVP de IntellOps, estableciendo los cimientos estratégicos antes de proceder a las fases de diseño arquitectónico e implementación. 
 
-## **2. Relevamiento de Herramientas Existentes y posibles soluciones** 
+## 2. Relevamiento de Herramientas Existentes y posibles soluciones 
 
 Para comprender cómo construir una solución viable y robusta en un entorno de laboratorio académico con recursos escasos, es imperativo diseccionar a nivel técnico el funcionamiento interno ("bajo el capó") de las herramientas hegemónicas del mercado. El objetivo es identificar las metodologías que las hacen exitosas y los diseños que las hacen inalcanzables, para finalmente extraer un patrón arquitectónico que sea aplicable a la propuesta de IntellOps. 
 
-### **2.1. Soluciones Comerciales (Datadog, New Relic, Dynatrace): El Paradigma de la "Caja Negra" SaaS** 
+### 2.1. Soluciones Comerciales (Datadog, New Relic, Dynatrace): El Paradigma de la "Caja Negra" SaaS 
 
 Las grandes plataformas comerciales operan bajo un modelo centralizado de Software as a Service (SaaS). Su arquitectura se divide fundamentalmente en dos partes: agentes locales propietarios de recolección y un motor analítico masivo en la nube pública. 
 
@@ -28,7 +28,7 @@ Es en la nube del proveedor donde ocurre el verdadero diferencial tecnológico: 
 
 Alcance y Barreras para Entornos Académicos: El alcance funcional es sobresaliente, pero el mecanismo operativo es económicamente inviable para un laboratorio universitario público. El problema técnico-financiero radica en que estas empresas cobran por el "derecho informático" de enviar, procesar y retener los datos en sus nubes. Los esquemas de precios de New Relic y Datadog, por ejemplo, imponen cargos que oscilan entre $0.40 y $0.60 USD por gigabyte ingerido, además de aplicar trampas de facturación basadas en el "high-water mark" o pico máximo de uso de hosts/contenedores. Un clúster de investigación de tamaño mediano que genere grandes volúmenes de telemetría de red y registros experimentales incurriría en decenas de miles de dólares anuales en costos de retención. Además, los algoritmos de detección son "cajas negras": no pueden ser auditados, modificados ni ejecutados localmente, lo que atenta contra la soberanía de los datos académicos. 
 
-### **2.2. Alternativas Open Source (Prometheus + Grafana): El Paradigma Desacoplado y Manual** 
+### 2.2. Alternativas Open Source (Prometheus + Grafana): El Paradigma Desacoplado y Manual 
 
 El ecosistema Open Source dominado por la Cloud Native Computing Foundation (CNCF) ofrece un enfoque diametralmente opuesto. La dupla de Prometheus (para almacenamiento y consulta) y Grafana (para visualización) reina en las infraestructuras de Kubernetes. 
 
@@ -48,7 +48,7 @@ Orquestar bucles asíncronos que reinyecten las predicciones al sistema original
 
 Un laboratorio universitario carece del equipo dedicado de MLOps necesario para sostener y afinar permanentemente esta arquitectura frágil y desarticulada, que además penaliza severamente el consumo de CPU y memoria del clúster destinado a la investigación científica. 
 
-### **2.3. Hacia una Solución Factible: La Estrategia Arquitectónica de IntellOps** 
+### 2.3. Hacia una Solución Factible: La Estrategia Arquitectónica de IntellOps 
 
 Tras analizar detalladamente ambos mundos, resulta claro cómo derivar una solución tecnológica factible y poderosa para instituciones con presupuestos deprimidos: se debe extraer la inteligencia de la nube y compactarla en el borde (Edge Computing) utilizando las herramientas del ecosistema abierto. 
 
@@ -58,15 +58,15 @@ Agente Ligero en Python (Telemetría eficiente y local): En lugar de instalar co
 
 Inferencia Algorítmica Inteligente pero Frugal: Para obtener el nivel de detección de Datadog sin sus servidores masivos, se implementa un modelo de detección directamente acoplado al colector. Se recurre a Isolation Forest, un algoritmo de partición espacial con una complejidad lineal, para efectuar un filtrado de primera línea identificando picos bruscos y ataques estocásticos con una huella en memoria casi indetectable. 
 
-Análisis Secuencial Profundo Controlado: Únicamente sobre los subconjuntos de datos marcados como sospechosos, se activa la inferencia de redes LSTM Autoencoders preentrenadas. Las arquitecturas basadas en LSTM comprenden la cronología temporal y las anomalías de tendencia lenta, otorgando la profundidad analítica necesaria pero consumiendo 
+Análisis Secuencial Profundo Controlado: Únicamente sobre los subconjuntos de datos marcados como sospechosos, se activa la inferencia de redes LSTM Autoencoders pre-entrenadas. Las arquitecturas basadas en LSTM comprenden la cronología temporal y las anomalías de tendencia lenta, otorgando la profundidad analítica necesaria pero consumiendo 
 
 ciclos de cómputo solo cuando es estrictamente necesario, evitando así la saturación del hardware del laboratorio que debe priorizar sus simulaciones. 
 
 Al aplicar de forma local (Edge AI) este conjunto dual de algoritmos sobre una recolección en Python, se logra emular las capacidades predictivas proactivas de las plataformas comerciales de pago, eliminando simultáneamente los costos punitivos de licenciamiento y erradicando el esfuerzo insostenible de integrar ecosistemas fragmentados de código abierto. Esta es la síntesis arquitectónica que hace viable a IntellOps en el marco de la rigidez presupuestaria académica nacional. 
 
-## **3. Área de Aspectos de Seguridad y Gobernabilidad del Software** 
+## 3. Área de Aspectos de Seguridad y Gobernabilidad del Software 
 
-3.1 Seguridad en el Agente de Captura (Data Collection Security) 
+### 3.1 Seguridad en el Agente de Captura (Data Collection Security) 
 
 Las plataformas comerciales de observabilidad modernas, como Datadog, Dynatrace y New Relic, basan gran parte de su funcionamiento en agentes instalados directamente sobre los sistemas monitoreados. Estos agentes ejecutan tareas de captura continua de métricas, eventos, registros y trazas, convirtiéndose en el punto de entrada principal de toda la información utilizada posteriormente por los motores de análisis y detección de anomalías. 
 
@@ -108,7 +108,7 @@ La arquitectura propuesta para IntellOps se apoya principalmente en tecnologías
 
 La incorporación de herramientas automáticas de auditoría de paquetes permite detectar vulnerabilidades sin demandar recursos adicionales significativos, manteniendo coherencia con las restricciones operativas propias de un proyecto de investigación. En materia de licenciamiento, Apache 2.0 surge como una alternativa adecuada para un eventual proceso de transferencia tecnológica, ya que conserva el carácter abierto del proyecto mientras facilita su adopción futura por otras instituciones académicas u organizaciones interesadas en extender la plataforma. 
 
-## **4. Área de Quality Assurance (QA) y Estrategias de Validación** 
+## 4. Área de Quality Assurance (QA) y Estrategias de Validación 
 
 ### 4.1 Estrategia de Validación de Ingesta y Concurrencia 
 
@@ -120,7 +120,7 @@ Aunque IntellOps no persigue escalas equivalentes a las plataformas comerciales,
 
 ### 4.2 Benchmarking y Métricas de Calidad en Modelos de ML 
 
-La evaluación de algoritmos de detección de anomalías en AIOps requiere métricas capaces de medir adecuadamente la identificación de eventos poco frecuentes. Precision, Recall y F1Score se han consolidado como los indicadores más utilizados para evaluar la calidad de modelos aplicados a series temporales. 
+La evaluación de algoritmos de detección de anomalías en AIOps requiere métricas capaces de medir adecuadamente la identificación de eventos poco frecuentes. Precision, Recall y F1-Score se han consolidado como los indicadores más utilizados para evaluar la calidad de modelos aplicados a series temporales. 
 
 Las plataformas modernas priorizan la reducción de falsos positivos debido al impacto operativo que generan sobre los equipos responsables del monitoreo. Como consecuencia, los modelos suelen complementarse con mecanismos de correlación de eventos, análisis contextual y umbrales dinámicos para mejorar la precisión de las alertas. 
 
@@ -134,35 +134,35 @@ Las organizaciones que operan infraestructuras críticas utilizan pruebas destru
 
 El entorno de laboratorio permite reproducir versiones simplificadas de estos escenarios mediante generación artificial de carga, consumo de recursos o interrupción de servicios monitoreados. Estas pruebas proporcionarán conjuntos de datos controlados para validar el comportamiento de la plataforma desde la captura de métricas hasta la generación de alertas. 
 
-# **<u>Referencias</u>** 
+# Referencias 
 
-- **Aguerre Guerisoli, F. (2025).** _Desarrollo de una prueba de concepto de prácticas AIOps_ . Repositorio Digital RAD. 
+- Aguerre Guerisoli, F. (2025). _Desarrollo de una prueba de concepto de prácticas AIOps_ . Repositorio Digital RAD. 
 
-   - <u>https://rad.ort.edu.uy/handle/20.500.11968/7773.</u> _(Este es un excelente proyecto académico en español que detalla la instrumentación de una arquitectura con OpenTelemetry, la integración de Prometheus/Grafana y el uso del algoritmo Isolation Forest)._ 
+   - https://rad.ort.edu.uy/handle/20.500.11968/7773. _(Este es un excelente proyecto académico en español que detalla la instrumentación de una arquitectura con OpenTelemetry, la integración de Prometheus/Grafana y el uso del algoritmo Isolation Forest)._ 
 
-- **Rathor, G. (2025).** Observability: anomaly detection at scale with prometheus. _International Journal of Computational and Experimental Science and Engineering, 11_ (4). 
+- Rathor, G. (2025). Observability: anomaly detection at scale with prometheus. _International Journal of Computational and Experimental Science and Engineering, 11_ (4). 
 
-<u>https://www.ijcesen.com/index.php/ijcesen/article/view/4576.</u> 
+https://www.ijcesen.com/index.php/ijcesen/article/view/4576. 
 
-- **Sanches, J., & Pereira, P. R. (2026).** Network and Systems Monitoring with Prometheus and Grafana. En A. Rocha, C. J. Costa, F. García Peñalvo, & R. Gonçalves (Eds.), _Proceedings of 20th Iberian Conference on Information Systems and Technologies (CISTI 2025) - Volume 1_ (pp. 367-378). Springer. <u>https://doi.org/10.1007/978-3-032-10929-3_32.</u> 
+- Sanches, J., & Pereira, P. R. (2026). Network and Systems Monitoring with Prometheus and Grafana. En A. Rocha, C. J. Costa, F. García Peñalvo, & R. Gonçalves (Eds.), _Proceedings of 20th Iberian Conference on Information Systems and Technologies (CISTI 2025) - Volume 1_ (pp. 367-378). Springer. https://doi.org/10.1007/978-3-032-10929-3_32. 
 
-- **Shaheen, Q. J., & Alomari, E. S. (s.f.).** A novel anomaly detection-based hybrid model for the prediction of ransomware attacks by monitoring network traffic. _International Journal of Advanced Science and Information Systems_ . <u>https://xlescience.org/index.php/IJASIS/article/view/1442.</u> 
+- Shaheen, Q. J., & Alomari, E. S. (s.f.). A novel anomaly detection-based hybrid model for the prediction of ransomware attacks by monitoring network traffic. _International Journal of Advanced Science and Information Systems_ . https://xlescience.org/index.php/IJASIS/article/view/1442. 
 
-- **Zhong, Z., Fan, Q., Zhang, J., Ma, M., Zhang, S., Sun, Y., Lin, Q., Zhang, Y., & Pei, D. (2023).** A Survey of Time Series Anomaly Detection Methods in the AIOps Domain. _arXiv preprint arXiv:2308.00393_ . <u>https://doi.org/10.48550/arXiv.2308.00393.</u> 
+- Zhong, Z., Fan, Q., Zhang, J., Ma, M., Zhang, S., Sun, Y., Lin, Q., Zhang, Y., & Pei, D. (2023). A Survey of Time Series Anomaly Detection Methods in the AIOps Domain. _arXiv preprint arXiv:2308.00393_ . https://doi.org/10.48550/arXiv.2308.00393. 
 
-- Cobb, C., Sudar, S., Reiter, N., Anderson, R., Roesner, F., & Kohno, T. (2018). _Computer Security for Data Collection Technologies_ . _Development Engineering, 3_ , 1–11. <u>https://www.sciencedirect.com/science/article/pii/S2352728516300677</u> 
+- Cobb, C., Sudar, S., Reiter, N., Anderson, R., Roesner, F., & Kohno, T. (2018). _Computer Security for Data Collection Technologies_ . _Development Engineering, 3_ , 1–11. https://www.sciencedirect.com/science/article/pii/S2352728516300677 
 
 - Jing, X., Yan, Z., Pedrycz, W., & Chen, L. (2019). _Security Data Collection and Data Analytics in the Internet: A Survey_ . _IEEE Communications Surveys & Tutorials, 21_ (1), 586–618. 
 
-<u>https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8428412</u> 
+https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8428412 
 
 - GitHub. (s.f.). _GitHub Documentation_ . https://docs.github.com 
 
-- OpenTelemetry Authors. (s.f.). _OpenTelemetry Documentation_ . <u>https://opentelemetry.io/docs/</u> 
+- OpenTelemetry Authors. (s.f.). _OpenTelemetry Documentation_ . https://opentelemetry.io/docs/ 
 
 - OWASP Foundation. (s.f.). _OWASP Foundation_ . https://owasp.org 
 
-- Rathor, G. (2025). Observability: Anomaly Detection at Scale with Prometheus. <u>https://www.ijcesen.com/index.php/ijcesen/article/view/4576</u> 
+- Rathor, G. (2025). Observability: Anomaly Detection at Scale with Prometheus. https://www.ijcesen.com/index.php/ijcesen/article/view/4576 
 
 - Basiri, A., et al. (2017). Chaos Engineering. https://arxiv.org/abs/1702.05843 
 
