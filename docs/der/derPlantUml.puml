@@ -1,0 +1,122 @@
+@startuml
+!theme plain
+skinparam roundcorner 10
+skinparam linetype ortho
+skinparam shadowing false
+skinparam class {
+    BackgroundColor white
+    ArrowColor #2688d4
+    BorderColor #2688d4
+}
+
+entity "APPLICATION" as app {
+  * app_id : UUID <<PK>>
+  --
+  name : String
+  description : String
+  created_at : Datetime
+}
+
+entity "LAB_USER" as user {
+  * user_id : UUID <<PK>>
+  --
+  name : String
+  email : String
+  password_hash : String
+  role : String (Admin, Researcher)
+  is_active : Boolean
+  last_login : Datetime
+  created_at : Datetime
+}
+
+entity "USER_FAVORITE_METRIC" as fav {
+  * favorite_id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  metric_type : String
+  default_time_window : String
+  added_at : Datetime
+}
+
+entity "USER_SESSION" as session {
+  * session_id : UUID <<PK>>
+  --
+  app_id : UUID <<FK>>
+  user_id : UUID <<FK>> <<nullable>>
+  ip_address : String
+  user_agent : String
+  os_version : String
+  start_timestamp : Datetime
+  end_timestamp : Datetime <<nullable>>
+  duration_ms : Int <<nullable>>
+}
+
+entity "RUM_METRIC" as metric {
+  * metric_id : UUID <<PK>>
+  --
+  session_id : UUID <<FK>>
+  metric_type : String 
+  value : Float
+  unit : String (ms, count)
+  page_url : Text
+  metadata : JSONB
+  timestamp : Datetime
+}
+
+entity "JS_EXCEPTION" as exception {
+  * error_id : UUID <<PK>>
+  --
+  session_id : UUID <<FK>>
+  metric_id : UUID <<FK>> <<nullable>>
+  error_type : String
+  message : Text
+  stack_trace : Text
+  timestamp : Datetime
+}
+
+entity "ML_MODEL" as model {
+  * model_id : UUID <<PK>>
+  --
+  name : String
+  target_metric : String
+  version : String
+  status : String (active, deprecated, training)
+  hyperparameters : JSONB
+  last_trained_at : Datetime
+}
+
+entity "ANOMALY" as anomaly {
+  * anomaly_id : UUID <<PK>>
+  --
+  metric_id : UUID <<FK>>
+  model_id : UUID <<FK>>
+  expected_value : Float
+  actual_value : Float
+  severity_score : Float
+  confidence_score : Float
+  timestamp : Datetime
+}
+
+entity "ALERT" as alert {
+  * alert_id : UUID <<PK>>
+  --
+  anomaly_id : UUID <<FK>>
+  recipient : String
+  channel : String (Telegram, WhatsApp, Email)
+  message : Text
+  status : String
+  sent_at : Datetime
+}
+
+' Relaciones
+app "1" -- "0..*" session : registra >
+user "1" -- "0..*" fav : configura >
+user "1" -- "0..*" session : genera >
+session "1" -- "0..*" metric : contiene >
+session "1" -- "0..*" exception : experimenta >
+metric "1" -- "0..1" exception : asociada_a >
+metric "1" -- "0..*" anomaly : detectada_en >
+model "1" -- "0..*" anomaly : predice >
+anomaly "1" -- "0..*" alert : dispara >
+
+@enduml
