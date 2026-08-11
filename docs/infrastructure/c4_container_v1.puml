@@ -1,0 +1,42 @@
+@startuml IntellOps-C4-Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title IntellOps - Diagrama de Contenedores (C4)
+
+Person(admin, "Administrador GIDAS")
+
+System_Boundary(intellops, "IntellOps") {
+    Container(backend, "Backend", "Python (FastAPI)", "API principal, Clean Architecture")
+    Container(ml, "Algoritmo de detección de alertas", "Python / IA", "Modelo preentrenado para detección de anomalías")
+    Container(web, "Interfaz Web", "React/Next", "Dashboard de monitoreo en tiempo real")
+    Container(notif, "Api Telegram/Email", "Python", "Envío de avisos de anomalías")
+    ContainerDb(db, "DB", "PostgreSQL", "Métricas y anomalías")
+    Container(srv1, "Servidor", "Agente recolección", "Recolección de datos")
+    Container(srv2, "Servidor", "Agente recolección", "Recolección de datos")
+    Container(srv3, "Servidor", "Agente recolección", "Recolección de datos")
+}
+
+System_Ext(gitlab, "Repositorio GitLab")
+System_Ext(cicd, "Pipeline CI/CD")
+System_Ext(qa, "Módulo QA")
+System_Ext(reports, "Informes de Seguridad", "CIS, LGTM")
+
+Rel(db, backend, "Recolección de datos")
+Rel(srv1, backend, "Recolección de datos")
+Rel(srv2, backend, "Recolección de datos")
+Rel(srv3, backend, "Recolección de datos")
+Rel(backend, ml, "Datos procesados de los servicios")
+Rel(ml, backend, "Informe de anomalías/comportamiento inusual")
+Rel(backend, web, "Sirve datos")
+Rel(web, admin, "Monitoreo en tiempo real")
+Rel(backend, notif, "Dispara alerta")
+Rel(notif, admin, "Aviso de anomalías vía Telegram/Email")
+Rel(admin, gitlab, "Gestiona código")
+Rel(gitlab, cicd, "")
+Rel(gitlab, qa, "")
+Rel(intellops, reports, "Genera informe")
+Rel(reports, admin, "Envía informe de seguridad")
+
+@enduml
