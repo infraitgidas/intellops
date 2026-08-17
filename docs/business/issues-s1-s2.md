@@ -55,7 +55,6 @@ El EDT asume un proyecto que arranca de cero. La realidad del repo es otra:
 **Criterios de aceptación**:
 - [ ] ADR que registra PostgreSQL 16 + JSONB como DB definitiva (reemplaza SQLite).
 - [ ] ADR que registra la arquitectura de 4 contenedores (`intellops-core`, `intellops-ai-engine`, `intellops-db`, `intellops-comms`) y qué pasa con el stack LGTM (descarta, aplaza o conserva Netdata como self-monitoring).
-- [ ] Ramas `docs/meeting-2026-08-12` y `docs/architecture-isolation-and-traceability` mergeadas a `main`.
 - [ ] `docs/infrastructure/c4_container_v1.puml` actualizado o marcado como histórico.
 - [ ] Ownership de módulos ratificado (EDT vs TEAM_CHARTER) y documentado.
 
