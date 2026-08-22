@@ -49,8 +49,8 @@ El EDT asume un proyecto que arranca de cero. La realidad del repo es otra:
 - **Etiquetas**: `sprint-1`, `decision`, `arquitectura`, `docs`
 - **Dependencias**: —
 - **Prioridad**: Alta · **Bloqueante**
-
-**Descripción**: El repo tiene 3 arquitecturas en conflicto (spec LGTM 13 contenedores, C4 desactualizado, diseño agosto 4 contenedores + PostgreSQL) y 3 ramas de documentación sin mergear. Resolver y registrar.
+- **Ramas** docs/meeting-2026-08-12 y docs/architecture-isolation-and-traceability mergeadas a develop.
+**Descripción**: El repo tiene 3 arquitecturas en conflicto (spec LGTM 13 contenedores, C4 desactualizado, diseño agosto 4 contenedores + PostgreSQL)
 
 **Criterios de aceptación**:
 - [ ] ADR que registra PostgreSQL 16 + JSONB como DB definitiva (reemplaza SQLite).
