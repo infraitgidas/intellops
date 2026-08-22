@@ -1,0 +1,124 @@
+asyncapi: 3.0.3
+info:
+  title: IntellOps AsyncAPI Contracts
+  version: 1.0.0
+  description: Contratos de eventos asíncronos de IntellOps - Sprint 1
+channels:
+  anomaly/detected:
+    summary: Nueva anomalía detectada
+    description: Se detectó una anomalía en el sistema de observabilidad
+    message:
+      summary: AnomalyEvent
+      payload:
+        $ref: '#/components/messages/AnomalyEvent'
+  alert/triggered:
+    summary: Alerta disparada
+    description: Se disparó una alerta en el sistema
+    message:
+      summary: AlertEvent
+      payload:
+        $ref: '#/components/messages/AlertEvent'
+  metrics/batch:
+    summary: Lote de métricas procesado
+    description: Lote de métricas OTel procesado correctamente
+    message:
+      summary: MetricBatchEvent
+      payload:
+        $ref: '#/components/messages/MetricBatchEvent'
+  system/health:
+    summary: Cambio de estado de salud
+    description: Cambio en el estado de salud del sistema
+    message:
+      summary: HealthEvent
+      payload:
+        $ref: '#/components/messages/HealthEvent'
+components:
+  messages:
+    AnomalyEvent:
+      summary: AnomalyEvent
+      payload:
+        type: object
+        properties:
+          id:
+            type: string
+            format: uuid
+          metric_name:
+            type: string
+          detected_at:
+            type: string
+            format: date-time
+          score:
+            type: number
+            description: "Puntaje de anomalía (0-1), > 0.8 es anómalo"
+          severity:
+            type: string
+            enum: [low, medium, high, critical]
+          detector:
+            type: string
+            enum: [isolation_forest, zscore, seasonal, ensemble]
+          description:
+            type: string
+            description: "Descripción legible de la anomalía"
+    AlertEvent:
+      summary: AlertEvent
+      payload:
+        type: object
+        properties:
+          id:
+            type: string
+            format: uuid
+          message:
+            type: string
+          severity:
+            type: string
+            enum: [low, medium, high, critical]
+          status:
+            type: string
+            enum: [pending, sent, failed]
+          sent_at:
+            type: string
+            format: date-time
+            description: "Cuándo se despachó la alerta"
+          created_at:
+            type: string
+            format: date-time
+            description: "Cuándo se creó la alerta"
+    MetricBatchEvent:
+      summary: MetricBatchEvent
+      payload:
+        type: object
+        properties:
+          source:
+            type: string
+            description: "Identificador del agente/servicio"
+          metrics:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: "Nombre de la métrica"
+                value:
+                  type: number
+                  description: "Valor numérico"
+                timestamp:
+                  type: integer
+                  description: "Unix timestamp en segundos"
+          timestamp:
+            type: integer
+            description: "Unix timestamp del lote"
+    HealthEvent:
+      summary: HealthEvent
+      payload:
+        type: object
+        properties:
+          status:
+            type: string
+            enum: [healthy, degraded, unhealthy]
+          timestamp:
+            type: integer
+            description: "Unix timestamp del evento"
+          details:
+            type: string
+            description: "Detalles adicionales del estado"
