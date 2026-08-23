@@ -1,0 +1,39 @@
+@startuml intellops_arquitectura_4_contenedores
+skinparam componentStyle rectangle
+skinparam backgroundColor transparent
+skinparam defaultTextAlignment center
+
+actor "Investigador / Admin GIDAS" as admin
+actor "Agente RUM\n(navegador cliente)" as rum
+queue "Telegram / Email" as notif
+
+package "Servidor — Docker Compose (4 contenedores)" {
+  component "intellops-core\nFastAPI · ingesta" as core
+  component "intellops-db\nPostgreSQL 16" as db
+  component "intellops-ai-engine\nML worker + LLM" as ai
+  component "intellops-comms\nNotificaciones" as comms
+}
+
+admin --> core : HTTP/REST\n(dashboards, gestión)
+rum --> core : Telemetría\n(masiva, asíncrona)
+
+core --> db : Insert/Update\n(APPLICATION, LAB_USER,\nUSER_SESSION, RUM_METRIC,\nJS_EXCEPTION,\nUSER_FAVORITE_METRIC)
+ai --> db : Read batch (RUM_METRIC)\nCRUD (ML_MODEL, ANOMALY)\nInsert (ALERT, estado Pending)
+comms --> db : Read/Update (ALERT)\nRead (ANOMALY)
+
+comms --> notif : Despacho de alertas
+
+note bottom of ai
+  Aislado con límites
+  estrictos de cgroups
+  (OOM Kill no afecta al core)
+  Llama 1B redacta el mensaje
+  y crea el ALERT en Pending
+end note
+
+note right of comms
+  Retry pattern con
+  backoff exponencial
+end note
+
+@enduml
