@@ -8,7 +8,7 @@ context: |
   Organización: Grupo GIDAS — UTN Facultad Regional La Plata
   Equipo: InfraIT (Coordinador: Emanuel Rodriguez)
   Director: Ing. Leopoldo Nahuel
-  Stack: FastAPI + React + SQLite + scikit-learn + Llama 3.2 1B (llama.cpp) + sentence-transformers + Chroma + Docker Compose + Netdata + Prometheus + Grafana + Loki
+  Stack: FastAPI + React + PostgreSQL 16 + JSONB + scikit-learn + Llama 3.2 1B (llama.cpp) + sentence-transformers + Chroma + Docker Compose + Netdata + Prometheus + Grafana + Loki
   Arquitectura: Monolito modular, API-first (OpenAPI 3.1 + AsyncAPI 3.0), contract-driven
   Testing: pytest + pytest-cov (unit), Locust/k6 (carga), schemathesis (contract)
   Estilo: PEP8 (Flake8) + Pylint, OpenAPI 3.1 para contratos

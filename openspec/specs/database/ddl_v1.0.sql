@@ -1,217 +1,336 @@
--- DDL v1.0 — Generado desde DER v1.2 (ISS-S1-02)
--- Fecha: 2026-08-22
--- Entidades: APPLICATION, LAB_USER, USER_FAVORITE_METRIC, USER_SESSION, RUM_METRIC, JS_EXCEPTION, ML_MODEL, ANOMALY, ALERT
--- Base: SQLite (migrable a TimescaleDB)
+-- IntellOps - DDL PostgreSQL 16
+-- DER v1.2 + catálogos de futura ampliación
+-- PostgreSQL 16 + JSONB
+--
+-- Entidades principales: UUID
+-- Tablas catálogo: SMALLINT GENERATED ALWAYS AS IDENTITY
+-- Los valores booleanos se mantienen como BOOLEAN.
+
+BEGIN;
 
 -- ============================================================
--- Tabla: APPLICATION
+-- 1. CATÁLOGOS
 -- ============================================================
--- Propósito: Gestiona el entorno multi-tenant. Contiene los api_token
--- que identifican de dónde provienen los datos.
+
+CREATE TABLE metric_type (
+    metric_type_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE user_role (
+    role_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(30) NOT NULL UNIQUE,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE model_status (
+    status_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(30) NOT NULL UNIQUE,
+    description TEXT
+);
+
+CREATE TABLE alert_status (
+    status_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(30) NOT NULL UNIQUE,
+    description TEXT
+);
+
+CREATE TABLE alert_channel (
+    channel_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(30) NOT NULL UNIQUE,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
 -- ============================================================
-CREATE TABLE IF NOT EXISTS application (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+-- 2. APPLICATION
+-- ============================================================
+
+CREATE TABLE application (
+    app_id UUID PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    api_token TEXT UNIQUE NOT NULL
-);
-
--- Índice para búsquedas por api_token (usado en validación de auth)
-CREATE INDEX IF NOT EXISTS idx_application_api_token ON application(api_token);
-
--- ============================================================
--- Tabla: LAB_USER
--- ============================================================
--- Propósito: Usuarios del laboratorio con acceso al sistema.
--- El Core gestiona el entorno multi-tenant a través de esta tabla.
--- ============================================================
-CREATE TABLE IF NOT EXISTS lab_user (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT UNIQUE,
-    hashed_password TEXT NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    is_superuser BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================
--- Tabla: USER_FAVORITE_METRIC
+-- 3. LAB_USER
 -- ============================================================
--- Propósito: Métricas favoritas de cada usuario para quick access en dashboard.
--- ============================================================
-CREATE TABLE IF NOT EXISTS user_favorite_metric (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    metric_name TEXT NOT NULL,
-    metric_source TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, metric_name),
-    FOREIGN KEY (user_id) REFERENCES lab_user(id) ON DELETE CASCADE
+
+CREATE TABLE lab_user (
+    user_id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    role_id SMALLINT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_login TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_lab_user_role
+        FOREIGN KEY (role_id)
+        REFERENCES user_role(role_id)
+        ON DELETE RESTRICT
 );
 
--- Índice para búsquedas por usuario
-CREATE INDEX IF NOT EXISTS idx_ufm_user_id ON user_favorite_metric(user_id);
+CREATE INDEX idx_lab_user_role_id
+    ON lab_user(role_id);
 
 -- ============================================================
--- Tabla: USER_SESSION
+-- 4. USER_FAVORITE_METRIC
 -- ============================================================
--- Propósito: Sesiones de usuario activas para tracking de contexto.
--- ============================================================
-CREATE TABLE IF NOT EXISTS user_session (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    token TEXT UNIQUE NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES lab_user(id) ON DELETE CASCADE
+
+CREATE TABLE user_favorite_metric (
+    favorite_id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    metric_type_id SMALLINT NOT NULL,
+    default_time_window TEXT NOT NULL,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_user_favorite_metric_user
+        FOREIGN KEY (user_id)
+        REFERENCES lab_user(user_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_user_favorite_metric_type
+        FOREIGN KEY (metric_type_id)
+        REFERENCES metric_type(metric_type_id)
+        ON DELETE RESTRICT
 );
 
--- Índice para búsquedas por token (validación de sesión)
-CREATE INDEX IF NOT EXISTS idx_user_session_token ON user_session(token);
+CREATE INDEX idx_user_favorite_metric_user_id
+    ON user_favorite_metric(user_id);
+
+CREATE INDEX idx_user_favorite_metric_type_id
+    ON user_favorite_metric(metric_type_id);
 
 -- ============================================================
--- Tabla: RUM_METRIC
+-- 5. USER_SESSION
 -- ============================================================
--- Propósito: Métricas RUM (Real User Monitoring) recopiladas del agente JavaScript.
--- Almacenamiento optimizado para queries temporales y agregaciones.
--- ============================================================
-CREATE TABLE IF NOT EXISTS rum_metric (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    metric_name TEXT NOT NULL,
-    value REAL NOT NULL,
-    unit TEXT,
-    tags JSON DEFAULT '{}',
-    timestamp INTEGER NOT NULL,
-    source TEXT
+
+CREATE TABLE user_session (
+    session_id UUID PRIMARY KEY,
+    app_id UUID NOT NULL,
+    user_id UUID,
+    ip_address TEXT,
+    user_agent TEXT,
+    os_version TEXT,
+    start_timestamp TIMESTAMPTZ NOT NULL,
+    end_timestamp TIMESTAMPTZ,
+    duration_ms INTEGER,
+
+    CONSTRAINT fk_user_session_application
+        FOREIGN KEY (app_id)
+        REFERENCES application(app_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_user_session_user
+        FOREIGN KEY (user_id)
+        REFERENCES lab_user(user_id)
+        ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_rum_name ON rum_metric(metric_name);
-CREATE INDEX IF NOT EXISTS idx_rum_timestamp ON rum_metric(timestamp);
+CREATE INDEX idx_user_session_app_id
+    ON user_session(app_id);
+
+CREATE INDEX idx_user_session_user_id
+    ON user_session(user_id);
 
 -- ============================================================
--- Tabla: JS_EXCEPTION
+-- 6. RUM_METRIC
 -- ============================================================
--- Propósito: Excepciones capturadas por el agente RUM del navegador.
--- Almacena el stack trace y metadata para análisis de errores frontend.
+
+CREATE TABLE rum_metric (
+    metric_id UUID PRIMARY KEY,
+    session_id UUID NOT NULL,
+    metric_type_id SMALLINT NOT NULL,
+    value DOUBLE PRECISION NOT NULL,
+    unit TEXT NOT NULL,
+    page_url TEXT,
+    metadata JSONB,
+    timestamp TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT fk_rum_metric_session
+        FOREIGN KEY (session_id)
+        REFERENCES user_session(session_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_rum_metric_type
+        FOREIGN KEY (metric_type_id)
+        REFERENCES metric_type(metric_type_id)
+        ON DELETE RESTRICT
+);
+
+-- Índices definidos en el DER v1.2:
+-- (session_id, timestamp)
+-- (metric_type, timestamp DESC)
+CREATE INDEX idx_rum_metric_session_timestamp
+    ON rum_metric(session_id, timestamp);
+
+CREATE INDEX idx_rum_metric_type_timestamp
+    ON rum_metric(metric_type_id, timestamp DESC);
+
+-- Búsqueda eficiente sobre metadata JSONB.
+CREATE INDEX idx_rum_metric_metadata
+    ON rum_metric USING GIN(metadata);
+
 -- ============================================================
-CREATE TABLE IF NOT EXISTS js_exception (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+-- 7. JS_EXCEPTION
+-- ============================================================
+
+CREATE TABLE js_exception (
+    error_id UUID PRIMARY KEY,
+    session_id UUID NOT NULL,
+    metric_id UUID,
+    error_type TEXT NOT NULL,
     message TEXT NOT NULL,
     stack_trace TEXT,
-    filename TEXT,
-    lineno INTEGER,
-    colno INTEGER,
-    url TEXT,
-    severity TEXT DEFAULT 'medium',
-    timestamp INTEGER NOT NULL,
-    -- Relación con métrica RUM opcional
-    rum_metric_id INTEGER,
-    FOREIGN KEY (rum_metric_id) REFERENCES rum_metric(id) ON DELETE SET NULL
+    timestamp TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT fk_js_exception_session
+        FOREIGN KEY (session_id)
+        REFERENCES user_session(session_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_js_exception_metric
+        FOREIGN KEY (metric_id)
+        REFERENCES rum_metric(metric_id)
+        ON DELETE SET NULL
 );
 
--- Índice para búsquedas por severidad y tiempo
-CREATE INDEX IF NOT EXISTS idx_js_exception_severity ON js_exception(severity, timestamp);
+CREATE INDEX idx_js_exception_session_timestamp
+    ON js_exception(session_id, timestamp);
 
 -- ============================================================
--- Tabla: ML_MODEL
+-- 8. ML_MODEL
 -- ============================================================
--- Propósito: Almacena metadatos de los modelos ML entrenados y configuración.
--- El sistema usa Llama 3.2 1B GGUF 4-bit en recursos escasos.
--- ============================================================
-CREATE TABLE IF NOT EXISTS ml_model (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    model_name TEXT NOT NULL UNIQUE,
+
+CREATE TABLE ml_model (
+    model_id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    target_metric_id SMALLINT NOT NULL,
     version TEXT NOT NULL,
-    size_bytes INTEGER,
-    format TEXT DEFAULT 'GGUF',
-    n_gpu_layers INTEGER DEFAULT 0,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
+    status_id SMALLINT NOT NULL,
+    hyperparameters JSONB,
+    last_trained_at TIMESTAMPTZ,
+
+    CONSTRAINT fk_ml_model_target_metric
+        FOREIGN KEY (target_metric_id)
+        REFERENCES metric_type(metric_type_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_ml_model_status
+        FOREIGN KEY (status_id)
+        REFERENCES model_status(status_id)
+        ON DELETE RESTRICT
 );
 
+CREATE INDEX idx_ml_model_target_metric
+    ON ml_model(target_metric_id);
+
+CREATE INDEX idx_ml_model_status
+    ON ml_model(status_id);
+
 -- ============================================================
--- Tabla: ANOMALY
+-- 9. ANOMALY
 -- ============================================================
--- Propósito: Anomalías detectadas por el motor ML/estadístico.
--- Flujo: detección → inserción de evento → generación de alerta.
--- ============================================================
-CREATE TABLE IF NOT EXISTS anomaly (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    rum_metric_id INTEGER NOT NULL,
-    score REAL NOT NULL,
-    severity TEXT NOT NULL,
-    detector TEXT NOT NULL,
-    description TEXT,
-    expected_value REAL,
-    actual_value REAL,
-    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status TEXT DEFAULT 'pending',
-    FOREIGN KEY (rum_metric_id) REFERENCES rum_metric(id) ON DELETE CASCADE
+
+CREATE TABLE anomaly (
+    anomaly_id UUID PRIMARY KEY,
+    metric_id UUID NOT NULL,
+    model_id UUID NOT NULL,
+    expected_value DOUBLE PRECISION NOT NULL,
+    actual_value DOUBLE PRECISION NOT NULL,
+    severity_score DOUBLE PRECISION NOT NULL,
+    confidence_score DOUBLE PRECISION NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT fk_anomaly_metric
+        FOREIGN KEY (metric_id)
+        REFERENCES rum_metric(metric_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_anomaly_model
+        FOREIGN KEY (model_id)
+        REFERENCES ml_model(model_id)
+        ON DELETE RESTRICT
 );
 
--- Índices para queries de alertas y detección
-CREATE INDEX IF NOT EXISTS idx_anomaly_severity ON anomaly(severity, detected_at);
-CREATE INDEX IF NOT EXISTS idx_anomaly_status ON anomaly(status);
+CREATE INDEX idx_anomaly_timestamp
+    ON anomaly(timestamp);
+
+CREATE INDEX idx_anomaly_model_id
+    ON anomaly(model_id);
 
 -- ============================================================
--- Tabla: ALERT
+-- 10. ALERT
 -- ============================================================
--- Propósito: Alertas generadas a partir de anomalías detectadas.
--- Flujo: ANOMALY → reglas de negocio → ALERT (estado pending → sent/failed)
--- ============================================================
-CREATE TABLE IF NOT EXISTS alert (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    anomaly_id INTEGER NOT NULL,
+
+CREATE TABLE alert (
+    alert_id UUID PRIMARY KEY,
+    anomaly_id UUID NOT NULL,
+    recipient TEXT NOT NULL,
+    channel_id SMALLINT NOT NULL,
     message TEXT NOT NULL,
-    severity TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    sent_at TIMESTAMP,
-    channel TEXT,  -- 'telegram', 'slack', 'email', 'discord'
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (anomaly_id) REFERENCES anomaly(id) ON DELETE CASCADE
+    status_id SMALLINT NOT NULL,
+    sent_at TIMESTAMPTZ,
+
+    CONSTRAINT fk_alert_anomaly
+        FOREIGN KEY (anomaly_id)
+        REFERENCES anomaly(anomaly_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_alert_channel
+        FOREIGN KEY (channel_id)
+        REFERENCES alert_channel(channel_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_alert_status
+        FOREIGN KEY (status_id)
+        REFERENCES alert_status(status_id)
+        ON DELETE RESTRICT
 );
 
--- Índices para gestión de alertas
-CREATE INDEX IF NOT EXISTS idx_alert_status ON alert(status, created_at);
-CREATE INDEX IF NOT EXISTS idx_alert_channel ON alert(channel);
+CREATE INDEX idx_alert_status
+    ON alert(status_id);
+
+CREATE INDEX idx_alert_channel
+    ON alert(channel_id);
 
 -- ============================================================
--- Vista: resumen_observabilidad
+-- 11. DATOS INICIALES DE CATÁLOGOS
 -- ============================================================
--- Proporciona una vista consolidada para el dashboard y el asistente GenIA.
--- ============================================================
-CREATE VIEW IF NOT EXISTS v_observability_summary AS
-SELECT
-    'application' AS entity_type,
-    COUNT(*) AS total_records,
-    MAX(created_at) AS last_activity
-FROM application
-UNION ALL
-SELECT
-    'lab_user' AS entity_type,
-    COUNT(*) AS total_records,
-    MAX(created_at) AS last_activity
-FROM lab_user
-UNION ALL
-SELECT
-    'rum_metric' AS entity_type,
-    COUNT(*) AS total_records,
-    MAX(timestamp) AS last_data_point
-FROM rum_metric
-UNION ALL
-SELECT
-    'anomaly' AS entity_type,
-    COUNT(*) AS total_records,
-    MAX(detected_at) AS last_detection
-FROM anomaly
-UNION ALL
-SELECT
-    'alert' AS entity_type,
-    COUNT(*) AS total_records,
-    MAX(created_at) AS last_alert
-FROM alert;
+
+INSERT INTO metric_type (name, description)
+VALUES
+    ('TTFB', 'Time to First Byte'),
+    ('FCP', 'First Contentful Paint'),
+    ('XHR_LATENCY', 'Latencia de peticiones XHR/Fetch'),
+    ('JS_EXCEPTION_RATE', 'Tasa de excepciones JavaScript'),
+    ('RAGE_CLICK', 'Frecuencia de clics de frustración');
+
+INSERT INTO user_role (name, description)
+VALUES
+    ('Admin', 'Usuario administrador del sistema'),
+    ('Researcher', 'Usuario investigador');
+
+INSERT INTO model_status (name, description)
+VALUES
+    ('training', 'Modelo actualmente en entrenamiento'),
+    ('active', 'Modelo actualmente activo'),
+    ('deprecated', 'Modelo reemplazado o fuera de uso');
+
+INSERT INTO alert_status (name, description)
+VALUES
+    ('Pending', 'Alerta pendiente de envío'),
+    ('Sent', 'Alerta enviada correctamente'),
+    ('Failed', 'El envío de la alerta falló');
+
+INSERT INTO alert_channel (name, description)
+VALUES
+    ('Telegram', 'Notificación mediante Telegram'),
+    ('Email', 'Notificación mediante correo electrónico');
+
+COMMIT;
