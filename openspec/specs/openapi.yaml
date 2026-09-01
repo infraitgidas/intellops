@@ -1,0 +1,315 @@
+openapi: 3.1.0
+info:
+  title: IntellOps API Contracts
+  version: 1.0.0
+  description: Contratos versionados de la API de IntellOps - Sprint 1
+servers:
+  - url: http://localhost:8000
+    description: Servidor de desarrollo local
+paths:
+  /health:
+    get:
+      summary: Health check del sistema
+      operationId: healthCheck
+      responses:
+        '200':
+          description: OK
+  /ready:
+    get:
+      summary: Readiness check (dependencias listas)
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Ready
+  /metrics/ingest:
+    post:
+      summary: Ingesta de métricas OTel
+      operationId: ingestMetrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source:
+                  type: string
+                  description: "Identificador del agente/servicio"
+                metrics:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Metric'
+                timestamp:
+                  type: string
+                  format: date-time
+      responses:
+        '202':
+          description: "Métricas aceptadas para procesamiento"
+        '400':
+          description: "Payload inválido (schema validation error)"
+        '429':
+          description: "Rate limit excedido"
+  /metrics/query:
+    get:
+      summary: Consulta de métricas históricas
+      operationId: queryMetrics
+      responses:
+        '200':
+          description: Lista de métricas históricas
+  /metrics/list:
+    get:
+      summary: Listado de métricas disponibles
+      operationId: listMetrics
+      responses:
+        '200':
+          description: Listado de métricas disponibles
+  /anomalies:
+    get:
+      summary: Listado de anomalías detectadas
+      operationId: listAnomalies
+      responses:
+        '200':
+          description: Listado de anomalías
+  /anomalies/{id}:
+    get:
+      summary: Detalle de una anomalía específica
+      operationId: getAnomaly
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle de la anomalía
+  /predictions:
+    get:
+      summary: Predicciones actuales
+      operationId: listPredictions
+      responses:
+        '200':
+          description: Predicciones actuales
+  /predictions/forecast:
+    get:
+      summary: Forecasting conversacional
+      operationId: forecastPredictions
+      responses:
+        '200':
+          description: Forecasting conversacional
+  /alerts:
+    get:
+      summary: Listado de alertas
+      operationId: listAlerts
+      responses:
+        '200':
+          description: Listado de alertas
+  /alerts/config:
+    post:
+      summary: Configurar regla de alerta
+      operationId: configAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rule:
+                  type: string
+                  description: "Regla de alerta"
+                condition:
+                  type: object
+                  description: "Condición de la alerta"
+      responses:
+        '200':
+          description: Regla configurada
+  /alerts/{id}/ack:
+    put:
+      summary: Acknowledge de alerta
+      operationId: ackAlert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Alert acknowledged
+  /dashboard/summary:
+    get:
+      summary: Resumen para dashboard principal
+      operationId: dashboardSummary
+      responses:
+        '200':
+          description: Resumen para dashboard
+  /dashboard/heatmap:
+    get:
+      summary: Datos para mapa de calor
+      operationId: dashboardHeatmap
+      responses:
+        '200':
+          description: Datos para mapa de calor
+  /assistant/query:
+    post:
+      summary: Consulta al asistente GenIA
+      operationId: assistantQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: "Consulta en lenguaje natural"
+                context:
+                  type: object
+                  properties:
+                    timeRange:
+                      type: string
+                      description: "Rango temporal (ej: 'last 30m')"
+                    metricFilter:
+                      type: array
+                      items:
+                        type: string
+      responses:
+        '200':
+          description: Respuesta del asistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantResponse'
+        '429':
+          description: "LLM ocupado, reintentar"
+  /admin/config:
+    get:
+      summary: Configuración del sistema
+      operationId: getAdminConfig
+      responses:
+        '200':
+          description: Configuración del sistema
+    put:
+      summary: Actualizar configuración
+      operationId: updateAdminConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key:
+                  type: string
+                  description: "Clave de configuración"
+                value:
+                  type: string
+                  description: "Valor de la configuración"
+      responses:
+        '200':
+          description: Configuración actualizada
+  /admin/status:
+    get:
+      summary: Estado del sistema
+      operationId: getAdminStatus
+      responses:
+        '200':
+          description: Estado del sistema
+components:
+  schemas:
+    Metric:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "Nombre de la métrica (ej: cpu.usage.user)"
+        value:
+          type: number
+          description: "Valor numérico"
+        timestamp:
+          type: integer
+          description: "Unix timestamp en segundos"
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+            description: "Etiquetas contextuales (host, service, region)"
+        unit:
+          type: string
+          description: "Unidad de medida (percent, ms, count, bytes)"
+    AssistantResponse:
+      type: object
+      properties:
+        response:
+          type: string
+          description: "Respuesta del asistente en lenguaje natural"
+        root_cause:
+          type: string
+          description: "Causa raíz identificada"
+        recommended_actions:
+          type: array
+          items:
+            type: string
+            description: "Acciones recomendadas"
+    Anomaly:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        metric_name:
+          type: string
+        detected_at:
+          type: string
+          format: date-time
+        score:
+          type: number
+          description: "Puntaje de anomalía (0-1), > 0.8 es anómalo"
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        detector:
+          type: string
+          enum: [isolation_forest, zscore, seasonal, ensemble]
+        description:
+          type: string
+        metrics_snapshot:
+          type: object
+          description: "Métrica y ventana temporal del contexto"
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        status:
+          type: string
+          enum: [pending, sent, failed]
+        sent_at:
+          type: string
+          format: date-time
+          description: "Cuándo se despachó la alerta"
+        created_at:
+          type: string
+          format: date-time
+          description: "Cuándo se creó la alerta"
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  x-tag:
+    name: Public
+    description: Endpoints públicos o con auth menor
+    externalDocs:
+      description: Documentación completa
+      url: https://github.com/infraitgidas/intellops

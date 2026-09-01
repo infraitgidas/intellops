@@ -8,6 +8,12 @@
 
 ### 1.1. OpenAPI 3.1 — REST API
 
+**Arquitectura de nomenclatura unificada (ISS-S1-02):**
+Se decidió usar `/metrics/ingest` como endpoint canonical por sobre `/telemetry/metrics`,
+basado en la adopción existente en la especificación actual y para mantener compatibilidad
+con la convención de ingesta OTel del agente RUM. Todos los endpoints relacionados con
+métricas deben usar el prefijo `/metrics/`.
+
 **Archivo**: `openspec/specs/openapi.yaml` (por crear en primer cambio)
 
 | Método | Path | Propósito | Status |
