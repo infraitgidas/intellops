@@ -9,7 +9,9 @@ stack de docker-compose.
 import logging
 import time
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+)
 logger = logging.getLogger("intellops-ai-engine")
 
 if __name__ == "__main__":
