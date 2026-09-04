@@ -1,0 +1,18 @@
+[
+  {
+    "application_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "metric_id": "8bb38d38-9cb5-4521-8207-6cb5622a450a",
+    "metric_type_id": 1,
+    "timestamp": "2026-08-28T21:15:00Z",
+    "value": 1850.5,
+    "session_count": 25
+  },
+  {
+    "application_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "metric_id": "9cc49e49-0dc6-4632-9308-7dc6733b561b",
+    "metric_type_id": 5,
+    "timestamp": "2026-08-28T21:15:05Z",
+    "value": 12.0,
+    "session_count": 5
+  }
+]
