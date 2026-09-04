@@ -3,14 +3,16 @@ from src.ml.pipeline.mock_reader import load_mock_data
 
 app = FastAPI(title="IntellOps AI Engine Worker", version="1.0.0")
 
+
 @app.on_event("startup")
 async def startup_event():
-    """Al arrancar el worker, intentamos leer los datos mock para validar el contrato."""
+    """Al arrancar el worker, intentamos leer los datos mock."""
     try:
         data = load_mock_data()
-        print(f"Worker AI iniciado exitosamente. Se leyeron {len(data)} registros mock.")
+        print(f"Worker AI iniciado. Se leyeron {len(data)} registros mock.")
     except Exception as e:
         print(f"Error inicializando el worker o leyendo mocks: {e}")
+
 
 @app.get("/ml/status")
 async def get_status():
