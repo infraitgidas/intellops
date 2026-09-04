@@ -1,3 +1,4 @@
+"""Módulo principal del worker de Inteligencia Artificial."""
 from fastapi import FastAPI
 from src.ml.pipeline.mock_reader import load_mock_data
 
@@ -10,7 +11,7 @@ async def startup_event():
     try:
         data = load_mock_data()
         print(f"Worker AI iniciado. Se leyeron {len(data)} registros mock.")
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Error inicializando el worker o leyendo mocks: {e}")
 
 
