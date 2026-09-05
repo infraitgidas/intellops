@@ -134,20 +134,17 @@ src/agent/
 ```mermaid
 sequenceDiagram
     participant Agent as Agente RUM
-    participant API as FastAPI
-    participant DB as SQLite
-    participant ML as ML Engine
+    participant API as FastAPI (intellops-core)
+    participant Q as Cola asyncio
+    participant W as Worker persistencia
+    participant DB as PostgreSQL 16
 
-    Agent->>API: POST /metrics/ingest
-    Note over API: Valida schema (OpenAPI)
-    API->>DB: INSERT métricas batch
-    API-->>Agent: 202 Accepted
-    Note over DB: WAL write
-    DB-->>API: batch_id
-    API->>ML: Feature vector (async)
-    ML->>ML: Anomaly detection
-    ML-->>API: AnomalyResult
-    API->>DB: INSERT anomaly if detected
+    Agent->>API: POST /metrics/ingest (RumEventBatch)
+    API->>API: Validación por evento
+    API-->>Agent: 202 {batch_id, accepted, rejected}
+    API->>Q: enqueue eventos válidos
+    Q->>W: chunk de 500
+    W->>DB: Resolver sesión + bulk insert (asyncpg)
 ```
 
 ### 2.2. Flujo de Consulta con Asistente GenIA

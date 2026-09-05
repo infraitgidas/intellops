@@ -23,32 +23,76 @@ paths:
           description: Ready
   /metrics/ingest:
     post:
-      summary: Ingesta de métricas OTel
+      summary: Ingesta de eventos RUM
       operationId: ingestMetrics
+      description: "Recibe un lote de eventos RUM del agente de frontend. Siempre se envía en batch."
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                source:
-                  type: string
-                  description: "Identificador del agente/servicio"
-                metrics:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/Metric'
-                timestamp:
-                  type: string
-                  format: date-time
+              $ref: '#/components/schemas/RumEventBatch'
       responses:
         '202':
-          description: "Métricas aceptadas para procesamiento"
+          description: "Eventos RUM aceptados para procesamiento"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
         '400':
           description: "Payload inválido (schema validation error)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
           description: "Rate limit excedido"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: "Cola de ingesta llena (backpressure)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /logs/ingest:
+    post:
+      summary: Ingesta de excepciones JavaScript
+      operationId: ingestJsExceptions
+      description: "Recibe un lote de excepciones JavaScript capturadas por el agente RUM. Siempre se envía en batch."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsExceptionBatch'
+      responses:
+        '202':
+          description: "Excepciones aceptadas para procesamiento"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+        '400':
+          description: "Payload inválido (schema validation error)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: "Rate limit excedido"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: "Cola de ingesta llena (backpressure)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /metrics/query:
     get:
       summary: Consulta de métricas históricas
@@ -221,26 +265,185 @@ paths:
           description: Estado del sistema
 components:
   schemas:
-    Metric:
+    RumEventBatch:
       type: object
+      required: [schema_version, events]
       properties:
-        name:
+        schema_version:
           type: string
-          description: "Nombre de la métrica (ej: cpu.usage.user)"
+          enum: ["1.0"]
+          description: "Versión del contrato de ingesta RUM"
+        events:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/RumEvent'
+          description: "Eventos RUM incluidos en el lote"
+    RumEvent:
+      type: object
+      required: [schema_version, timestamp, session_id, application_id, metrics]
+      properties:
+        schema_version:
+          type: string
+          enum: ["1.0"]
+          description: "Versión del contrato de ingesta RUM"
+        timestamp:
+          type: string
+          format: date-time
+          description: "ISO 8601 UTC - ventana de captura del evento"
+        session_id:
+          type: string
+          format: uuid
+          description: "Identificador de la sesión de usuario"
+        application_id:
+          type: string
+          format: uuid
+          description: "Identificador de la aplicación que origina el evento"
+        metrics:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/RumMetric'
+          description: "Métricas RUM capturadas en el evento"
+        metadata:
+          type: object
+          description: "Contexto opcional del evento"
+          properties:
+            page_url:
+              type: string
+              description: "URL de la página donde se capturó el evento"
+            user_agent:
+              type: string
+              description: "User agent del navegador"
+            viewport:
+              type: object
+              description: "Dimensiones de la ventana del navegador"
+              properties:
+                width:
+                  type: integer
+                  description: "Ancho en píxeles"
+                height:
+                  type: integer
+                  description: "Alto en píxeles"
+            connection:
+              type: object
+              description: "Información de conexión del usuario (ej: effectiveType)"
+              additionalProperties: true
+    RumMetric:
+      type: object
+      required: [type, value, unit]
+      properties:
+        type:
+          type: string
+          enum: [TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK]
+          description: "Tipo de métrica RUM"
         value:
           type: number
-          description: "Valor numérico"
-        timestamp:
-          type: integer
-          description: "Unix timestamp en segundos"
-        tags:
-          type: object
-          additionalProperties:
-            type: string
-            description: "Etiquetas contextuales (host, service, region)"
+          minimum: 0
+          description: "ms para TTFB/FCP/XHR_LATENCY; count para JS_EXCEPTION_RATE/RAGE_CLICK"
         unit:
           type: string
-          description: "Unidad de medida (percent, ms, count, bytes)"
+          enum: [ms, count]
+          description: "Unidad de medida del valor"
+        timestamp:
+          type: string
+          format: date-time
+          description: "ISO 8601 UTC - opcional, por defecto usa el timestamp del envelope"
+        page_url:
+          type: string
+          description: "URL de la página asociada a la métrica"
+        metadata:
+          type: object
+          description: "Contexto opcional de la métrica (ej: XHR con method, url, status; rage_click con target_selector, click_count)"
+          additionalProperties: true
+    JsExceptionBatch:
+      type: object
+      required: [schema_version, events]
+      properties:
+        schema_version:
+          type: string
+          enum: ["1.0"]
+          description: "Versión del contrato de ingesta de excepciones"
+        events:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/JsExceptionEvent'
+          description: "Excepciones JavaScript incluidas en el lote"
+    JsExceptionEvent:
+      type: object
+      required: [error_type, message, session_id, application_id, timestamp]
+      properties:
+        error_type:
+          type: string
+          maxLength: 100
+          description: "Tipo de error (ej: TypeError, ReferenceError, RangeError, UnhandledRejection, Other)"
+        message:
+          type: string
+          maxLength: 2000
+          description: "Mensaje del error"
+        stack_trace:
+          type: string
+          maxLength: 20000
+          description: "Stack trace del error, opcional"
+        session_id:
+          type: string
+          format: uuid
+          description: "Identificador de la sesión de usuario"
+        application_id:
+          type: string
+          format: uuid
+          description: "Identificador de la aplicación; necesario para resolver/crear la sesión en el ingest"
+        metric_id:
+          type: string
+          format: uuid
+          description: "Referencia opcional a la métrica RUM asociada (FK nullable, ON DELETE SET NULL)"
+        timestamp:
+          type: string
+          format: date-time
+          description: "ISO 8601 UTC - momento de captura de la excepción"
+    IngestResponse:
+      type: object
+      required: [batch_id, accepted, rejected]
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+          description: "Identificador del batch generado por el servidor (correlación; no se persiste en S1)"
+        accepted:
+          type: integer
+          minimum: 0
+          description: "Cantidad de eventos aceptados para procesamiento"
+        rejected:
+          type: array
+          items:
+            type: object
+            required: [index, reason]
+            properties:
+              index:
+                type: integer
+                minimum: 0
+                description: "Posición del evento rechazado dentro del batch"
+              reason:
+                type: string
+                description: "Código de rechazo (unknown_metric_type, invalid_range, ...)"
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: "Código de error (schema_validation_error, rate_limit_exceeded, queue_full, ...)"
+            message:
+              type: string
+              description: "Descripción legible del error"
     AssistantResponse:
       type: object
       properties:
