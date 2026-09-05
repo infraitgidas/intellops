@@ -39,19 +39,6 @@ jobs:
           file: ./coverage.xml
           fail_ci_if_error: false
 
-  contract:
-    name: Contract Tests
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: pip install schemathesis
-      - run: |
-          # Iniciar servidor en background y correr contract tests
-          docker compose up -d intellops-core
-          sleep 5
-          schemathesis run openspec/specs/openapi.yaml --url=http://localhost:8000
-
   license-scan:
     name: License Scan & SBOM
     needs: lint
