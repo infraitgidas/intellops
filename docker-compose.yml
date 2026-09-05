@@ -2,12 +2,13 @@
 # PI+D+i | Grupo GIDAS | UTN FrLP | Equipo InfraIT
 #
 # Recursos totales: < 2GB RAM target | CPU-only | $0/mes
-# Ver: openspec/specs/architecture/containers.md
+# Arquitectura: 4 contenedores — ver openspec/specs/architecture/containers.md
+# y docs/der/Trazabilidad DER a Contenedores.md
 
 name: intellops
 
 services:
-  api:
+  intellops-core:
     build:
       context: .
       dockerfile: Dockerfile
@@ -17,29 +18,75 @@ services:
       - ./src:/app/src
     environment:
       - INTELLOPS_ENV=development
-      - INTELLOPS_DB_PATH=/data/intellops.db
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-intellops}:${POSTGRES_PASSWORD:-intellops}@intellops-db:5432/${POSTGRES_DB:-intellops}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    mem_limit: 250m
+    depends_on:
+      intellops-db:
+        condition: service_healthy
     networks:
       - intellops-net
 
-  # --- Servicios que se agregan en fases posteriores ---
-  # ml-engine:     (Fase H3 — ML Predictivo)
-  # llm-server:    (Fase H4 — GenIA)
-  # dashboard:     (Fase H4 — React)
-  # prometheus:    (Fase H1 — Métricas)
-  # loki:          (Fase H1 — Logs)
-  # grafana:       (Fase H1 — Dashboards)
-  # netdata:       (Fase H1 — Auto-monitoreo)
+  intellops-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-intellops}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-intellops}
+      - POSTGRES_DB=${POSTGRES_DB:-intellops}
+    volumes:
+      - intellops-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-intellops} -d ${POSTGRES_DB:-intellops}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    # Sin `ports:` — intellops-core es el único servicio expuesto al host.
+    networks:
+      - intellops-net
+
+  intellops-ai-engine:
+    build:
+      context: .
+      dockerfile: src/ml/Dockerfile
+    environment:
+      - INTELLOPS_ENV=development
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-intellops}:${POSTGRES_PASSWORD:-intellops}@intellops-db:5432/${POSTGRES_DB:-intellops}
+    restart: unless-stopped
+    mem_limit: 1000m
+    depends_on:
+      intellops-db:
+        condition: service_healthy
+    # Sin `ports:` — worker aislado, sin tráfico web (aislamiento de OOM Kill).
+    networks:
+      - intellops-net
+
+  intellops-comms:
+    build:
+      context: .
+      dockerfile: src/comms/Dockerfile
+    environment:
+      - INTELLOPS_ENV=development
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-intellops}:${POSTGRES_PASSWORD:-intellops}@intellops-db:5432/${POSTGRES_DB:-intellops}
+    restart: unless-stopped
+    mem_limit: 150m
+    depends_on:
+      intellops-db:
+        condition: service_healthy
+    # Sin `ports:` — solo hace llamadas salientes a proveedores de notificaciones.
+    networks:
+      - intellops-net
 
 networks:
   intellops-net:
     driver: bridge
 
 volumes:
-  intellops-data:
+  intellops-db-data:

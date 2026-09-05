@@ -22,11 +22,12 @@ help:
 
 setup:
 	docker compose build
-	docker compose run --rm api python -c "print('✅ Entorno listo')"
+	docker compose run --rm intellops-core python -c "print('✅ Entorno listo')"
 
 up:
 	docker compose up -d
-	@echo "✅ IntellOps API corriendo en http://localhost:8000"
+	@echo "✅ IntellOps stack corriendo (intellops-core, intellops-db, intellops-ai-engine, intellops-comms)"
+	@echo "   API: http://localhost:8000"
 	@echo "   Docs: http://localhost:8000/docs"
 	@echo "   Health: http://localhost:8000/health"
 
@@ -37,14 +38,14 @@ logs:
 	docker compose logs -f
 
 test:
-	docker compose run --rm api python -m pytest tests/ -v
+	docker compose run --rm intellops-core python -m pytest tests/ -v
 
 test-cov:
-	docker compose run --rm api python -m pytest tests/ --cov=src --cov-report=term-missing
+	docker compose run --rm intellops-core python -m pytest tests/ --cov=src --cov-report=term-missing
 
 lint:
-	docker compose run --rm api flake8 src/ tests/
-	docker compose run --rm api pylint src/ --fail-under=7.0
+	docker compose run --rm intellops-core flake8 src/ tests/
+	docker compose run --rm intellops-core pylint src/ --fail-under=7.0
 
 clean:
 	docker compose down -v
