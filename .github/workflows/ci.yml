@@ -50,7 +50,7 @@ jobs:
           # Iniciar servidor en background y correr contract tests
           docker compose up -d intellops-core
           sleep 5
-          schemathesis run openspec/specs/openapi.yaml --base-url=http://localhost:8000
+          schemathesis run openspec/specs/openapi.yaml --url=http://localhost:8000
 
   license-scan:
     name: License Scan & SBOM
