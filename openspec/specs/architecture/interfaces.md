@@ -20,7 +20,8 @@ métricas deben usar el prefijo `/metrics/`.
 |--------|------|-----------|--------|
 | GET | `/health` | Health check del sistema | ✅ Planificado |
 | GET | `/ready` | Readiness check (dependencias listas) | ✅ Planificado |
-| POST | `/metrics/ingest` | Ingesta de métricas OTel | ✅ Planificado |
+| POST | `/metrics/ingest` | Ingesta de métricas RUM (batch) | ✅ Planificado |
+| POST | `/logs/ingest` | Ingesta de excepciones JS (batch) | ✅ Planificado |
 | GET | `/metrics/query` | Consulta de métricas históricas | ✅ Planificado |
 | GET | `/metrics/list` | Listado de métricas disponibles | ✅ Planificado |
 | GET | `/anomalies` | Listado de anomalías detectadas | ✅ Planificado |
@@ -47,21 +48,28 @@ requestBody:
   content:
     application/json:
       schema:
-        type: object
-        properties:
-          source:
-            type: string
-            description: "Identificador del agente/servicio"
-          metrics:
-            type: array
-            items:
-              $ref: '#/components/schemas/Metric'
-          timestamp:
-            type: string
-            format: date-time
+        $ref: '#/components/schemas/RumEventBatch'
 responses:
   '202':
-    description: "Métricas aceptadas para procesamiento"
+    description: "Eventos RUM aceptados para procesamiento"
+  '400':
+    description: "Payload inválido (schema validation error)"
+  '429':
+    description: "Rate limit excedido"
+```
+
+##### POST /logs/ingest
+
+```yaml
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/JsExceptionBatch'
+responses:
+  '202':
+    description: "Excepciones aceptadas para procesamiento"
   '400':
     description: "Payload inválido (schema validation error)"
   '429':

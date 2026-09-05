@@ -126,10 +126,10 @@ El EDT asume un proyecto que arranca de cero. La realidad del repo es otra:
 **Descripción**: Definir la estructura del evento RUM y de excepción apoyándose en la investigación existente (`docs/research/rum-agent-deep-dive.md`, `frontend-observability.md`) y en la selección de 5 métricas (TTFB, FCP, XHR Latency, Tasa de Excepciones JS, Rage Clicks).
 
 **Criterios de aceptación**:
-- [ ] Esquema del evento RUM versionado (timestamp, session_id, application_id, métricas, metadata).
-- [ ] Esquema del evento `JS_EXCEPTION` (error_type, message, stack_trace, session_id, metric_id, timestamp).
-- [ ] Esquema de validación definido (obligatorios/opcionales, unidades, rangos).
-- [ ] Contrato alineado con el OpenAPI de ISS-S1-02.
+- [x] Esquema del evento RUM versionado (timestamp, session_id, application_id, métricas, metadata).
+- [x] Esquema del evento `JS_EXCEPTION` (error_type, message, stack_trace, session_id, metric_id, timestamp).
+- [x] Esquema de validación definido (obligatorios/opcionales, unidades, rangos).
+- [x] Contrato alineado con el OpenAPI de ISS-S1-02.
 
 ---
 
@@ -144,9 +144,9 @@ El EDT asume un proyecto que arranca de cero. La realidad del repo es otra:
 **Descripción**: Diseñar el flujo `Application → Collector → API Ingestion → Validation → Storage` con ingesta asíncrona y bulk inserts (asyncpg) según la arquitectura de agosto.
 
 **Criterios de aceptación**:
-- [ ] Flujo de ingesta documentado.
-- [ ] Estrategia de validación y manejo de eventos inválidos definida.
-- [ ] Estrategia de persistencia asíncrona (bulk insert) definida.
+- [x] Flujo de ingesta documentado.
+- [x] Estrategia de validación y manejo de eventos inválidos definida.
+- [x] Estrategia de persistencia asíncrona (bulk insert) definida.
 
 ---
 
