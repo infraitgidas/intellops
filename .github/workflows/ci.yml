@@ -33,23 +33,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -e ".[dev]"
-      - run: pytest --cov=api --cov-report=xml --cov-report=term-missing
+      - run: PYTHONPATH=. pytest --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=70
       - uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
-
-  contract:
-    name: Contract Tests
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: pip install schemathesis
-      - run: |
-          # Iniciar servidor en background y correr contract tests
-          # docker compose up -d api
-          # schemathesis run openspec/specs/openapi.yaml --base-url=http://localhost:8000
 
   license-scan:
     name: License Scan & SBOM
@@ -64,13 +52,14 @@ jobs:
           output-file: ./governance/sbom.json
       - run: |
           # Verificar que no haya dependencias con licencias restrictivas
-          # pip install license-checker
-          # license-checker --fail-on SSPL AGPL
+          pip install pip-licenses
+          pip-licenses --fail-on="SSPL;AGPL"
 
   docker:
     name: Docker Build
-    needs: [test, contract, license-scan]
+    needs: [lint, test, license-scan]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: docker compose build
+      

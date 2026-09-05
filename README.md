@@ -4,6 +4,8 @@
 >
 > PI+D+i | Grupo GIDAS | UTN FrLP | Equipo InfraIT
 
+![Coverage](https://img.shields.io/badge/Coverage-%E2%89%A570%25-brightgreen)
+
 <br>
 
 <div align="center">
