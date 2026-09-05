@@ -57,7 +57,7 @@ jobs:
 
   docker:
     name: Docker Build
-    needs: [test, contract, license-scan]
+    needs: [lint, test, license-scan]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
