@@ -4,8 +4,21 @@ Sistema de Observabilidad Predictiva UX-Céntrica + AI/LLM Open-Source.
 PI+D+i | Grupo GIDAS | UTN FrLP | Equipo InfraIT
 """
 
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from .infrastructure.db.session import check_connection, dispose_engine
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Libera el pool de conexiones a la DB al apagar la app."""
+    yield
+    await dispose_engine()
+
 
 app = FastAPI(
     title="IntellOps API",
@@ -19,6 +32,7 @@ app = FastAPI(
         "name": "Apache 2.0",
         "url": "https://www.apache.org/licenses/LICENSE-2.0",
     },
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -32,8 +46,17 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
-    return {"status": "ok", "version": "0.1.0", "service": "intellops-api"}
+    """Health check endpoint — verifica conexión a la base de datos."""
+    db_connected = await check_connection()
+    payload = {
+        "status": "ok" if db_connected else "error",
+        "version": "0.1.0",
+        "service": "intellops-api",
+        "database": "connected" if db_connected else "disconnected",
+    }
+    if not db_connected:
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=payload)
+    return payload
 
 
 @app.get("/ready")
