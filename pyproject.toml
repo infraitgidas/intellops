@@ -16,6 +16,11 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
     "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "sqlalchemy>=2.0.36",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "psycopg[binary]>=3.2.0",
 ]
 
 [project.optional-dependencies]
@@ -38,3 +43,8 @@ omit = ["*/tests/*"]
 
 [tool.coverage.report]
 fail_under = 70
+
+[tool.pylint.MASTER]
+# Alembic genera nombres (revision, target_metadata) y usa un proxy
+# dinámico (alembic.op) que pylint no puede resolver estáticamente.
+ignore-paths = ["^src/api/infrastructure/db/migrations/.*$"]
