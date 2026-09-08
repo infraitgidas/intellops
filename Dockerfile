@@ -11,9 +11,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY src/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Código fuente
+# Migraciones (alembic.ini apunta a src/api/infrastructure/db/migrations)
+COPY alembic.ini .
+COPY .flake8 .
+COPY pyproject.toml .
+
+# Código fuente y tests
 COPY src/ src/
+COPY tests/ tests/
+
+# api.* y ml.* deben ser importables como top-level (así los usan tests/ y src/api/main.py)
+ENV PYTHONPATH=/app/src
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn src.api.main:app --host 0.0.0.0 --port 8000"]
