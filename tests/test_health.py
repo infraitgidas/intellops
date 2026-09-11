@@ -8,13 +8,14 @@ client = TestClient(app)
 
 
 def test_health_endpoint():
-    """GET /health debe retornar status ok."""
+    """GET /health debe retornar status ok y confirmar conexión a la DB."""
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
     assert data["version"] == "0.1.0"
     assert data["service"] == "intellops-api"
+    assert data["database"] == "connected"
 
 
 def test_readiness_endpoint():

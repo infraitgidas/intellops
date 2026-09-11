@@ -7,18 +7,20 @@
 #   make test       → Corre tests
 #   make lint       → Corre linters
 
-.PHONY: setup up down test lint clean help
+.PHONY: setup up down test lint clean help migrate makemigrations
 
 help:
 	@echo "IntellOps — Comandos disponibles"
-	@echo "  make setup     → Construye imágenes y prepara entorno"
-	@echo "  make up        → Levanta servicios con Docker Compose"
-	@echo "  make down      → Detiene servicios"
-	@echo "  make test      → Corre tests unitarios"
-	@echo "  make test-cov  → Tests con cobertura"
-	@echo "  make lint      → Linters (flake8 + pylint)"
-	@echo "  make clean     → Limpia artefactos"
-	@echo "  make logs      → Logs de servicios"
+	@echo "  make setup          → Construye imágenes y prepara entorno"
+	@echo "  make up             → Levanta servicios con Docker Compose"
+	@echo "  make down           → Detiene servicios"
+	@echo "  make migrate        → Aplica migraciones pendientes (alembic upgrade head)"
+	@echo "  make makemigrations m=\"mensaje\" → Genera una nueva migración"
+	@echo "  make test           → Corre tests unitarios"
+	@echo "  make test-cov       → Tests con cobertura"
+	@echo "  make lint           → Linters (flake8 + pylint)"
+	@echo "  make clean          → Limpia artefactos"
+	@echo "  make logs           → Logs de servicios"
 
 setup:
 	docker compose build
@@ -33,6 +35,12 @@ up:
 
 down:
 	docker compose down
+
+migrate:
+	docker compose run --rm intellops-core alembic upgrade head
+
+makemigrations:
+	docker compose run --rm intellops-core alembic revision -m "$(m)"
 
 logs:
 	docker compose logs -f

@@ -16,6 +16,7 @@ services:
       - "8000:8000"
     volumes:
       - ./src:/app/src
+      - ./tests:/app/tests
     environment:
       - INTELLOPS_ENV=development
       - DATABASE_URL=postgresql://${POSTGRES_USER:-intellops}:${POSTGRES_PASSWORD:-intellops}@intellops-db:5432/${POSTGRES_DB:-intellops}

@@ -27,12 +27,29 @@ jobs:
     name: Unit & Integration Tests
     needs: lint
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: intellops
+          POSTGRES_PASSWORD: intellops
+          POSTGRES_DB: intellops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U intellops -d intellops"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://intellops:intellops@localhost:5432/intellops
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -e ".[dev]"
+      - run: alembic upgrade head
       - run: PYTHONPATH=. pytest --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=70
       - uses: codecov/codecov-action@v4
         with:
