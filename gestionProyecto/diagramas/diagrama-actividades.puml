@@ -1,0 +1,103 @@
+@startuml
+' ============================================================
+' IntellOps - Diagrama de Actividades del Proceso de Desarrollo
+' UML Activity Diagram (particiones por rol)
+' Parte del marco: gestionProyecto/diagramas/diagrama-actividades.puml
+' Fecha: 2026-09-11 - v1.0
+' ============================================================
+
+title IntellOps - Proceso de Desarrollo (Actividades Totales + por Colaborador)
+legend top right
+  Epicas E01-E12 (gestionProyecto/backlog/backlog.md)
+  Roles: Coordinacion; Federico (SEG/RUM); Romeo (ML/RCA); Santiago (QA)
+endlegend
+
+' ---------- PARTICIONES (swimlanes) ----------
+|Coordinacion (Ema)|
+start
+:Refinar backlog priorizado (E01-E12);
+
+note left
+  MoSCoW + spec SDD + estimacion
+  (planning poker)
+end note
+
+:Publicar contrato de datos (OpenAPI/AsyncAPI);
+:Revisar y aprobar specs (review del coordinador);
+
+' ---------- Federico ----------
+|Federico (M-SEG / M-RUM)|
+if (Epica de Seguridad o RUM?) then (si)
+  :Hardening CIS Level 1 con Ansible;
+  :Lynis antes/despues, score objetivo 70%+;
+  :Pipeline GLP seguridad - Promtail hacia Loki;
+  :Dashboards Grafana de seguridad + contrato de eventos;
+elseif (Epica de RUM?) then (si)
+  :Agente RUM OTel 30KB (LCP, INP, CLS, TTFB);
+  :Transporte OTLP batch + CORS echo origin;
+else (no aplica)
+endif
+
+' ---------- Romeo ----------
+|Romeo (M-ML / M-RCA)|
+if (Epica de ML?) then (si)
+  :Esqueleto ML Engine + pipeline train/predict/eval;
+  :Deteccion de anomalias (IF + z-score + seasonal);
+  :F1 objetivo 0.70, EXP-001 versionado;
+  :User Health Score 0-100 + endpoint API;
+elseif (Epica de RCA/GenIA?) then (si)
+  :LLM local cuantizado + RAG (runbooks GIDAS);
+  :Agente RCA + /assistant/query (precision 80%+);
+else (no aplica)
+endif
+
+' ---------- Santiago ----------
+|Santiago (M-QA)|
+if (Epica de QA/CI?) then (si)
+  :Pipeline GitHub Actions (lint, unit, integration, contract, build);
+  :Suites de tests (unit, integration, E2E, contract);
+  :Calidad de cobertura 70%+ en modulos criticos;
+  :Quality gates OTel - synthetic journeys;
+else (no aplica)
+endif
+
+' ---------- Integracion (transversal) ----------
+|Integracion (equipo)|
+:Implementacion con tests (TDD);
+:make test + make lint + make test-cov;
+
+' ---------- CI/CD (Santiago) ----------
+|CI/CD (Santiago)|
+:Pipeline CI/CD sobre el PR;
+if (Quality gates OK? coverage 70%+, lint 0) then (si)
+  if (Gates OTel OK? latencia p99, error rate, trazas) then (si)
+    :PR revisado y aprobado (peer review + coordinador);
+    :Merge a develop, release a main (tag semantico);
+  else (no)
+    :Fix de performance/telemetria (Santiago + Romeo);
+    floating note left: Vuelve al desarrollo (fix)
+  endif
+else (no)
+  :Correccion de tests/codigo + fix de coverage;
+  floating note left: Vuelve al desarrollo (fix)
+endif
+
+' ---------- Operacion ----------
+|Operacion (IntelOps en runtime)|
+:Deploy staging hacia produccion (Docker Compose);
+:Operacion - alertas multicanal + dashboards + asistente;
+:Telemetria en runtime (RUM + OTel + infra);
+
+' ---------- Retroalimentacion ----------
+|Retroalimentacion (equipo + coordinacion)|
+if (Incidente, anomalia o experiencia degradada?) then (si)
+  :Analisis de causa (RCA asistido por IA);
+  :Registrar backlog item (feature, bug, mejora UX);
+  :Actualizar runbooks y experimentos (DVC/MLflow);
+else (no)
+endif
+:Informe de avance semanal + minutas;
+:Sprint review + retro (cada 2 semanas);
+stop
+
+@enduml

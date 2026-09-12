@@ -1,0 +1,162 @@
+@startuml
+' =============================================================
+' IntellOps - Diagrama de Modulos y Paquetes (Vision Completa)
+' Component/package diagram - C4 nivel 2 (sistema + contenedores)
+' Vision completa del producto (no solo MVP)
+' Stack: React+TS / FastAPI / SQLModel / PostgreSQL / GLP / ML / LLM
+' Parte del marco: gestionProyecto/diagramas/diagrama-modulos-paquetes.puml
+' Fecha: 2026-09-11 - v1.0
+' =============================================================
+
+title IntellOps - Modulos y Paquetes (Vision Completa)
+legend top right
+  ADR-0002: PostgreSQL + SQLModel como almacenamiento del MVP
+  ADR-0001: GLP (Grafana + Loki + Prometheus) en lugar de ELK
+  Modulos M-SEG/M-RUM/M-ML/M-RCA/M-QA/M-ING/M-DASH (marco 03)
+endlegend
+
+hide stereotype
+
+' =============================================================
+' PAQUETE: CAPA DE EXPERIENCIA (frontend del producto)
+' =============================================================
+package "CAPA EXPERIENCIA (UX)" {
+  component "Agente RUM\n[React+TS app, <30KB]" as RUM {
+  }
+  component "Dashboard\n[React + TS + Vite + D3, static]" as DASH {
+  }
+  RUM -> DASH : "envia telemetria (OTLP)"
+}
+
+' =============================================================
+' PAQUETE: CAPA DE INGESTA Y TRANSPORTE
+' =============================================================
+package "CAPA INGESTA Y TRANSPORTE" {
+  component "OTel Collector\n[Go, recepcion OTLP]" as OTEL {
+  }
+  component "API Ingesta\n[FastAPI + Uvicorn]" as API {
+  }
+  component "Agent OTel Apps\n[GIDAS + adoptantes]" as OAG {
+  }
+  OAG -> OTEL : "OTLP"
+  RUM -> OTEL : "OTLP (RUM)"
+  OTEL -> API : "metricas/logs/trazas"
+}
+
+' =============================================================
+' PAQUETE: CAPA DE ALMACENAMIENTO (ADR-0002)
+' =============================================================
+package "CAPA ALMACENAMIENTO / SEÑALES" {
+  component "PostgreSQL\n[SQLModel + Alembic + time-index]" as PGSQL {
+  }
+  component "Tempo\n[trazas]" as TEMPO {
+  }
+  component "Loki\n[logs + Promtail]" as LOKI {
+  }
+  component "Prometheus\n[metricas]" as PROM {
+  }
+  component "Grafana\n[dashboards + alertas]" as GRAF {
+  }
+  API -> PGSQL : "persistencia (SQLModel)"
+  OTEL -> TEMPO : "trazas"
+  OTEL -> LOKI : "logs"
+  OTEL -> PROM : "metricas"
+  PGSQL -> GRAF : "datasource"
+  TEMPO -> GRAF : "datasource"
+  LOKI -> GRAF : "datasource"
+  PROM -> GRAF : "datasource"
+}
+
+' =============================================================
+' PAQUETE: CAPA DE INTELIGENCIA (AIOps)
+' =============================================================
+package "CAPA INTELIGENCIA (AIOps)" {
+  component "ML Engine\n[scikit-learn: IF + zscore + seasonal]" as ML {
+  }
+  component "Health Score\n[0-100 por usuario]" as HS {
+  }
+  component "LLM Local\n[Llama 3.2 1B, llama.cpp]" as LLM {
+  }
+  component "RAG\n[sentence-transformers + Chroma]" as RAG {
+  }
+  API -> ML : "series temporales"
+  ML -> HS : "score por usuario/sesion"
+  LLM -> RAG : "runbooks/docs GIDAS"
+  RAG -> LLM : "contexto RAG"
+}
+
+' =============================================================
+' PAQUETE: CAPA DE ACCION Y PRESENTACION
+' =============================================================
+package "CAPA ACCION Y PRESENTACION" {
+  component "Alertas\n[Grafana Alertmanager]" as ALR {
+  }
+  component "Canales\n[Mail / Telegram / WhatsApp]" as CAN {
+  }
+  DASH -> API : "consultas + chat"
+  GRAF -> ALR : "reglas umbral + ML"
+  ALR -> CAN : "routing por severidad"
+  DASH -> GRAF : "visualizacion"
+}
+
+' =============================================================
+' PAQUETE: MODULOS DE INGENIERIA (asignables a PPS)
+' =============================================================
+package "MODULOS DE INGENIERIA (marco 03)" {
+  component "M-SEG\n[Federico: hardening CIS + log seguridad]" as MSEG {
+  }
+  component "M-RUM\n[Federico: telemetria UX]" as MRUM {
+  }
+  component "M-ML\n[Romeo: anomalias + health score]" as MML {
+  }
+  component "M-RCA\n[Romeo: asistente IA + RAG]" as MRCA {
+  }
+  component "M-QA\n[Santiago: tests + CI/CD + gates]" as MQA {
+  }
+  component "M-ING\n[transversal: ingesta + storage]" as MING {
+  }
+  component "M-DASH\n[Romeo+Ema: dashboard]" as MDASH {
+  }
+}
+
+' =============================================================
+' PAQUETE: CAPA DE GOBIERNO Y CALIDAD (transversal)
+' =============================================================
+package "CAPA GOBIERNO Y CALIDAD" {
+  component "CI/CD\n[GitHub Actions]" as CI {
+  }
+  component "Quality Gates\n[coverage, lint, OTel gates]" as QG {
+  }
+  component "Specs\n[OpenAPI 3.1 + AsyncAPI 3.0]" as SPEC {
+  }
+  component "ADR\n[reglas de arquitectura]" as ADR {
+  }
+  component "Backup\n[Rclone + S3 free-tier]" as BCK {
+  }
+  component "Self-Monitoring\n[Netdata]" as NET {
+  }
+  MQA -> CI : "pipeline real"
+  CI -> QG : "bloqueo de PR"
+  MING -> SPEC : "contratos"
+  ADR -> MING : "ADR-0001/0002"
+  API -> BCK : "pg_dump diario"
+  NET -> OTEL : "salud del stack"
+}
+
+' =============================================================
+' RELACIONES ENTRE PAQUETES (flujo causal descendente)
+' =============================================================
+RUM --> OTEL : "UX"
+OTEL --> API : "ingesta"
+API --> PGSQL : "storage"
+PGSQL --> ML : "datos"
+GRAF --> DASH : "vistas"
+ML --> HS
+ML -> GRAF : "anomalias/score"
+LLM -> DASH : "RCA/chat"
+
+center footer
+  IntellOps - Vision Completa | GIDAS UTN FrLP | 2026-09-11
+endfooter
+
+@enduml

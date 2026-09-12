@@ -1,0 +1,90 @@
+@startuml
+' =============================================================
+' IntellOps - Diagrama Macro de Actividades de Desarrollo
+' UML Activity Diagram (swimlanes por fase, vision completa 2026-2030)
+' Alineado al PID GIDAS (E1 2027 / E2 2028 / E3 2029)
+' Parte del marco: gestionProyecto/diagramas/diagrama-macro-actividades.puml
+' Fecha: 2026-09-11 - v1.0
+' =============================================================
+
+title IntellOps - Actividades Macro de Desarrollo (2026 - 2030)
+
+legend top right
+  Fases: 0 (Fundacion/PPS) | 1 (MVP) | 2 (Experimentos) | 3 (Prototipo) | 4 (Cierre)
+  Alineado: PID TC GIDAS - E1 (2027) / E2 (2028) / E3 (2029)
+endlegend
+
+' ------------------------------------------------------------
+' FASE 0 - FUNDACION (2026, PPS de los 3 contributors)
+' ------------------------------------------------------------
+|Fase 0: Fundacion (2026)|
+start
+:Marco conceptual + ADR-0001 (GLP) + ADR-0002 (PostgreSQL);
+:Onboarding y stack baseline (GitHub Actions, docker/podman);
+if (PPS activas?) then (si)
+  :Federico: hardening CIS + pipeline GLP seguridad + dashboards;
+  :Romeo: agente RUM + anomalias (IF+zscore) + health score;
+  :Santiago: tests + CI/CD + quality gates OTel;
+  :Integracion de modulos + contratos publicados;
+else (no)
+endif
+
+' ------------------------------------------------------------
+' FASE 1 - MVP (2026-2027)
+' ------------------------------------------------------------
+|Fase 1: MVP (2026-2027)|
+:Release MVP-0/MVP-1 (ingesta + storage PostgreSQL + dashboard);
+:Validacion con 4 personas academicas (SUS > 75);
+if (MVP validado?) then (si)
+  :Backlog refinado + planning poker E01-E12;
+else (no)
+  :Ajuste de UX y correcciones;
+  floating note left: Vuelve a validacion
+endif
+
+' ------------------------------------------------------------
+' FASE 2 - EXPERIMENTACION (2027-2028, PID E1/E2)
+' ------------------------------------------------------------
+|Fase 2: Experimentacion (2027-2028)|
+:Estado del arte + exploracion de herramientas (PID E1);
+:Diseno metodologico de experimentos (GIDAS);
+:Ensayos exploratorios integrando metodos y herramientas;
+:Experimentos IA sobre infra GIDAS (anomalias, forecast);
+if (Resultados E1/E2 validados?) then (si)
+  :Pruebas de integracion y correlacion metricas/logs/trazas;
+else (no)
+  :Iterar diseno de experimentos;
+  floating note left: Vuelve a diseno metodologico
+endif
+
+' ------------------------------------------------------------
+' FASE 3 - PROTOTIPO (2028-2029, PID E2/E3)
+' ------------------------------------------------------------
+|Fase 3: Prototipo (2028-2029)|
+:Implementacion inicial del prototipo (calidad servicios IT);
+:Puesta a punto y pruebas de escalabilidad;
+:Evaluacion de impacto en performance y UX (infra GIDAS);
+if (Impacto positivo?) then (si)
+  :Documentacion de metodologias + difusion;
+else (no)
+  :Optimizar prototipo;
+  floating note left: Vuelve a implementacion
+endif
+
+' ------------------------------------------------------------
+' FASE 4 - TRANSFERENCIA Y CIERRE (2029-2030, PID E3)
+' ------------------------------------------------------------
+|Fase 4: Transferencia y Cierre (2029-2030)|
+:Transferencia ampliada (empresas, pymes, organismos, UTN);
+if (2+ laboratorios adoptantes?) then (si)
+  :Talleres de formacion RRHH + informe final;
+else (no)
+  :Extension a otros laboratorios GIDAS;
+  floating note left: Ampliar red de adopcion
+endif
+:Articulos cientificos + propiedad intelectual;
+:Reproducibilidad (docker compose up / podman, $0/mes);
+:Comunidad open-source (Apache-2.0);
+stop
+
+@enduml

@@ -7,7 +7,7 @@
 **Autores**: Emanuel Rodriguez, Federico Blanco Cavallero, Romeo L. Monfroglio, Santiago Montanari, Leopoldo Nahuel
 
 **Afiliación**: Grupo GIDAS — UTN Facultad Regional La Plata, Argentina
-{coord@intellops.gidas.utn.edu.ar}
+{gidas, infrait[@frlp.utn.edu.ar]}
 
 **Línea de investigación**: Sistemas Inteligentes de Infraestructura IT — Ingeniería de Recursos Escasos
 
@@ -167,14 +167,14 @@ IntellOps es un sistema de observabilidad predictiva que integra cuatro pilares 
 
 El proyecto adopta explícitamente la **ingeniería de recursos escasos** como restricción de diseño, no como excusa. Esto significa que cada decisión tecnológica se evalúa contra el criterio de "¿puede esto funcionar en un servidor legacy del laboratorio con menos de 2 GB de RAM?".
 
-Esta restricción genera innovaciones que no aparecerían en entornos con recursos abundantes: uso de SQLite con índices temporales en lugar de bases de datos dedicadas, buffers sin middleware de mensajería, modelos ML que ejecutan inferencia en CPU en lugar de GPU, y LLMs cuantizados de 1B de parámetros en lugar de modelos de 70B+.
+Esta restricción genera innovaciones que no aparecerían en entornos con recursos abundantes: uso de PostgreSQL con SQLModel (en lugar de bases de datos con servicios de gestión dedicados), buffers sin middleware de mensajería, modelos ML que ejecutan inferencia en CPU en lugar de GPU, y LLMs cuantizados de 1B de parámetros en lugar de modelos de 70B+.
 
 ### 4.3. Stack Tecnológico
 
 | Capa | Tecnología | Alternativa descartada | Justificación |
 |------|-----------|----------------------|---------------|
 | Instrumentación | OpenTelemetry JS SDK | Agentes propietarios | Estándar CNCF, vendor-neutral |
-| Backend | FastAPI + SQLite | Django, PostgreSQL | Async nativo, < 100 MB RAM |
+| Backend | FastAPI + SQLModel + PostgreSQL | Django, SQLite | Async nativo, footprint < 500 MB RAM (ADR-0002) |
 | Trazas | Grafana Tempo | Jaeger, Zipkin | OTel-native, < 256 MB RAM |
 | Logs | Grafana Loki | ELK Stack | ADR-0001: licencias SSPL incompatibles |
 | Métricas | Prometheus | InfluxDB | Estándar CNCF |
@@ -233,7 +233,7 @@ Una de las preguntas más frecuentes sobre IntellOps es si está limitado al lab
 Fase 1 — Laboratorio / PYME (hoy)
 ┌──────────────────────────────────────┐
 │  Docker Compose (single node)        │
-│  SQLite (WAL mode)                   │
+│  PostgreSQL (SQLModel)               │
 │  ML en proceso (CPU-only)            │
 │  Footprint: < 2 GB RAM               │
 └──────────────────────────────────────┘
@@ -242,7 +242,7 @@ Fase 1 — Laboratorio / PYME (hoy)
 Fase 2 — Crecimiento (próximo paso)
 ┌──────────────────────────────────────┐
 │  Docker Compose → Kubernetes (K3s)   │
-│  SQLite → PostgreSQL + TimescaleDB   │
+│  PostgreSQL → + TimescaleDB          │
 │  Agente RUM multi-aplicación         │
 │  Footprint: 4-8 GB RAM              │
 └──────────────────────────────────────┘
@@ -269,7 +269,7 @@ El componente central de IntellOps —el backend FastAPI— es inherentemente st
 #### 6.2.2. Escalabilidad Vertical (Más Potencia)
 
 En el otro extremo, si una organización dispone de más recursos, IntellOps puede aprovecharlos sin cambiar de plataforma:
-- **Más RAM**: SQLite puede configurarse con buffers más grandes; los modelos ML pueden aumentar la complejidad de sus árboles
+- **Más RAM**: PostgreSQL permite `shared_buffers` y `work_mem` más grandes; los modelos ML pueden aumentar la complejidad de sus árboles
 - **GPU**: Si hay GPU disponible, la inferencia de ML puede acelerarse con ONNX Runtime, y el LLM local puede cambiarse por un modelo de 7B o 8B parámetros
 - **Almacenamiento**: La migración a PostgreSQL + TimescaleDB permite retenciones de años sin degradación de consultas
 
@@ -316,7 +316,7 @@ Es importante ser transparente sobre dónde IntellOps **no** compite con solucio
 | **Soporte 24/7** | Comunidad + documentación | SLA enterprise con soporte dedicado |
 | **Cobertura de integraciones** | OpenTelemetry + plugins core | Cientos de integraciones nativas |
 | **Retención de datos** | Determinada por almacenamiento disponible | Años con tiering automático |
-| **Escala máxima** | 10K métricas/seg (SQLite) → 100K+ (TimescaleDB) | Millones de métricas/seg |
+| **Escala máxima** | 10K métricas/seg (PostgreSQL) → 100K+ (+TimescaleDB) | Millones de métricas/seg |
 | **Madurez** | MVP en desarrollo | Producto maduro con 10+ años |
 
 IntellOps no busca reemplazar a Datadog en una empresa que ya puede pagarlo. Busca ser la opción para las organizaciones que **no pueden pagarlo**, o para los casos de uso dentro de una empresa grande donde desplegar una solución enterprise no se justifica (staging, herramientas internas, sucursales).
@@ -355,7 +355,7 @@ El equipo se encuentra en transición hacia la **Fase de Desarrollo** (Sprint 0)
 
 Los próximos hitos del proyecto incluyen:
 
-1. Implementación del pipeline de ingesta de métricas con FastAPI + SQLite
+1. Implementación del pipeline de ingesta de métricas con FastAPI + PostgreSQL (SQLModel, ADR-0002)
 2. Desarrollo del agente RUM con OpenTelemetry JS SDK
 3. Entrenamiento y evaluación de modelos ML (Isolation Forest + ensemble)
 4. Implementación del dashboard React con D3.js
