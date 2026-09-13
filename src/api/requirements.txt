@@ -10,9 +10,15 @@ asyncpg>=0.29.0
 alembic>=1.13.0
 psycopg[binary]>=3.2.0
 
+# Seguridad (ISS-S2-01): JWT HS256 + argon2 (pwdlib) + EmailStr
+PyJWT>=2.9
+pwdlib[argon2]
+email-validator
+
 # Development
 pytest>=8.0.0
 pytest-cov>=6.0.0
 httpx>=0.28.0
 flake8>=7.0.0
 pylint>=3.0.0
+pytest-asyncio
