@@ -53,8 +53,16 @@ CREATE TABLE application (
     app_id UUID PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
+    -- api_token_hash agregado por la migración 0002 (ISS-S2-01):
+    -- columna dormida (ADR-03); uso en S2-02.
+    api_token_hash VARCHAR(64),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migración 0002: índice único parcial (solo hashes no NULL).
+CREATE UNIQUE INDEX idx_application_api_token_hash
+    ON application(api_token_hash)
+    WHERE api_token_hash IS NOT NULL;
 
 -- ============================================================
 -- 3. LAB_USER
@@ -64,6 +72,9 @@ CREATE TABLE lab_user (
     user_id UUID PRIMARY KEY,
     name TEXT NOT NULL,
     email TEXT NOT NULL,
+    -- password_hash agregado por la migración 0002 (ISS-S2-01):
+    -- nullable en DDL (ADR-06); el enforcement vive en el servicio.
+    password_hash VARCHAR(255),
     role_id SMALLINT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     last_login TIMESTAMPTZ,
@@ -77,6 +88,10 @@ CREATE TABLE lab_user (
 
 CREATE INDEX idx_lab_user_role_id
     ON lab_user(role_id);
+
+-- Migración 0002: email único (ISS-S2-01).
+CREATE UNIQUE INDEX idx_lab_user_email
+    ON lab_user(email);
 
 -- ============================================================
 -- 4. USER_FAVORITE_METRIC
@@ -315,6 +330,23 @@ INSERT INTO user_role (name, description)
 VALUES
     ('Admin', 'Usuario administrador del sistema'),
     ('Researcher', 'Usuario investigador');
+
+-- ============================================================
+-- 12. SEED ADMIN (migración 0002, solo dev/CI)
+-- ============================================================
+-- Usuario de bootstrap con UUID fijo; password_hash argon2id de la
+-- password dev (ADMIN_BOOTSTRAP_PASSWORD en .env.example). No usar en
+-- producción: reemplazar por override de entorno/creación manual.
+
+INSERT INTO lab_user (user_id, name, email, role_id, is_active, password_hash)
+VALUES (
+    '9f8c5a2e-1b2c-4d5e-8f9a-0b1c2d3e4f5a',
+    'Admin',
+    'admin@intellops.local',
+    (SELECT role_id FROM user_role WHERE name = 'Admin'),
+    TRUE,
+    '$argon2id$v=19$m=65536,t=3,p=4$hH0jN7g+iu10ULAQCmU2lA$IucJ1e2Xsts65qYcSKoL9Zk1Z2zmQO2yDwQbxfQ2+qw'
+);
 
 INSERT INTO model_status (name, description)
 VALUES
