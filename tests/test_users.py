@@ -366,6 +366,64 @@ async def test_create_user_422_missing_required_fields(client, make_admin):
     assert resp.status_code == 422
 
 
+async def test_create_user_422_nul_byte_in_name(client, make_admin):
+    """POST con NUL (\\x00) en name → 422, no 500 (Postgres rechaza 0x00)."""
+    _, token = await make_admin()
+    resp = await client.post(
+        "/users",
+        headers=_auth(token),
+        json={
+            "name": "bad\x00name",
+            "email": "nul@intellops.local",
+            "password": "password-123",
+            "role_id": 1,
+        },
+    )
+    assert resp.status_code == 422
+
+
+async def test_update_user_422_nul_byte_in_name(client, make_admin):
+    """PUT con NUL (\\x00) en name → 422, no 500 (Postgres rechaza 0x00)."""
+    user, token = await make_admin(email="upd-nul@intellops.local")
+    resp = await client.put(
+        f"/users/{user.user_id}",
+        headers=_auth(token),
+        json={"name": "bad\x00name"},
+    )
+    assert resp.status_code == 422
+
+
+# -- USR-4: role_id fuera del rango SMALLINT (int16) → 409, no 500 -----------
+
+async def test_create_user_role_id_out_of_int16_range_409(client, make_admin):
+    """POST con role_id fuera de SMALLINT → 409 (rol inexistente), no 500 (USR-4)."""
+    _, token = await make_admin()
+    resp = await client.post(
+        "/users",
+        headers=_auth(token),
+        json={
+            "name": "Out Of Range",
+            "email": "out-of-range@intellops.local",
+            "password": "password-123",
+            "role_id": -257514,  # fuera del rango SMALLINT (int16)
+        },
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "conflict"
+
+
+async def test_update_user_role_id_out_of_int16_range_409(client, make_admin):
+    """PUT con role_id fuera de SMALLINT → 409 (rol inexistente), no 500 (USR-4)."""
+    user, token = await make_admin(email="upd-range@intellops.local")
+    resp = await client.put(
+        f"/users/{user.user_id}",
+        headers=_auth(token),
+        json={"role_id": 999999},  # fuera del rango SMALLINT (int16)
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "conflict"
+
+
 async def test_update_user_422_short_password(client, db_session, make_admin):
     """password < 8 en PUT → 422 (USR-7)."""
     user, token = await make_admin(email="upd-short@intellops.local")

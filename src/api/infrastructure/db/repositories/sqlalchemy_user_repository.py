@@ -3,7 +3,7 @@
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -56,4 +56,13 @@ class SQLAlchemyUserRepository(UserRepository):
             raise ConflictError("email already registered") from exc
 
     async def get_role_by_id(self, role_id: int) -> UserRole | None:
-        return await self._session.get(UserRole, role_id)
+        """Devuelve el rol por id, o None si no existe (ADR-14).
+
+        Un role_id fuera del rango SMALLINT (int16) falla en la codificación
+        del parámetro (asyncpg OverflowError envuelto en DBAPIError): desde la
+        perspectiva del dominio ese rol no existe → None → 409 (USR-4).
+        """
+        try:
+            return await self._session.get(UserRole, role_id)
+        except DBAPIError:
+            return None

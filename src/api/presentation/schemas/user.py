@@ -11,15 +11,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .common import LabEmail
+from .common import LabEmail, NoNul
 
 
 class UserCreate(BaseModel):
     """Payload de POST /users: campos requeridos + password >= 8 (USR-3)."""
 
-    name: str
+    name: NoNul
     email: LabEmail
-    password: str = Field(min_length=8)
+    password: NoNul = Field(min_length=8)
     role_id: int
 
 
@@ -29,9 +29,9 @@ class UserUpdate(BaseModel):
     `password` solo dispara re-hash cuando se envía explícitamente.
     """
 
-    name: str | None = None
+    name: NoNul | None = None
     email: LabEmail | None = None
-    password: str | None = Field(default=None, min_length=8)
+    password: NoNul | None = Field(default=None, min_length=8)
     is_active: bool | None = None
     role_id: int | None = None
 

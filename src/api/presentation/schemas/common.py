@@ -38,6 +38,22 @@ def _validate_email(value: str) -> str:
 LabEmail = Annotated[str, AfterValidator(_validate_email)]
 
 
+def _no_nul(value: str) -> str:
+    """Rechaza NUL (\\x00): PostgreSQL no acepta 0x00 en texto (500 si llega).
+
+    Schemathesis/contract testing destapó que un string con NUL en name/
+    description/password rompía con CharacterNotInRepertoireError; validado
+    en el schema → 422 (mismo contrato que las demás validaciones de forma).
+    """
+    if "\x00" in value:
+        raise ValueError("string must not contain NUL characters")
+    return value
+
+
+# Strings de negocio que llegan a columnas TEXT: rechazan NUL (\\x00).
+NoNul = Annotated[str, AfterValidator(_no_nul)]
+
+
 class ErrorDetail(BaseModel):
     """Detalle de un error de dominio: código estable + mensaje legible."""
 
