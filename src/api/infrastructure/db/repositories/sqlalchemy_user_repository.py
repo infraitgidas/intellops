@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from api.domain.entities.lab_user import LabUser
 from api.domain.entities.user_role import UserRole
@@ -19,11 +20,20 @@ class SQLAlchemyUserRepository(UserRepository):
         self._session = session
 
     async def get_by_id(self, user_id: UUID) -> LabUser | None:
-        return await self._session.get(LabUser, user_id)
+        """Devuelve el usuario con su rol eager-load (B3: require_role)."""
+        result = await self._session.execute(
+            select(LabUser)
+            .options(selectinload(LabUser.role))
+            .where(LabUser.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
 
     async def get_by_email(self, email: str) -> LabUser | None:
+        """Devuelve el usuario con su rol eager-load (B2: role denormalizado)."""
         result = await self._session.execute(
-            select(LabUser).where(LabUser.email == email)
+            select(LabUser)
+            .options(selectinload(LabUser.role))
+            .where(LabUser.email == email)
         )
         return result.scalar_one_or_none()
 

@@ -6,11 +6,14 @@ PI+D+i | Grupo GIDAS | UTN FrLP | Equipo InfraIT
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from .domain.exceptions import DomainError
 from .infrastructure.db.session import check_connection, dispose_engine
+from .presentation.routers import auth
+from .presentation.schemas.common import ErrorDetail, ErrorResponse
 
 
 @asynccontextmanager
@@ -42,6 +45,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(DomainError)
+async def domain_error_handler(
+    request: Request,  # pylint: disable=unused-argument  # firma exigida por FastAPI
+    exc: DomainError,
+) -> JSONResponse:
+    """Traduce DomainError tipificadas al contrato ErrorResponse (ADR-09)."""
+    return JSONResponse(
+        status_code=exc.http_code,
+        content=ErrorResponse(
+            error=ErrorDetail(code=exc.code, message=exc.message)
+        ).model_dump(),
+    )
+
+
+app.include_router(auth.router)
 
 
 @app.get("/health")
