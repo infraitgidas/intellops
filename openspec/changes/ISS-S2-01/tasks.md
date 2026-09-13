@@ -28,16 +28,16 @@ Chain strategy: feature-branch-chain
 
 ## PR-A: core-auth-infra
 
-- [ ] A1 deps: `pyproject.toml` + `src/api/requirements.txt` (+PyJWT>=2.9, pwdlib[argon2], email-validator; dev pytest-asyncio). Done: `pip install -e ".[dev]"`. Dep: —
-- [ ] A2 config: `src/api/config.py` jwt_secret (validator ≥32), jwt_algorithm=HS256, jwt_access_token_expire_minutes=30, api_key_prefix="ilp_". RED: test_security AUTH-6 (secret<32 → error settings). Done: verde. Dep: —
-- [ ] A3 exceptions: `src/api/domain/exceptions.py` DomainError + subtipos 401/403/404/409. Done: importable con códigos. Dep: —
-- [ ] A4 security/password.py: hasher argon2 (pwdlib) + DUMMY_HASH. RED: test_security roundtrip hash/verify + verify falso. Done: verde. Dep: —
-- [ ] A5 security/jwt.py: create/decode (sub, role, iss, iat, exp=iat+30min). RED: test_security claims + expirado/firma inválida. Done: verde. Dep: —
-- [ ] A6 security/api_keys.py: generate `ilp_`+43 b64url, hash sha256 hex (dormido). RED: test_security formato. Done: verde. Dep: —
-- [ ] A7 entities: `src/api/domain/entities/{base,user_role,lab_user,application}.py` ORM 2.0 typed (FK RESTRICT, índices 0002). Done: importable. Dep: A1
-- [ ] A8 repos: Protocol `src/api/domain/repositories/{user,application}_repository.py` + impls async `src/api/infrastructure/db/repositories/*.py` (sin commit; IntegrityError→ConflictError). Done: importable. Dep: A7
-- [ ] A9 migración 0002 + sync: `.../versions/0002_credentials.py`, `openspec/specs/database/ddl_v1.0.sql`, `.env.example`. RED: test_migrations (upgrade: columnas/índices/seed; downgrade 0001 limpio; upgrade restaura). Done: upgrade→downgrade→upgrade OK. Dep: A2, A3
-- [ ] A10 conftest: `tests/conftest.py` fixtures async (db_session, clean_db, seed_admin, client, make_admin/make_researcher). Done: suite async colecta sobre Postgres real. Dep: A1
+- [x] A1 deps: `pyproject.toml` + `src/api/requirements.txt` (+PyJWT>=2.9, pwdlib[argon2], email-validator; dev pytest-asyncio). Done: `pip install -e ".[dev]"`. Dep: —
+- [x] A2 config: `src/api/config.py` jwt_secret (validator ≥32), jwt_algorithm=HS256, jwt_access_token_expire_minutes=30, api_key_prefix="ilp_". RED: test_security AUTH-6 (secret<32 → error settings). Done: verde. Dep: —
+- [x] A3 exceptions: `src/api/domain/exceptions.py` DomainError + subtipos 401/403/404/409. Done: importable con códigos. Dep: —
+- [x] A4 security/password.py: hasher argon2 (pwdlib) + DUMMY_HASH. RED: test_security roundtrip hash/verify + verify falso. Done: verde. Dep: —
+- [x] A5 security/jwt.py: create/decode (sub, role, iss, iat, exp=iat+30min). RED: test_security claims + expirado/firma inválida. Done: verde. Dep: —
+- [x] A6 security/api_keys.py: generate `ilp_`+43 b64url, hash sha256 hex (dormido). RED: test_security formato. Done: verde. Dep: —
+- [x] A7 entities: `src/api/domain/entities/{base,user_role,lab_user,application}.py` ORM 2.0 typed (FK RESTRICT, índices 0002). Done: importable. Dep: A1
+- [x] A8 repos: Protocol `src/api/domain/repositories/{user,application}_repository.py` + impls async `src/api/infrastructure/db/repositories/*.py` (sin commit; IntegrityError→ConflictError). Done: importable. Dep: A7
+- [x] A9 migración 0002 + sync: `.../versions/0002_credentials.py`, `openspec/specs/database/ddl_v1.0.sql`, `.env.example`. RED: test_migrations (upgrade: columnas/índices/seed; downgrade 0001 limpio; upgrade restaura). Done: upgrade→downgrade→upgrade OK. Dep: A2, A3
+- [x] A10 conftest: `tests/conftest.py` fixtures async (db_session, clean_db, seed_admin, client, make_admin/make_researcher). Done: suite async colecta sobre Postgres real. Dep: A1
 
 ## PR-B: core-auth
 
