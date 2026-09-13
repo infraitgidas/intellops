@@ -54,11 +54,16 @@ Chain strategy: feature-branch-chain
 
 ## PR-D: core-applications
 
-- [ ] D1 schemas: `src/api/presentation/schemas/application.py` Create/Update/Read (api_token_hash: null, ADR-16). RED: test_applications APP-6 (name vacío 422). Done: verde. Dep: —
-- [ ] D2 application_service: `src/api/domain/services/application_service.py` list/get(404)/create(api_token_hash=None)/update(404)/delete(404; FK RESTRICT→409+rollback). RED: test_applications APP-1..APP-5 (create 201 null; list/detail 200; detail 404; Researcher 403; delete 204→GET 404; delete con sesiones 409→GET 200; PUT 404). Done: verde. Dep: A8, B3
-- [ ] D3 router + wiring: `src/api/presentation/routers/applications.py` + `src/api/main.py`. Done: suite verde. Dep: D2
-- [ ] D4 OpenAPI: `openspec/specs/openapi.yaml` +6 paths (11 ops), bearerAuth aplicado, schemas nuevos, apiKey sin aplicar, existentes intactos (OAS-1..5). Done: schemathesis verde + YAML válido. Dep: B4, C3, D3
+- [x] D1 schemas: `src/api/presentation/schemas/application.py` Create/Update/Read (api_token_hash: null, ADR-16). RED: test_applications APP-6 (name vacío 422). Done: verde (schema + HTTP 422). Dep: —
+- [x] D2 application_service: `src/api/domain/services/application_service.py` list/get(404)/create(api_token_hash=None)/update(404)/delete(404; FK RESTRICT→409+rollback). RED: test_applications APP-1..APP-5 (create 201 null; list/detail 200; detail 404; Researcher 403; delete 204→GET 404; delete con sesiones 409→GET 200; PUT 404). Done: verde. Dep: A8, B3
+- [x] D3 router + wiring: `src/api/presentation/routers/applications.py` + `src/api/main.py`. Done: suite verde. Dep: D2
+- [x] D4 OpenAPI: `openspec/specs/openapi.yaml` +6 paths (11 ops), bearerAuth aplicado, schemas nuevos, apiKey sin aplicar, existentes intactos (OAS-1..5). Done: YAML válido + schemathesis conformance verde (not_a_server_error, status_code/content_type/response_headers/response_schema_conformance; 11 ops, 304-357 casos según seed, 0 fallas). Dep: B4, C3, D3
+
+### Fixes de contrato (contract testing de D4, bugs latentes de PR-C)
+
+- [x] F1 NoNul: strings con NUL (`\x00`) → 422 (antes 500: CharacterNotInRepertoireError de Postgres). Validador compartido en schemas/common aplicado a name/password (user) y name/description (application).
+- [x] F2 role_id fuera de rango SMALLINT (int16) → 409 (antes 500: OverflowError de asyncpg). get_role_by_id traduce DBAPIError → None (USR-4, ADR-14).
 
 ## Next recommended
 
-**apply** — iniciar PR-C (core-users); requiere confirmar delivery_strategy del chain (feature-branch-chain) ante el orquestador.
+**verify** — el cambio ISS-S2-01 quedó completo (21/21 tareas: PR-A 10, PR-B 4, PR-C 3, PR-D 4 + fixes F1-F2). Ejecutar verificación independiente del cambio completo: pytest --cov=src (78.8%), lint, openapi.yaml y schemathesis conformance.
