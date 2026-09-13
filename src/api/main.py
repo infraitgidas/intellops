@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from .domain.exceptions import DomainError
 from .infrastructure.db.session import check_connection, dispose_engine
-from .presentation.routers import auth, users
+from .presentation.routers import applications, auth, users
 from .presentation.schemas.common import ErrorDetail, ErrorResponse
 
 
@@ -63,6 +63,7 @@ async def domain_error_handler(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(applications.router)
 
 
 @app.get("/health")
