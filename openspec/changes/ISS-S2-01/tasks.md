@@ -48,9 +48,9 @@ Chain strategy: feature-branch-chain
 
 ## PR-C: core-users
 
-- [ ] C1 schemas: `src/api/presentation/schemas/user.py` UserCreate/Update/Read (sin password_hash; password min 8). RED: test_users USR-7 (422 forma). Done: verde. Dep: A1
-- [ ] C2 user_service: `src/api/domain/services/user_service.py` list/get(404)/create(409 rol inexistente + email dup; argon2; commit)/update(404; re-hash solo si password). RED: test_users USR-1..USR-6 (list sin hashes; create 201+argon2; dup 409; role 409; Researcher 403; PUT conserva/re-hashea; GET 404). Done: verde. Dep: A8, B3
-- [ ] C3 router + wiring: `src/api/presentation/routers/users.py` + `src/api/main.py`. RED: escenarios USR a nivel HTTP. Done: suite verde. Dep: C2
+- [x] C1 schemas: `src/api/presentation/schemas/user.py` UserCreate/Update/Read (sin password_hash; password min 8). RED: test_users USR-7 (422 forma). Done: verde. Dep: A1
+- [x] C2 user_service: `src/api/domain/services/user_service.py` list/get(404)/create(409 rol inexistente + email dup; argon2; commit)/update(404; re-hash solo si password). RED: test_users USR-1..USR-6 (list sin hashes; create 201+argon2; dup 409; role 409; Researcher 403; PUT conserva/re-hashea; GET 404). Done: verde. Dep: A8, B3
+- [x] C3 router + wiring: `src/api/presentation/routers/users.py` + `src/api/main.py`. RED: escenarios USR a nivel HTTP. Done: suite verde. Dep: C2
 
 ## PR-D: core-applications
 
