@@ -10,10 +10,10 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .domain.exceptions import DomainError
-from .infrastructure.db.session import check_connection, dispose_engine
-from .presentation.routers import applications, auth, users
-from .presentation.schemas.common import ErrorDetail, ErrorResponse
+from api.domain.exceptions import DomainError
+from api.infrastructure.db.session import check_connection, dispose_engine
+from api.presentation.routers import applications, auth, users
+from api.presentation.schemas.common import ErrorDetail, ErrorResponse
 
 
 @asynccontextmanager
