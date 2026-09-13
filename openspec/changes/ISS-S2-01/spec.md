@@ -14,14 +14,23 @@
 
 ### Requisitos funcionales
 
-| ID | Requisito |
-|----|-----------|
-| AUTH-1 | POST /auth/login (público) DEBE autenticar email+password contra `lab_user` y responder 200 con `{access_token, token_type: "bearer", expires_in}`. JWT HS256 con claims `sub=user_id`, `role` (nombre denormalizado), `iat`, `exp`, `iss="intellops-api"`; expiración default 30 min; SIN refresh (S4). DEBE actualizar `lab_user.last_login`. |
-| AUTH-2 | Login con email desconocido, password incorrecta o `password_hash` NULL DEBE responder 401 con código y mensaje idénticos (anti-enumeración). |
-| AUTH-3 | Login con `is_active=false` DEBE responder 403 con ErrorResponse y NO actualizar `last_login`. |
-| AUTH-4 | POST /auth/logout (requiere bearer) DEBE responder 204 stateless: el servidor NO persiste estado; el cliente descarta el token. |
-| AUTH-5 | Paths protegidos (users, applications, logout) DEBEN rechazar bearer ausente, malformado, expirado o de firma inválida con 401. |
-| AUTH-6 | `jwt_secret` DEBE tener ≥32 bytes; algoritmo HS256; expiración configurable (`jwt_access_token_expire_minutes`, default 30 min). |
+### Requirement: AUTH-1
+POST /auth/login (público) DEBE autenticar email+password contra `lab_user` y responder 200 con `{access_token, token_type: "bearer", expires_in}`. JWT HS256 con claims `sub=user_id`, `role` (nombre denormalizado), `iat`, `exp`, `iss="intellops-api"`; expiración default 30 min; SIN refresh (S4). DEBE actualizar `lab_user.last_login`.
+
+### Requirement: AUTH-2
+Login con email desconocido, password incorrecta o `password_hash` NULL DEBE responder 401 con código y mensaje idénticos (anti-enumeración).
+
+### Requirement: AUTH-3
+Login con `is_active=false` DEBE responder 403 con ErrorResponse y NO actualizar `last_login`.
+
+### Requirement: AUTH-4
+POST /auth/logout (requiere bearer) DEBE responder 204 stateless: el servidor NO persiste estado; el cliente descarta el token.
+
+### Requirement: AUTH-5
+Paths protegidos (users, applications, logout) DEBEN rechazar bearer ausente, malformado, expirado o de firma inválida con 401.
+
+### Requirement: AUTH-6
+`jwt_secret` DEBE tener ≥32 bytes; algoritmo HS256; expiración configurable (`jwt_access_token_expire_minutes`, default 30 min).
 
 ### Escenarios
 
@@ -63,15 +72,26 @@
 
 ### Requisitos funcionales
 
-| ID | Requisito |
-|----|-----------|
-| USR-1 | GET /users (bearer; Admin y Researcher) DEBE listar usuarios y NUNCA exponer `password_hash`. |
-| USR-2 | GET /users/{id} (bearer; Admin y Researcher) DEBE devolver el detalle sin `password_hash`; 404 si no existe. |
-| USR-3 | POST /users (bearer; SOLO Admin) DEBE crear usuario: `name` y `email` requeridos, email con formato válido, `password` ≥ 8 chars, `role_id` existente (FK), `is_active` default true; DEBE hashear password con argon2 (pwdlib). |
-| USR-4 | POST/PUT /users con email duplicado DEBEN responder 409; `role_id` inexistente (FK) DEBE responder 409. |
-| USR-5 | PUT /users/{id} (bearer; SOLO Admin) DEBE actualizar name/email/is_active/role_id y, SOLO si se envía `password`, re-hashear; 404 si no existe. |
-| USR-6 | Researcher NO DEBE mutar: POST/PUT /users → 403. |
-| USR-7 | Validaciones de forma (email malformado, password < 8, campos faltantes) DEBEN responder 422. |
+### Requirement: USR-1
+GET /users (bearer; Admin y Researcher) DEBE listar usuarios y NUNCA exponer `password_hash`.
+
+### Requirement: USR-2
+GET /users/{id} (bearer; Admin y Researcher) DEBE devolver el detalle sin `password_hash`; 404 si no existe.
+
+### Requirement: USR-3
+POST /users (bearer; SOLO Admin) DEBE crear usuario: `name` y `email` requeridos, email con formato válido, `password` ≥ 8 chars, `role_id` existente (FK), `is_active` default true; DEBE hashear password con argon2 (pwdlib).
+
+### Requirement: USR-4
+POST/PUT /users con email duplicado DEBEN responder 409; `role_id` inexistente (FK) DEBE responder 409.
+
+### Requirement: USR-5
+PUT /users/{id} (bearer; SOLO Admin) DEBE actualizar name/email/is_active/role_id y, SOLO si se envía `password`, re-hashear; 404 si no existe.
+
+### Requirement: USR-6
+Researcher NO DEBE mutar: POST/PUT /users → 403.
+
+### Requirement: USR-7
+Validaciones de forma (email malformado, password < 8, campos faltantes) DEBEN responder 422.
 
 ### Escenarios
 
@@ -120,14 +140,23 @@
 
 ### Requisitos funcionales
 
-| ID | Requisito |
-|----|-----------|
-| APP-1 | GET /applications y GET /applications/{id} (bearer; Admin y Researcher) DEBEN listar/detallar aplicaciones; 404 en detalle si no existe. |
-| APP-2 | POST /applications (bearer; SOLO Admin) DEBE crear aplicación: `name` requerido no vacío, `description` opcional; `api_token_hash` DEBE quedar NULL (columna dormida hasta S2-02). |
-| APP-3 | PUT /applications/{id} (bearer; SOLO Admin) DEBE actualizar name/description; 404 si no existe. |
-| APP-4 | DELETE /applications/{id} (bearer; SOLO Admin) DEBE eliminar físicamente la aplicación; 404 si no existe; DEBE responder 409 si la FK RESTRICT de `user_session.app_id` lo impide. |
-| APP-5 | Researcher NO DEBE mutar aplicaciones: POST/PUT/DELETE → 403. |
-| APP-6 | `name` vacío/ausente en POST/PUT DEBE responder 422. |
+### Requirement: APP-1
+GET /applications y GET /applications/{id} (bearer; Admin y Researcher) DEBEN listar/detallar aplicaciones; 404 en detalle si no existe.
+
+### Requirement: APP-2
+POST /applications (bearer; SOLO Admin) DEBE crear aplicación: `name` requerido no vacío, `description` opcional; `api_token_hash` DEBE quedar NULL (columna dormida hasta S2-02).
+
+### Requirement: APP-3
+PUT /applications/{id} (bearer; SOLO Admin) DEBE actualizar name/description; 404 si no existe.
+
+### Requirement: APP-4
+DELETE /applications/{id} (bearer; SOLO Admin) DEBE eliminar físicamente la aplicación; 404 si no existe; DEBE responder 409 si la FK RESTRICT de `user_session.app_id` lo impide.
+
+### Requirement: APP-5
+Researcher NO DEBE mutar aplicaciones: POST/PUT/DELETE → 403.
+
+### Requirement: APP-6
+`name` vacío/ausente en POST/PUT DEBE responder 422.
 
 ### Escenarios
 
@@ -165,25 +194,39 @@
 
 ### Requisitos
 
-| ID | Requisito |
-|----|-----------|
-| OAS-1 | `openspec/specs/openapi.yaml` DEBE agregar 6 paths (11 operaciones): POST /auth/login, POST /auth/logout, GET/POST /users, GET/PUT /users/{id}, GET/POST /applications, GET/PUT/DELETE /applications/{id}. |
-| OAS-2 | DEBE declarar securityScheme `bearerAuth` (HTTP bearer) y aplicarlo a users, applications y logout; `/auth/login` permanece público. |
-| OAS-3 | `apiKey` (X-API-Key) DEBE permanecer declarado sin aplicar a ningún path (aplicación en S2-02). |
-| OAS-4 | Los paths existentes (/health, /ready, /metrics/ingest, /logs/ingest, telemetría/dashboard) DEBEN quedar intactos (sin romper backward compatibility; schemathesis en verde). |
-| OAS-5 | DEBE incorporar schemas `AuthResponse`, `UserCreate`, `UserUpdate`, `UserRead`, `ApplicationCreate`, `ApplicationUpdate`, `ApplicationRead` y reutilizar `ErrorResponse` para 401/403/404/409. |
+### Requirement: OAS-1
+`openspec/specs/openapi.yaml` DEBE agregar 6 paths (11 operaciones): POST /auth/login, POST /auth/logout, GET/POST /users, GET/PUT /users/{id}, GET/POST /applications, GET/PUT/DELETE /applications/{id}.
+
+### Requirement: OAS-2
+DEBE declarar securityScheme `bearerAuth` (HTTP bearer) y aplicarlo a users, applications y logout; `/auth/login` permanece público.
+
+### Requirement: OAS-3
+`apiKey` (X-API-Key) DEBE permanecer declarado sin aplicar a ningún path (aplicación en S2-02).
+
+### Requirement: OAS-4
+Los paths existentes (/health, /ready, /metrics/ingest, /logs/ingest, telemetría/dashboard) DEBEN quedar intactos (sin romper backward compatibility; schemathesis en verde).
+
+### Requirement: OAS-5
+DEBE incorporar schemas `AuthResponse`, `UserCreate`, `UserUpdate`, `UserRead`, `ApplicationCreate`, `ApplicationUpdate`, `ApplicationRead` y reutilizar `ErrorResponse` para 401/403/404/409.
 
 ## 5. Requisitos de datos — Migración 0002
 
 ### Requisitos
 
-| ID | Requisito |
-|----|-----------|
-| DATA-1 | `0002_credentials.py` (revision `0002`, down_revision `0001`, escrita a mano; NO modifica 0001) DEBE: `ALTER TABLE lab_user ADD COLUMN password_hash VARCHAR(255) NULL`; `CREATE UNIQUE INDEX idx_lab_user_email ON lab_user(email)`; `ALTER TABLE application ADD COLUMN api_token_hash VARCHAR(64) NULL`; `CREATE UNIQUE INDEX idx_application_api_token_hash ON application(api_token_hash) WHERE api_token_hash IS NOT NULL`. |
-| DATA-2 | `password_hash` DEBE quedar nullable en DDL; el enforcement (no login sin hash) es responsabilidad del servicio. |
-| DATA-3 | Seed Admin: `INSERT lab_user` con UUID fijo, name='Admin', email='admin@intellops.local', role_id=(rol Admin de user_role), is_active=TRUE, `password_hash` = argon2 de password dev documentada en .env.example/README (solo dev/CI; sin secrets reales en el repo). |
-| DATA-4 | Downgrade DEBE ser completo y ordenado: DROP índice único parcial → DROP `api_token_hash` → DROP índice email → DROP `password_hash` → DELETE seed Admin (seguro: user_favorite_metric CASCADE, user_session SET NULL). |
-| DATA-5 | Decisión (riesgo #6 del proposal, delegada a spec): ddl_v1.0.sql DEBE sincronizarse con 0002 (columnas, índices y seed), porque su header condiciona su modificación a la creación de una migración nueva (condición cumplida) y preserva el DDL como fuente de verdad del esquema; 0001 NO se toca. |
+### Requirement: DATA-1
+`0002_credentials.py` (revision `0002`, down_revision `0001`, escrita a mano; NO modifica 0001) DEBE: `ALTER TABLE lab_user ADD COLUMN password_hash VARCHAR(255) NULL`; `CREATE UNIQUE INDEX idx_lab_user_email ON lab_user(email)`; `ALTER TABLE application ADD COLUMN api_token_hash VARCHAR(64) NULL`; `CREATE UNIQUE INDEX idx_application_api_token_hash ON application(api_token_hash) WHERE api_token_hash IS NOT NULL`.
+
+### Requirement: DATA-2
+`password_hash` DEBE quedar nullable en DDL; el enforcement (no login sin hash) es responsabilidad del servicio.
+
+### Requirement: DATA-3
+Seed Admin: `INSERT lab_user` con UUID fijo, name='Admin', email='admin@intellops.local', role_id=(rol Admin de user_role), is_active=TRUE, `password_hash` = argon2 de password dev documentada en .env.example/README (solo dev/CI; sin secrets reales en el repo).
+
+### Requirement: DATA-4
+Downgrade DEBE ser completo y ordenado: DROP índice único parcial → DROP `api_token_hash` → DROP índice email → DROP `password_hash` → DELETE seed Admin (seguro: user_favorite_metric CASCADE, user_session SET NULL).
+
+### Requirement: DATA-5
+Decisión (riesgo #6 del proposal, delegada a spec): ddl_v1.0.sql DEBE sincronizarse con 0002 (columnas, índices y seed), porque su header condiciona su modificación a la creación de una migración nueva (condición cumplida) y preserva el DDL como fuente de verdad del esquema; 0001 NO se toca.
 
 ### Escenarios
 
@@ -209,14 +252,23 @@
 
 ## 6. Requisitos de seguridad (transversales)
 
-| ID | Requisito |
-|----|-----------|
-| SEC-1 | Anti-enumeración: 401 idéntico (código, mensaje y comportamiento) para email desconocido, password incorrecta y `password_hash` NULL. |
-| SEC-2 | 403 ante `is_active=false` en login. |
-| SEC-3 | 409 con ErrorResponse para UNIQUE email violado (users) y para DELETE bloqueado por FK RESTRICT (applications). |
-| SEC-4 | `password_hash` y `api_token_hash` NUNCA se exponen en respuestas. |
-| SEC-5 | Passwords: argon2 (pwdlib). `api_token_hash`: solo schema en S2-01 (SHA-256 hex en S2-02); sin generación/validación de keys en este cambio. |
-| SEC-6 | Límites de recursos: login dominado por argon2 (parámetros default); JWT y CRUD con overhead despreciable; sin nuevos servicios (CPU-only, <2GB RAM). ML: N/A (sin componentes ML en este cambio). |
+### Requirement: SEC-1
+Anti-enumeración: 401 idéntico (código, mensaje y comportamiento) para email desconocido, password incorrecta y `password_hash` NULL.
+
+### Requirement: SEC-2
+403 ante `is_active=false` en login.
+
+### Requirement: SEC-3
+409 con ErrorResponse para UNIQUE email violado (users) y para DELETE bloqueado por FK RESTRICT (applications).
+
+### Requirement: SEC-4
+`password_hash` y `api_token_hash` NUNCA se exponen en respuestas.
+
+### Requirement: SEC-5
+Passwords: argon2 (pwdlib). `api_token_hash`: solo schema en S2-01 (SHA-256 hex en S2-02); sin generación/validación de keys en este cambio.
+
+### Requirement: SEC-6
+Límites de recursos: login dominado por argon2 (parámetros default); JWT y CRUD con overhead despreciable; sin nuevos servicios (CPU-only, <2GB RAM). ML: N/A (sin componentes ML en este cambio).
 
 ## Criterios de aceptación verificables
 
