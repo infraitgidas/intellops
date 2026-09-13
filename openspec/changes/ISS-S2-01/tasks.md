@@ -41,10 +41,10 @@ Chain strategy: feature-branch-chain
 
 ## PR-B: core-auth
 
-- [ ] B1 schemas: `src/api/presentation/schemas/auth.py` LoginRequest{email: EmailStr}, AuthResponse{token, "bearer", expires_in}. Done: importable. Dep: A2
-- [ ] B2 auth_service: `src/api/domain/services/auth_service.py` login (dummy verify anti-enumeración; 403 inactivo sin last_login; last_login+commit; token) + logout stateless. RED: test_auth AUTH-1 (login OK+claims+last_login), AUTH-2 (401 indistinguible), AUTH-3 (403 sin last_login), sin-hash→401. Done: verde. Dep: A8, A9
-- [ ] B3 dependencies: `src/api/presentation/dependencies.py` get_current_user (inválido/expirado→401; inexistente→401; inactivo→403) + require_role. RED: test_auth AUTH-5. Done: verde. Dep: A5, B2
-- [ ] B4 router + wiring: `src/api/presentation/routers/auth.py` (login público, logout 204) + `src/api/main.py` (include_router, handlers DomainError→ErrorResponse). RED: test_auth AUTH-4 (logout 204). Done: suite auth verde, /health intacto. Dep: B2, B3
+- [x] B1 schemas: `src/api/presentation/schemas/auth.py` LoginRequest{email: EmailStr}, AuthResponse{token, "bearer", expires_in}. Done: importable. Dep: A2
+- [x] B2 auth_service: `src/api/domain/services/auth_service.py` login (dummy verify anti-enumeración; 403 inactivo sin last_login; last_login+commit; token) + logout stateless. RED: test_auth AUTH-1 (login OK+claims+last_login), AUTH-2 (401 indistinguible), AUTH-3 (403 sin last_login), sin-hash→401. Done: verde. Dep: A8, A9
+- [x] B3 dependencies: `src/api/presentation/dependencies.py` get_current_user (inválido/expirado→401; inexistente→401; inactivo→403) + require_role. RED: test_auth AUTH-5. Done: verde. Dep: A5, B2
+- [x] B4 router + wiring: `src/api/presentation/routers/auth.py` (login público, logout 204) + `src/api/main.py` (include_router, handlers DomainError→ErrorResponse). RED: test_auth AUTH-4 (logout 204). Done: suite auth verde, /health intacto. Dep: B2, B3
 
 ## PR-C: core-users
 
@@ -61,4 +61,4 @@ Chain strategy: feature-branch-chain
 
 ## Next recommended
 
-**apply** — iniciar PR-A; requiere confirmar size:exception (~500 > 400) antes de apply.
+**apply** — iniciar PR-C (core-users); requiere confirmar delivery_strategy del chain (feature-branch-chain) ante el orquestador.
