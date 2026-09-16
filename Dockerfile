@@ -20,9 +20,13 @@ COPY pyproject.toml .
 COPY src/ src/
 COPY tests/ tests/
 
+# El test estático de path de import (tests/test_container_import_path.py)
+# lee este Dockerfile desde /app para anclar el CMD del runtime.
+COPY Dockerfile .
+
 # api.* y ml.* deben ser importables como top-level (así los usan tests/ y src/api/main.py)
 ENV PYTHONPATH=/app/src
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn src.api.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn api.main:app --host 0.0.0.0 --port 8000"]

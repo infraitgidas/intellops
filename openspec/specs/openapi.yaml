@@ -263,6 +263,420 @@ paths:
       responses:
         '200':
           description: Estado del sistema
+  /auth/login:
+    post:
+      summary: Autentica email+password y emite el JWT
+      operationId: login
+      description: "Público (sin security). Devuelve access_token JWT HS256 (expiración 30 min) y actualiza last_login."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Credenciales válidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: "JSON malformado (error al parsear el body)"
+        '401':
+          description: "Credenciales inválidas (anti-enumeración: email desconocido, password incorrecta o sin password_hash)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Payload inválido (schema validation error)"
+  /auth/logout:
+    post:
+      summary: Cierra la sesión del cliente (stateless)
+      operationId: logout
+      description: "Requiere bearer. El servidor no persiste estado; el cliente descarta el token."
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: "Sesión cerrada sin cuerpo"
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Usuario del token inactivo (ADR-15: fuerza re-login)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users:
+    get:
+      summary: Lista usuarios
+      operationId: listUsers
+      description: "Requiere bearer (Admin o Researcher). Nunca expone password_hash."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserRead'
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Crea un usuario
+      operationId: createUser
+      description: "Requiere bearer (solo Admin). Hashea password con argon2 (pwdlib)."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRead'
+        '400':
+          description: "JSON malformado (error al parsear el body)"
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso (solo Admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: "Email duplicado o role_id inexistente (FK)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Payload inválido (schema validation error)"
+  /users/{user_id}:
+    get:
+      summary: Detalle de un usuario
+      operationId: getUser
+      description: "Requiere bearer (Admin o Researcher). Nunca expone password_hash."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRead'
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Usuario inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "user_id no es un UUID válido (path parameter validation error)"
+    put:
+      summary: Actualiza un usuario
+      operationId: updateUser
+      description: "Requiere bearer (solo Admin). Re-hashea password solo si se envía."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRead'
+        '400':
+          description: "JSON malformado (error al parsear el body)"
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso (solo Admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Usuario inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: "Email duplicado o role_id inexistente (FK)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Payload o user_id inválido (schema/path validation error)"
+  /applications:
+    get:
+      summary: Lista aplicaciones
+      operationId: listApplications
+      description: "Requiere bearer (Admin o Researcher)."
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de aplicaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApplicationRead'
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Crea una aplicación
+      operationId: createApplication
+      description: "Requiere bearer (solo Admin). api_token_hash queda null (columna dormida hasta S2-02)."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationCreate'
+      responses:
+        '201':
+          description: Aplicación creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationRead'
+        '400':
+          description: "JSON malformado (error al parsear el body)"
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso (solo Admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Payload inválido (schema validation error)"
+  /applications/{application_id}:
+    get:
+      summary: Detalle de una aplicación
+      operationId: getApplication
+      description: "Requiere bearer (Admin o Researcher)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle de la aplicación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationRead'
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Aplicación inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "application_id no es un UUID válido (path parameter validation error)"
+    put:
+      summary: Actualiza una aplicación
+      operationId: updateApplication
+      description: "Requiere bearer (solo Admin)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationUpdate'
+      responses:
+        '200':
+          description: Aplicación actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationRead'
+        '400':
+          description: "JSON malformado (error al parsear el body)"
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso (solo Admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Aplicación inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Payload o application_id inválido (schema/path validation error)"
+    delete:
+      summary: Elimina una aplicación
+      operationId: deleteApplication
+      description: "Requiere bearer (solo Admin). 409 si la FK RESTRICT de user_session.app_id lo impide."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Aplicación eliminada sin cuerpo
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso (solo Admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Aplicación inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: "Aplicación con user_session asociadas (FK RESTRICT)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "application_id no es un UUID válido (path parameter validation error)"
 components:
   schemas:
     RumEventBatch:
@@ -444,6 +858,142 @@ components:
             message:
               type: string
               description: "Descripción legible del error"
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+          description: "Email del usuario (dominio con punto, ej. user@lab.dev)"
+        password:
+          type: string
+          description: "Password del usuario"
+    AuthResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+          description: "JWT HS256 con claims sub, role, iat, exp e iss"
+        token_type:
+          type: string
+          enum: ["bearer"]
+          description: "Tipo de token (siempre bearer)"
+        expires_in:
+          type: integer
+          description: "Segundos de validez del token (default 1800)"
+    UserCreate:
+      type: object
+      required: [name, email, password, role_id]
+      properties:
+        name:
+          type: string
+          description: "Nombre del usuario"
+        email:
+          type: string
+          format: email
+          pattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+          description: "Email del usuario (único; dominio con punto)"
+        password:
+          type: string
+          minLength: 8
+          description: "Password en texto plano; se hashea con argon2"
+        role_id:
+          type: integer
+          description: "FK a user_role (Admin o Researcher)"
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: [string, "null"]
+          description: "Nombre del usuario (null = no se actualiza)"
+        email:
+          type: [string, "null"]
+          format: email
+          pattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+          description: "Email del usuario (único; null = no se actualiza; dominio con punto)"
+        password:
+          type: [string, "null"]
+          minLength: 8
+          description: "Solo re-hashea cuando se envía"
+        is_active:
+          type: [boolean, "null"]
+          description: "Estado activo del usuario (null = no se actualiza)"
+        role_id:
+          type: [integer, "null"]
+          description: "FK a user_role (null = no se actualiza)"
+    UserRead:
+      type: object
+      required: [user_id, name, email, role_id, is_active, created_at]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: "Identificador del usuario"
+        name:
+          type: string
+          description: "Nombre del usuario"
+        email:
+          type: string
+          description: "Email del usuario"
+        role_id:
+          type: integer
+          description: "FK a user_role"
+        is_active:
+          type: boolean
+          description: "Estado activo del usuario"
+        last_login:
+          type: [string, "null"]
+          format: date-time
+          description: "Último login exitoso (null si nunca logueó)"
+        created_at:
+          type: string
+          format: date-time
+          description: "Momento de creación"
+    ApplicationCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: "Nombre de la aplicación (no vacío)"
+        description:
+          type: [string, "null"]
+          description: "Descripción opcional de la aplicación"
+    ApplicationUpdate:
+      type: object
+      properties:
+        name:
+          type: [string, "null"]
+          minLength: 1
+          description: "Nombre de la aplicación (no vacío; null = no se actualiza)"
+        description:
+          type: [string, "null"]
+          description: "Descripción opcional de la aplicación (null = no se actualiza)"
+    ApplicationRead:
+      type: object
+      required: [app_id, name, description, api_token_hash, created_at]
+      properties:
+        app_id:
+          type: string
+          format: uuid
+          description: "Identificador de la aplicación"
+        name:
+          type: string
+          description: "Nombre de la aplicación"
+        description:
+          type: [string, "null"]
+          description: "Descripción opcional de la aplicación"
+        api_token_hash:
+          type: [string, "null"]
+          description: "Columna dormida en S2-01: siempre null (ADR-16); se retira de respuestas en S2-02"
+        created_at:
+          type: string
+          format: date-time
+          description: "Momento de creación"
     AssistantResponse:
       type: object
       properties:
@@ -510,6 +1060,10 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   x-tag:
     name: Public
     description: Endpoints públicos o con auth menor
