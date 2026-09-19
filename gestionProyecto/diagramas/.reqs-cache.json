@@ -1,0 +1,170 @@
+{
+ "rf": [
+  {
+   "id": "RF-CAP-01",
+   "text": "El sistema debe capturar métricas de experiencia de usuario (Core Web Vitals: LCP, INP, CLS) desde el navegador mediante agente RUM",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-CAP-02",
+   "text": "El agente debe capturar TTFB, errores de frontend, navegación y metadata de sesión",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-CAP-03",
+   "text": "El agente debe exportar en OTLP hacia el OTel Collector",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-CAP-04",
+   "text": "El sistema debe capturar métricas de infraestructura (CPU, memoria, red, disco) por scraping Prometheus",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-CAP-05",
+   "text": "El sistema debe capturar logs de sistema y eventos de seguridad (Linux)",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-CAP-06",
+   "text": "La instrumentación del backend (FastAPI) debe emitir trazas distribuidas OTel",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-CAP-07",
+   "text": "El envío de telemetría debe ser tolerante a fallos de red (buffer + retry)",
+   "prio": "SHOULD"
+  },
+  {
+   "id": "RF-ING-01",
+   "text": "API de ingesta `POST /metrics/ingest` validada contra OpenAPI 3.1",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-ING-02",
+   "text": "Ingesta por batching (batch 30s, sampling 10% configurable)",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-ING-03",
+   "text": "Almacenamiento en PostgreSQL con SQLModel + índice temporal",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-ING-04",
+   "text": "Trazas almacenadas en Tempo, logs en Loki, métricas en Prometheus",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-ING-05",
+   "text": "CORS con echo de origin (nunca `*`) + `Vary: Origin` (sendBeacon y credentials)",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-ING-06",
+   "text": "TimescaleDB como extensión activable de PostgreSQL sin reescribir la capa de consulta",
+   "prio": "SHOULD"
+  },
+  {
+   "id": "RF-GEN-01",
+   "text": "Asistente conversacional con LLM local cuantizado (sin APIs externas)",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-GEN-02",
+   "text": "RCA asistido: consumir trazas Tempo + logs Loki + métricas para explicar causa raíz",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-GEN-03",
+   "text": "RAG sobre runbooks y documentación GIDAS",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-GEN-04",
+   "text": "Respuesta a consultas de forecasting/anomalías en lenguaje natural",
+   "prio": "SHOULD"
+  },
+  {
+   "id": "RF-GEN-05",
+   "text": "Generación de borradores de runbooks desde incidentes resueltos",
+   "prio": "SHOULD"
+  },
+  {
+   "id": "RF-ACT-01",
+   "text": "Alertas con routing por severidad: alta→WhatsApp, media→Telegram, baja→Mail",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-ACT-02",
+   "text": "Reglas de alerta combinando umbrales y score ML",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-ACT-03",
+   "text": "Dashboard con 3 vistas: latencias tiempo real, heatmap UX, predicciones",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-ACT-05",
+   "text": "Asistente chat integrado al dashboard",
+   "prio": "SHOULD"
+  },
+  {
+   "id": "RF-ACT-06",
+   "text": "Exportación de datos para investigación (CSV/notebook)",
+   "prio": "SHOULD"
+  },
+  {
+   "id": "RF-SEG-01",
+   "text": "Hardening CIS Benchmark Level 1 sobre servidores Linux",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-SEG-02",
+   "text": "Playbooks Ansible versionados y validados en staging",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-SEG-03",
+   "text": "Observabilidad de eventos de seguridad (logs centralizados GLP)",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-SEG-04",
+   "text": "OWASP Top 10 aplicado a la API",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-SEG-05",
+   "text": "Autenticación en API (API key) + rate limiting",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-OPS-01",
+   "text": "Despliegue con Docker Compose, rebuild < 30 min",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-OPS-02",
+   "text": "Backup automático diario a S3 free-tier (Rclone)",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-OPS-03",
+   "text": "Self-monitoring del stack (Netdata)",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-OPS-04",
+   "text": "Costo operativo $0/mes con recursos existentes",
+   "prio": "MUST"
+  },
+  {
+   "id": "RF-OPS-05",
+   "text": "SBOM + tag semántico + release notes por release",
+   "prio": "SHOULD"
+  }
+ ],
+ "rnf": []
+}

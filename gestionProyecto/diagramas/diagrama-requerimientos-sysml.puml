@@ -1,0 +1,99 @@
+@startuml
+' ==================================================================
+' IntellOps - Requerimientos SysML (perfil SysML PlantUML)
+' Herramienta y Modelo AI CENTRADOS: RF-ML (AIOps) + RF-GEN (RCA/LLM)
+' IDs+textos REALES de marco/04-especificaciones.md (2026-09-11)
+' Estructura PROBADA (jar plantuml-1.2026.1): package+artifact <<requirement>>
+' Sin content-block {id:/text:} -- rompe render en este jar (verificado 3x)
+' ==================================================================
+!theme plain
+skinparam componentStyle uml2
+title IntellOps - Requerimientos (SysML)\nHerramienta y Modelo AI (AIOps + RCA)
+
+package "REQ INTELIGENCIA AIOps [RF-ML] -- HERRAMIENTA + MODELO AI" {
+}
+
+package "REQ ASISTENTE GEIA/RCA [RF-GEN] -- MODELO AI (LLM local+RAG)" {
+  artifact "RF-GEN-01: Asistente conversacional con LLM local cuantizado (sin APIs externas)" as RF_GEN_01 <<requirement>>
+  artifact "RF-GEN-02: RCA asistido: consumir trazas Tempo + logs Loki + métricas para explicar causa raíz" as RF_GEN_02 <<requirement>>
+  artifact "RF-GEN-03: RAG sobre runbooks y documentación GIDAS" as RF_GEN_03 <<requirement>>
+  artifact "RF-GEN-04: Respuesta a consultas de forecasting/anomalías en lenguaje natural" as RF_GEN_04 <<requirement>>
+  artifact "RF-GEN-05: Generación de borradores de runbooks desde incidentes resueltos" as RF_GEN_05 <<requirement>>
+}
+
+package "REQ CAPTURA [RF-CAP] y INGESTA [RF-ING] -- alimentan al modelo" {
+  artifact "RF-CAP-01: El sistema debe capturar métricas de experiencia de usuario (Core Web Vitals: LCP, INP, CLS) desde el navegador mediante agente RUM" as RF_CAP_01 <<requirement>>
+  artifact "RF-CAP-02: El agente debe capturar TTFB, errores de frontend, navegación y metadata de sesión" as RF_CAP_02 <<requirement>>
+  artifact "RF-CAP-03: El agente debe exportar en OTLP hacia el OTel Collector" as RF_CAP_03 <<requirement>>
+  artifact "RF-CAP-04: El sistema debe capturar métricas de infraestructura (CPU, memoria, red, disco) por scraping Prometheus" as RF_CAP_04 <<requirement>>
+  artifact "RF-CAP-05: El sistema debe capturar logs de sistema y eventos de seguridad (Linux)" as RF_CAP_05 <<requirement>>
+  artifact "RF-CAP-06: La instrumentación del backend (FastAPI) debe emitir trazas distribuidas OTel" as RF_CAP_06 <<requirement>>
+  artifact "RF-CAP-07: El envío de telemetría debe ser tolerante a fallos de red (buffer + retry)" as RF_CAP_07 <<requirement>>
+  artifact "RF-ING-01: API de ingesta `POST /metrics/ingest` validada contra OpenAPI 3.1" as RF_ING_01 <<requirement>>
+  artifact "RF-ING-02: Ingesta por batching (batch 30s, sampling 10% configurable)" as RF_ING_02 <<requirement>>
+  artifact "RF-ING-03: Almacenamiento en PostgreSQL con SQLModel + índice temporal" as RF_ING_03 <<requirement>>
+  artifact "RF-ING-04: Trazas almacenadas en Tempo, logs en Loki, métricas en Prometheus" as RF_ING_04 <<requirement>>
+  artifact "RF-ING-05: CORS con echo de origin (nunca `*`) + `Vary: Origin` (sendBeacon y credentials)" as RF_ING_05 <<requirement>>
+  artifact "RF-ING-06: TimescaleDB como extensión activable de PostgreSQL sin reescribir la capa de consulta" as RF_ING_06 <<requirement>>
+}
+
+package "REQ SEGURIDAD [RF-SEG] y CALIDAD [RF-QA]" {
+  artifact "RF-SEG-01: Hardening CIS Benchmark Level 1 sobre servidores Linux" as RF_SEG_01 <<requirement>>
+  artifact "RF-SEG-02: Playbooks Ansible versionados y validados en staging" as RF_SEG_02 <<requirement>>
+  artifact "RF-SEG-03: Observabilidad de eventos de seguridad (logs centralizados GLP)" as RF_SEG_03 <<requirement>>
+  artifact "RF-SEG-04: OWASP Top 10 aplicado a la API" as RF_SEG_04 <<requirement>>
+  artifact "RF-SEG-05: Autenticación en API (API key) + rate limiting" as RF_SEG_05 <<requirement>>
+}
+
+package "MODULOS DISENO [marco/03] -- SATISFACEN" {
+  artifact "M-ML: ML Engine [scikit-learn: IF + zscore + seasonal]" as MML <<satisfy>>
+  artifact "M-RCA: LLM local cuantizado + RAG [RCA asistido]" as MRCA <<satisfy>>
+  artifact "M-ING: API [FastAPI+PostgreSQL+OTel]" as MING <<satisfy>>
+  artifact "M-CAP: Agente RUM [Core Web Vitals]" as MCAP <<satisfy>>
+  artifact "M-SEG: Hardening [CIS+OWASP]" as MSEG <<satisfy>>
+  artifact "M-QA: CI/CD [coverage+lint+OTel]" as MQA <<satisfy>>
+}
+
+package "CASOS DE PRUEBA [plan §7] -- VERIFICAN" {
+  artifact "TC-ML-01: anomalia con IF" as TCML01 <<verify>>
+  artifact "TC-ML-02: health score 0-100" as TCML02 <<verify>>
+  artifact "TC-GEN-01: RCA asistido (RAG)" as TCGEN01 <<verify>>
+}
+
+' ===== TRZABILIDAD (satisfy / verify / trace) =====
+RF_ML_01 --> MML : <<satisfy>>
+RF_ML_02 --> MML : <<satisfy>>
+RF_ML_03 --> MML : <<satisfy>>
+RF_ML_04 --> MML : <<satisfy>>
+RF_ML_05 --> MML : <<satisfy>>
+RF_ML_06 --> MML : <<satisfy>>
+RF_ML_07 --> MML : <<satisfy>>
+RF_GEN_01 --> MRCA : <<satisfy>>
+RF_GEN_02 --> MRCA : <<satisfy>>
+RF_GEN_03 --> MRCA : <<satisfy>>
+RF_GEN_04 --> MRCA : <<satisfy>>
+RF_GEN_05 --> MRCA : <<satisfy>>
+RF_CAP_01 --> MCAP : <<satisfy>>
+RF_CAP_02 --> MCAP : <<satisfy>>
+RF_ING_01 --> MING : <<satisfy>>
+RF_ING_02 --> MING : <<satisfy>>
+RF_ML_01 --> RF_ING_01 : <<trace>>
+RF_GEN_01 --> RF_ML_01 : <<trace>>
+RF_SEG_01 --> MSEG : <<satisfy>>
+RF_QA_01 --> MQA : <<satisfy>>
+RF_QA_02 --> MQA : <<satisfy>>
+RF_ML_01 <.. TCML01 : <<verify>>
+RF_ML_02 <.. TCML02 : <<verify>>
+RF_GEN_02 <.. TCGEN01 : <<verify>>
+
+legend right
+  == Trazabilidad SysML ==
+  <<satisfy>> modulo cumple el req
+  <<verify>> prueba verifica
+  <<trace>> trazabilidad generica
+endlegend
+
+center footer
+  IntellOps - Requerimientos SysML | GIDAS UTN FrLP | 2026-09-11
+endfooter
+@enduml
