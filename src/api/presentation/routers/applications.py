@@ -2,9 +2,10 @@
 
 GET /applications y GET /applications/{id} (Admin+Researcher, APP-1),
 POST /applications (Admin, 201, APP-2), PUT /applications/{id} (Admin,
-APP-3), DELETE /applications/{id} (Admin; 204 | 404 | 409, APP-4).
+APP-3), DELETE /applications/{id} (Admin; 204 | 404 | 409, APP-4),
+POST/DELETE /applications/{id}/api-key (Admin; CRED-1..CRED-4).
 `require_role` aplica ADR-04: Admin muta, Researcher solo lee.
-`response_model` de solo lectura garantiza ADR-16 (api_token_hash null).
+`response_model` de solo lectura garantiza ADR-16 (sin api_token_hash).
 """
 
 from typing import Annotated
@@ -15,13 +16,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.domain.entities.application import Application
 from api.domain.entities.lab_user import LabUser
-from api.domain.services.application_service import ApplicationService
+from api.domain.services.application_service import (
+    ApplicationService,
+    IssuedApiKey,
+)
 from api.infrastructure.db.repositories.sqlalchemy_application_repository import (
     SQLAlchemyApplicationRepository,
 )
 from api.infrastructure.db.session import get_session
 from api.presentation.dependencies import require_role
 from api.presentation.schemas.application import (
+    ApiKeyResponse,
     ApplicationCreate,
     ApplicationRead,
     ApplicationUpdate,
@@ -101,4 +106,34 @@ async def delete_application(
     """Elimina una aplicación (solo Admin, APP-4): 204 | 404 | 409."""
     service = ApplicationService(session, SQLAlchemyApplicationRepository(session))
     await service.delete_application(application_id)
+    return None
+
+
+@router.post(
+    "/{application_id}/api-key",
+    response_model=ApiKeyResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def issue_api_key(
+    application_id: UUID,
+    _current_user: Annotated[LabUser, Depends(require_role("Admin"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> IssuedApiKey:
+    """Emite una API key show-once (solo Admin): 201 | 404 | 409 (CRED-1..3)."""
+    service = ApplicationService(session, SQLAlchemyApplicationRepository(session))
+    return await service.issue_api_key(application_id)
+
+
+@router.delete(
+    "/{application_id}/api-key", status_code=status.HTTP_204_NO_CONTENT
+)
+async def revoke_api_key(
+    application_id: UUID,
+    _current_user: Annotated[LabUser, Depends(require_role("Admin"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> None:
+    """Revoca la key de forma inmediata y fail-closed (solo Admin, CRED-4):
+    204 idempotente | 404."""
+    service = ApplicationService(session, SQLAlchemyApplicationRepository(session))
+    await service.revoke_api_key(application_id)
     return None

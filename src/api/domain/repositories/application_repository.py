@@ -38,5 +38,10 @@ class ApplicationRepository(Protocol):
         ...
 
     async def get_by_api_token_hash(self, api_token_hash: str) -> Application | None:
-        """Busca por hash de API key (contrato dormido para S2-02)."""
+        """Busca por hash de API key (CRED-1, IAUTH-3).
+
+        Lookup indexado por el índice único parcial de 0002; devuelve la
+        aplicación cuya key coincide, o None. El servicio compara con
+        `hmac.compare_digest` y valida `is_active` (ADR-19).
+        """
         ...

@@ -4,7 +4,9 @@ Cubre A2 (config JWT), A3 (exceptions), A4 (password argon2),
 A5 (jwt claims) y A6 (api keys dormidas) — escenarios AUTH-6, SEC-5.
 """
 
+import logging
 import re
+import sys
 from uuid import uuid4
 
 import jwt as pyjwt
@@ -19,7 +21,12 @@ from api.domain.exceptions import (
     DomainError,
     NotFoundError,
 )
-from api.infrastructure.security.api_keys import generate_api_key, hash_api_key
+from api.infrastructure.security.api_keys import (
+    ApiKeyRedactionFilter,
+    generate_api_key,
+    hash_api_key,
+    redact_api_key,
+)
 from api.infrastructure.security.jwt import create_access_token, decode_token
 from api.infrastructure.security.password import (
     DUMMY_HASH,
@@ -76,6 +83,19 @@ def test_domain_error_default_codes_and_override():
 
     assert NotFoundError("missing").code == "not_found"
     assert ConflictError("duplicate").code == "conflict"
+
+
+def test_domain_error_supports_headers_for_www_authenticate():
+    """DomainError DEBE aceptar headers (p. ej. WWW-Authenticate) y el
+    handler de main.py los propaga a la respuesta (design §4, IAUTH-1)."""
+    err = AuthenticationError(
+        "missing api key", code="invalid_api_key", headers={"WWW-Authenticate": "ApiKey"}
+    )
+    assert err.headers == {"WWW-Authenticate": "ApiKey"}
+    assert err.code == "invalid_api_key"
+
+    plain = NotFoundError("missing")
+    assert plain.headers is None
 
 
 # -- A4: password argon2 (pwdlib) -------------------------------------------
@@ -163,3 +183,75 @@ def test_hash_api_key_sha256_hex_deterministic():
     assert re.fullmatch(r"[0-9a-f]{64}", digest)
     assert hash_api_key(key) == digest
     assert hash_api_key(key) != hash_api_key(generate_api_key())
+
+
+# -- IAUTH-4 / SEC-7: redacción de API keys en logs -------------------------
+
+REDACTED = "ilp_***REDACTED***"
+
+
+def _sample_key() -> str:
+    return generate_api_key()  # ilp_ + 43 chars base64url
+
+
+def test_redact_api_key_hides_full_key_value():
+    """redact_api_key DEBE reemplazar el valor completo de la key
+    (prefijo + 43 chars) por un marcador (IAUTH-4)."""
+    key = _sample_key()
+    text = f"request with X-API-Key {key} processed"
+    redacted = redact_api_key(text)
+    assert key not in redacted
+    assert REDACTED in redacted
+    assert redacted.startswith("request with X-API-Key ")
+
+
+def test_redact_api_key_leaves_unrelated_text_untouched():
+    """Redacción NO DEBE tocar texto sin formato de key (evita falsos
+    positivos en logs normales)."""
+    msg = "GET /health 200 1.2ms session=abc123"
+    assert redact_api_key(msg) == msg
+
+
+def test_redact_api_key_requires_full_43_char_payload():
+    """Prefijo suelto o payload corto NO es una key válida: no se redacta
+    (el patrón exige los 43 chars base64url completos)."""
+    assert redact_api_key("ilp_short") == "ilp_short"
+
+
+def test_redaction_filter_redacts_record_message():
+    """ApiKeyRedactionFilter DEBE redactar el mensaje del LogRecord."""
+    key = _sample_key()
+    record = logging.LogRecord(
+        name="test", level=logging.INFO, pathname=__file__, lineno=1,
+        msg=f"auth failed with key {key}", args=(), exc_info=None,
+    )
+    assert ApiKeyRedactionFilter().filter(record) is True
+    assert key not in record.getMessage()
+    assert REDACTED in record.getMessage()
+
+
+def test_redaction_filter_redacts_record_args():
+    """ApiKeyRedactionFilter DEBE redactar args interpolables (msg con %s)."""
+    key = _sample_key()
+    record = logging.LogRecord(
+        name="test", level=logging.INFO, pathname=__file__, lineno=1,
+        msg="ingest rejected api_key=%s", args=(key,), exc_info=None,
+    )
+    assert ApiKeyRedactionFilter().filter(record) is True
+    assert key not in record.getMessage()
+    assert "ingest rejected api_key=ilp_***REDACTED***" == record.getMessage()
+
+
+def test_redaction_filter_redacts_traceback_text():
+    """IAUTH-4: el traceback formateado (exc_info) NO DEBE contener la key."""
+    key = _sample_key()
+    try:
+        raise ValueError(f"boom with key {key}")
+    except ValueError:
+        record = logging.LogRecord(
+            name="test", level=logging.ERROR, pathname=__file__, lineno=1,
+            msg="request failed", args=(), exc_info=sys.exc_info(),
+        )
+    assert ApiKeyRedactionFilter().filter(record) is True
+    assert key not in (record.exc_text or "")
+    assert REDACTED in (record.exc_text or "")

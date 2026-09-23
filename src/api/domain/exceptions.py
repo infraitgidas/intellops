@@ -6,15 +6,26 @@ contrato ErrorResponse {error: {code, message}}.
 
 
 class DomainError(Exception):
-    """Error base de dominio con código estable para el contrato de error."""
+    """Error base de dominio con código estable para el contrato de error.
+
+    `headers` opcional (p. ej. `WWW-Authenticate` para 401) lo propaga el
+    handler de main.py a la respuesta HTTP (design §4, IAUTH-1).
+    """
 
     http_code: int = 500
     default_code: str = "domain_error"
 
-    def __init__(self, message: str, *, code: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.code = code or self.default_code
+        self.headers = headers
 
 
 class AuthenticationError(DomainError):

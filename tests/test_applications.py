@@ -1,9 +1,11 @@
-"""Tests del PR-D (core-applications): escenarios APP-1..APP-6 (spec §3, design §7).
+"""Tests del PR-D (core-applications): escenarios APP-1..APP-9 (spec §3, design §7).
 
-Cubre D1 (schemas application: Create/Update/Read con api_token_hash null, ADR-16),
-D2 (application_service: list/get/create/update/delete con 404 y 409+rollback por
-FK RESTRICT de user_session) y D3 (router /applications + wiring en main.py).
-ADR-16: `api_token_hash` está presente en las respuestas y SIEMPRE es null en S2-01.
+Cubre D1 (schemas application: Create/Update/Read con is_active y sin
+api_token_hash, ADR-16), D2 (application_service: list/get/create/update/
+delete con 404 y 409+rollback por FK RESTRICT de user_session) y D3 (router
+/applications + wiring en main.py). ADR-16: `api_token_hash` se retiró del
+contrato de salida en S2-02 (el hash es dato interno); APP-7/APP-8: is_active
+default true, mutable por PUT, presente en Read.
 """
 
 from datetime import datetime, timezone
@@ -45,24 +47,94 @@ def test_application_create_description_optional():
     assert app.description is None
 
 
-def test_application_read_exposes_api_token_hash_null():
-    """ApplicationRead DEBE incluir api_token_hash con valor null (ADR-16)."""
+# -- APP-7: is_active en schemas (ISS-S2-02) ---------------------------------
+
+def test_application_create_is_active_default_true():
+    """ApplicationCreate DEBE fijar is_active=True por default (APP-7)."""
+    app = ApplicationCreate(name="web-app")
+    assert app.is_active is True
+
+
+def test_application_update_is_active_optional_and_mutable():
+    """ApplicationUpdate DEBE permitir mutar is_active sin tocar el resto
+    (APP-7): None = no se actualiza; False/True sí."""
+    app = ApplicationUpdate(name="x")
+    assert app.is_active is None
+    assert ApplicationUpdate(is_active=False).is_active is False
+    assert ApplicationUpdate(is_active=True).is_active is True
+
+
+def test_application_read_exposes_is_active():
+    """ApplicationRead DEBE incluir is_active en el contrato de salida (APP-7)."""
     read = ApplicationRead(
         app_id=uuid4(),
         name="web-app",
         description=None,
-        api_token_hash=None,
+        is_active=True,
         created_at=datetime.now(timezone.utc),
     )
     dumped = read.model_dump()
-    assert "api_token_hash" in dumped
-    assert dumped["api_token_hash"] is None
+    assert dumped["is_active"] is True
+
+
+def test_application_read_does_not_expose_api_token_hash():
+    """ApplicationRead NO DEBE incluir api_token_hash (ADR-16, APP-9):
+    el hash es dato interno y no viaja en el contrato de salida."""
+    read = ApplicationRead(
+        app_id=uuid4(),
+        name="web-app",
+        description=None,
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+    )
+    dumped = read.model_dump()
+    assert "api_token_hash" not in dumped
+
+
+async def test_create_application_201_is_active_default_true(client, make_admin):
+    """POST /applications → 201 con is_active=True por default (APP-7)."""
+    _, token = await make_admin()
+    resp = await client.post(
+        "/applications", headers=_auth(token), json={"name": "web-app"}
+    )
+    assert resp.status_code == 201
+    assert resp.json()["is_active"] is True
+
+
+async def test_update_application_is_active_mutable_and_persisted(
+    client, make_admin
+):
+    """PUT /applications/{id} con is_active=false → 200 con is_active=false;
+    un segundo PUT a true lo reactiva (APP-7, APP-8)."""
+    _, token = await make_admin()
+    created = await client.post(
+        "/applications", headers=_auth(token), json={"name": "web-app"}
+    )
+    app_id = created.json()["app_id"]
+
+    deactivate = await client.put(
+        f"/applications/{app_id}",
+        headers=_auth(token),
+        json={"is_active": False},
+    )
+    assert deactivate.status_code == 200
+    assert deactivate.json()["is_active"] is False
+    # El resto de los campos no se toca (update parcial).
+    assert deactivate.json()["name"] == "web-app"
+
+    reactivate = await client.put(
+        f"/applications/{app_id}",
+        headers=_auth(token),
+        json={"is_active": True},
+    )
+    assert reactivate.status_code == 200
+    assert reactivate.json()["is_active"] is True
 
 
 # -- APP-2: crear aplicación como Admin -------------------------------------
 
-async def test_create_application_201_api_token_hash_null(client, make_admin):
-    """POST /applications con Admin → 201 y api_token_hash null (APP-2, ADR-16)."""
+async def test_create_application_201_has_no_api_token_hash(client, make_admin):
+    """POST /applications con Admin → 201 y SIN api_token_hash (APP-2, ADR-16)."""
     _, token = await make_admin()
     resp = await client.post(
         "/applications", headers=_auth(token), json={"name": "web-app"}
@@ -71,7 +143,8 @@ async def test_create_application_201_api_token_hash_null(client, make_admin):
     body = resp.json()
     assert body["name"] == "web-app"
     assert body["description"] is None
-    assert body["api_token_hash"] is None
+    assert body["is_active"] is True
+    assert "api_token_hash" not in body
     assert body["app_id"]
     assert body["created_at"]
 
@@ -91,7 +164,7 @@ async def test_list_applications_200(client, make_admin):
     items = resp.json()
     assert len(items) == 1
     assert items[0]["name"] == "web-app"
-    assert items[0]["api_token_hash"] is None
+    assert "api_token_hash" not in items[0]  # ADR-16: el hash no viaja
 
 
 async def test_researcher_can_list_applications(client, make_admin, make_researcher):
@@ -124,7 +197,7 @@ async def test_get_application_detail_200(client, make_admin):
     assert body["app_id"] == app_id
     assert body["name"] == "api-gw"
     assert body["description"] == "API Gateway"
-    assert body["api_token_hash"] is None
+    assert "api_token_hash" not in body  # ADR-16: el hash no viaja
 
 
 async def test_get_application_not_found_404(client, make_admin):
@@ -238,7 +311,7 @@ async def test_delete_application_not_found_404(client, make_admin):
 # -- APP-3: PUT /applications/{id} ------------------------------------------
 
 async def test_update_application_200(client, make_admin):
-    """PUT actualiza name/description y conserva api_token_hash null (APP-3)."""
+    """PUT actualiza name/description/is_active y NO expone el hash (APP-3)."""
     _, token = await make_admin()
     created = await client.post(
         "/applications", headers=_auth(token), json={"name": "before"}
@@ -254,7 +327,7 @@ async def test_update_application_200(client, make_admin):
     body = resp.json()
     assert body["name"] == "after"
     assert body["description"] == "desc"
-    assert body["api_token_hash"] is None
+    assert "api_token_hash" not in body  # ADR-16: el hash no viaja
 
 
 async def test_update_application_not_found_404(client, make_admin):

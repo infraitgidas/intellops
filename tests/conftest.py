@@ -169,6 +169,53 @@ async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides.pop(get_session, None)
 
 
+# -- App de prueba /_probe (IAUTH-5: guard desacoplado, prod sin wiring) -----
+#
+# La app de producción NO cablea `require_api_key` a ningún path en S2-02
+# (wiring a /telemetry/* en #37). Para ejercitar el guard aisladamente, esta
+# app de TEST expone GET /_probe protegido por la MISMA dependencia.
+
+from fastapi import Depends, FastAPI  # noqa: E402
+from typing import Annotated  # noqa: E402
+
+from api.domain.entities.application import Application  # noqa: E402
+from api.domain.exceptions import DomainError  # noqa: E402
+from api.presentation.dependencies import require_api_key  # noqa: E402
+from api.presentation.errors import domain_error_handler  # noqa: E402
+
+probe_app = FastAPI(title="intellops-probe-test")
+# Mismo contrato de errores que producción (ADR-09).
+probe_app.add_exception_handler(DomainError, domain_error_handler)
+
+
+@probe_app.get("/_probe")
+async def probe(
+    application: Annotated[Application, Depends(require_api_key)],
+    claimed_app_id: str | None = None,
+) -> dict:
+    """Devuelve la Application inyectada por el guard + el app_id reclamado
+    en el payload/query (el guard DEBE ignorarlo: binding 1:1, IAUTH-2)."""
+    return {
+        "app_id": str(application.app_id),
+        "name": application.name,
+        "claimed_app_id": claimed_app_id,
+    }
+
+
+@pytest.fixture
+async def probe_client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
+    """httpx AsyncClient contra la app de prueba /_probe (mismo override)."""
+
+    async def _override_get_session() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    probe_app.dependency_overrides[get_session] = _override_get_session
+    transport = ASGITransport(app=probe_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as test_client:
+        yield test_client
+    probe_app.dependency_overrides.pop(get_session, None)
+
+
 @pytest.fixture
 async def make_admin(
     db_session: AsyncSession,

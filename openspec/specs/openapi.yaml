@@ -514,7 +514,7 @@ paths:
     post:
       summary: Crea una aplicación
       operationId: createApplication
-      description: "Requiere bearer (solo Admin). api_token_hash queda null (columna dormida hasta S2-02)."
+      description: "Requiere bearer (solo Admin). is_active default true (APP-7); el contrato de salida no expone api_token_hash (ADR-16)."
       security:
         - bearerAuth: []
       requestBody:
@@ -671,6 +671,89 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: "Aplicación con user_session asociadas (FK RESTRICT)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "application_id no es un UUID válido (path parameter validation error)"
+  /applications/{application_id}/api-key:
+    post:
+      summary: Emite una API key de ingesta (show-once)
+      operationId: issueApiKey
+      description: "Requiere bearer (solo Admin). Genera una key ilp_ (CSPRNG 32 bytes) y persiste SOLO su hash SHA-256. El plaintext se muestra una sola vez en el 201 (CRED-1). 409 si la aplicación ya tiene key activa: la rotación es un flujo explícito de dos pasos (revocar → regenerar, CRED-3)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: "Key emitida — plaintext visible solo aquí (show-once)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyResponse'
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso (solo Admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Aplicación inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: "La aplicación ya tiene una key activa (rotación explícita en dos pasos)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "application_id no es un UUID válido (path parameter validation error)"
+    delete:
+      summary: Revoca la API key de ingesta (fail-closed)
+      operationId: revokeApiKey
+      description: "Requiere bearer (solo Admin). Revoca la key de forma inmediata: la key deja de validar al instante; idempotente (204 aunque no haya key, CRED-4)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: "Key revocada (o sin key activa) — sin cuerpo"
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Usuario inactivo o sin permiso (solo Admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Aplicación inexistente
           content:
             application/json:
               schema:
@@ -963,6 +1046,10 @@ components:
         description:
           type: [string, "null"]
           description: "Descripción opcional de la aplicación"
+        is_active:
+          type: boolean
+          default: true
+          description: "Estado activo de la aplicación (default true; inactiva apaga su key de ingesta, APP-7)"
     ApplicationUpdate:
       type: object
       properties:
@@ -973,9 +1060,12 @@ components:
         description:
           type: [string, "null"]
           description: "Descripción opcional de la aplicación (null = no se actualiza)"
+        is_active:
+          type: [boolean, "null"]
+          description: "Estado activo de la aplicación (null = no se actualiza; APP-7)"
     ApplicationRead:
       type: object
-      required: [app_id, name, description, api_token_hash, created_at]
+      required: [app_id, name, description, is_active, created_at]
       properties:
         app_id:
           type: string
@@ -987,13 +1077,23 @@ components:
         description:
           type: [string, "null"]
           description: "Descripción opcional de la aplicación"
-        api_token_hash:
-          type: [string, "null"]
-          description: "Columna dormida en S2-01: siempre null (ADR-16); se retira de respuestas en S2-02"
+        is_active:
+          type: boolean
+          description: "Estado activo de la aplicación (APP-7)"
         created_at:
           type: string
           format: date-time
           description: "Momento de creación"
+    ApiKeyResponse:
+      type: object
+      required: [api_key, hint]
+      properties:
+        api_key:
+          type: string
+          description: "Plaintext de la API key (ilp_ + 43 chars). Show-once: solo visible en el 201 de emisión; nunca se persiste (CRED-1, SEC-7)"
+        hint:
+          type: string
+          description: "Últimos 4 caracteres de la key como recordatorio; no se persiste"
     AssistantResponse:
       type: object
       properties:
@@ -1060,6 +1160,7 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
+      description: "Credencial de ingesta (ISS-S2-02): key ilp_ emitida por POST /applications/{id}/api-key; se persiste solo su hash SHA-256. Aplicable a /telemetry/* (handlers en #37, OAS-6); en este cambio ningún path existente exige apiKey."
     bearerAuth:
       type: http
       scheme: bearer

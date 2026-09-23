@@ -24,6 +24,9 @@ SEED_USER_ID = "9f8c5a2e-1b2c-4d5e-8f9a-0b1c2d3e4f5a"
 SEED_EMAIL = "admin@intellops.local"
 REV_0001 = "0001"
 REV_0002 = "0002"
+REV_0003 = "0003"
+
+DDL_PATH = "openspec/specs/database/ddl_v1.0.sql"
 
 
 def _sync_url() -> str:
@@ -130,7 +133,7 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0002
+    assert _current_revision(conn) == REV_0003
 
     lab_user_columns = _column_names(conn, "lab_user")
     assert "password_hash" in lab_user_columns
@@ -138,6 +141,7 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 
     application_columns = _column_names(conn, "application")
     assert "api_token_hash" in application_columns
+    assert "is_active" in application_columns  # DATA-6: 0003 aplicada
 
     assert _index_exists(conn, "idx_lab_user_email") is True
     assert _index_exists(conn, "idx_application_api_token_hash") is True
@@ -158,8 +162,8 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 def test_downgrade_0001_removes_credentials_and_seed(alembic_cfg, conn):
     """DATA-4: downgrade 0001 elimina columnas, índices y seed; 0001 intacto."""
     command.upgrade(alembic_cfg, "head")
-    # Precondición: 0002 aplicada (evita falso verde).
-    assert _current_revision(conn) == REV_0002
+    # Precondición: 0003 aplicada (evita falso verde).
+    assert _current_revision(conn) == REV_0003
 
     command.downgrade(alembic_cfg, REV_0001)
 
@@ -183,12 +187,103 @@ def test_upgrade_restores_state_after_downgrade(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0002
+    assert _current_revision(conn) == REV_0003
     assert "password_hash" in _column_names(conn, "lab_user")
-    assert "api_token_hash" in _column_names(conn, "application")
+    application_columns = _column_names(conn, "application")
+    assert "api_token_hash" in application_columns
+    assert "is_active" in application_columns  # DATA-6
     assert _index_exists(conn, "idx_lab_user_email") is True
     assert _index_exists(conn, "idx_application_api_token_hash") is True
     seed = _seed_row(conn)
     assert seed is not None
     assert seed.email == SEED_EMAIL
     assert seed.role_name == "Admin"
+
+
+# -- DATA-6..DATA-9: migración 0003 (is_active) -----------------------------
+
+def test_upgrade_head_adds_is_active_default_true_for_existing_rows(
+    alembic_cfg, conn
+):
+    """DATA-6/DATA-7: upgrade head agrega is_active NOT NULL DEFAULT TRUE y las
+    filas preexistentes (revisión 0002) quedan activas."""
+    command.upgrade(alembic_cfg, "head")
+    command.downgrade(alembic_cfg, REV_0002)
+    assert _current_revision(conn) == REV_0002
+    assert "is_active" not in _column_names(conn, "application")
+
+    # Fila preexistente tal como existía en 0002 (sin is_active).
+    conn.execute(
+        text(
+            "INSERT INTO application (app_id, name, description, api_token_hash) "
+            "VALUES (:app_id, :name, :description, NULL)"
+        ),
+        {
+            "app_id": "11111111-2222-3333-4444-555555555555",
+            "name": "legacy-app",
+            "description": "creada antes de 0003",
+        },
+    )
+
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_0003
+
+    application_columns = _column_names(conn, "application")
+    assert "is_active" in application_columns
+    assert _column_nullable(conn, "application", "is_active") is False
+
+    row = conn.execute(
+        text(
+            "SELECT is_active FROM application "
+            "WHERE app_id = '11111111-2222-3333-4444-555555555555'"
+        )
+    ).first()
+    assert row is not None
+    assert row[0] is True  # DATA-7: fila previa queda activa (default TRUE)
+
+    # DATA-7: api_token_hash y su índice único parcial NO se tocan.
+    assert "api_token_hash" in application_columns
+    assert _index_exists(conn, "idx_application_api_token_hash") is True
+
+
+def test_downgrade_0002_removes_is_active_only(alembic_cfg, conn):
+    """DATA-8: downgrade 0002 elimina solo is_active; api_token_hash y el
+    índice único parcial quedan intactos (rollback plan)."""
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_0003
+    assert "is_active" in _column_names(conn, "application")
+
+    command.downgrade(alembic_cfg, REV_0002)
+
+    assert _current_revision(conn) == REV_0002
+    application_columns = _column_names(conn, "application")
+    assert "is_active" not in application_columns
+    assert "api_token_hash" in application_columns
+    assert _index_exists(conn, "idx_application_api_token_hash") is True
+
+    # Dejar la DB en head para no contaminar el resto de la suite.
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_0003
+
+
+def test_ddl_v1_0_sql_synced_with_0003(alembic_cfg, conn):
+    """DATA-9: ddl_v1.0.sql declara is_active en application con comentario
+    de trazabilidad de la migración 0003; api_token_hash intacto."""
+    command.upgrade(alembic_cfg, "head")
+    with open(DDL_PATH, encoding="utf-8") as handle:
+        ddl = handle.read()
+
+    # Bloque real de CREATE TABLE application: desde el nombre hasta la
+    # primera línea que cierra con ");" (los comentarios pueden contener ");").
+    application_block_lines = ddl.split("CREATE TABLE application", 1)[1].splitlines()
+    application_block: list[str] = []
+    for line in application_block_lines:
+        application_block.append(line)
+        if line.rstrip().endswith(");"):
+            break
+    application_block = "\n".join(application_block)
+    assert "is_active" in application_block
+    assert "0003" in application_block
+    assert "api_token_hash" in application_block
+    # La columna sigue siendo dormida hasta S2-02: nullable en el DDL.
+    assert "is_active BOOLEAN NOT NULL DEFAULT TRUE" in application_block
