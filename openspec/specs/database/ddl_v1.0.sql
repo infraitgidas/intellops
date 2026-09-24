@@ -56,6 +56,9 @@ CREATE TABLE application (
     -- api_token_hash agregado por la migración 0002 (ISS-S2-01):
     -- columna dormida (ADR-03); uso en S2-02.
     api_token_hash VARCHAR(64),
+    -- is_active agregado por la migración 0003 (ISS-S2-02, ADR-20):
+    -- NOT NULL DEFAULT TRUE; apaga la key de ingesta en S2-02.
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

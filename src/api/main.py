@@ -5,15 +5,21 @@ PI+D+i | Grupo GIDAS | UTN FrLP | Equipo InfraIT
 """
 
 from contextlib import asynccontextmanager
+import logging
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.domain.exceptions import DomainError
 from api.infrastructure.db.session import check_connection, dispose_engine
+from api.infrastructure.security.api_keys import ApiKeyRedactionFilter
+from api.presentation.errors import domain_error_handler
 from api.presentation.routers import applications, auth, users
-from api.presentation.schemas.common import ErrorDetail, ErrorResponse
+
+# ADR-23: redacción global de API keys (IAUTH-4) — el plaintext de una key
+# de ingesta nunca aparece en access logs ni tracebacks.
+logging.getLogger().addFilter(ApiKeyRedactionFilter())
 
 
 @asynccontextmanager
@@ -47,18 +53,7 @@ app.add_middleware(
 )
 
 
-@app.exception_handler(DomainError)
-async def domain_error_handler(
-    request: Request,  # pylint: disable=unused-argument  # firma exigida por FastAPI
-    exc: DomainError,
-) -> JSONResponse:
-    """Traduce DomainError tipificadas al contrato ErrorResponse (ADR-09)."""
-    return JSONResponse(
-        status_code=exc.http_code,
-        content=ErrorResponse(
-            error=ErrorDetail(code=exc.code, message=exc.message)
-        ).model_dump(),
-    )
+app.add_exception_handler(DomainError, domain_error_handler)
 
 
 app.include_router(auth.router)
