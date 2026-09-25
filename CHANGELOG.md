@@ -25,6 +25,18 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `require_api_key` (401 `invalid_api_key` + `WWW-Authenticate`, 403
   `app_inactive`), `is_active` en aplicaciones (migración 0003) y redacción
   global de API keys en logs (ApiKeyRedactionFilter).
+- Ingesta RUM asíncrona (ISS-S2-03, #37): endpoints `POST /telemetry/metrics`
+  y `POST /telemetry/exceptions` con `Depends(require_api_key)` (IAUTH-5),
+  validación de dos niveles (envelope→400 `schema_validation_error` por
+  handler 422→400 scoped a `/telemetry/*`; evento→202 parcial con
+  `rejected[{index, reason}]`), cola en proceso acotada (`asyncio.Queue`
+  maxsize 10000) con workers que persisten en chunks de 500 a
+  `rum_metric`/`js_exception`/`user_session` (retry transitorio 3 con
+  backoff 0.5/1/2s y dead-letter logueada), backpressure 503 `queue_full`,
+  drenado en shutdown con timeout, contadores en proceso `ingest.*` (D4) y
+  tenant fijado desde la key (`application_id` fuera de required, D2/IAUTH-2).
+  Nomenclatura definitiva `/telemetry/*` (reemplaza `/metrics/ingest` y
+  `/logs/ingest`); ADR-0002 registra la decisión.
 
 ### Changed
 

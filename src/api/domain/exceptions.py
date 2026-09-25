@@ -54,3 +54,14 @@ class ConflictError(DomainError):
 
     http_code = 409
     default_code = "conflict"
+
+
+class ServiceUnavailableError(DomainError):
+    """503 — servicio temporalmente no disponible (RUM-5, backpressure).
+
+    Cola de ingesta llena o cerrada → `queue_full`: el request no bloquea
+    (put_nowait) y el agente debe reintentar con backoff.
+    """
+
+    http_code = 503
+    default_code = "queue_full"

@@ -21,11 +21,13 @@ paths:
       responses:
         '200':
           description: Ready
-  /metrics/ingest:
+  /telemetry/metrics:
     post:
       summary: Ingesta de eventos RUM
       operationId: ingestMetrics
-      description: "Recibe un lote de eventos RUM del agente de frontend. Siempre se envía en batch."
+      description: "Recibe un lote de eventos RUM del agente de frontend (batch ≤ 500). Requiere X-API-Key; el 202 se responde al encolar, no al persistir."
+      security:
+        - apiKey: []
       requestBody:
         required: true
         content:
@@ -34,34 +36,48 @@ paths:
               $ref: '#/components/schemas/RumEventBatch'
       responses:
         '202':
-          description: "Eventos RUM aceptados para procesamiento"
+          description: "Eventos RUM aceptados para procesamiento (al encolar)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/IngestResponse'
         '400':
-          description: "Payload inválido (schema validation error)"
+          description: "Envelope inválido (schema validation error; 422→400 en /telemetry/*)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: "Rate limit excedido"
+        '401':
+          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Aplicación autenticada inactiva (app_inactive)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '503':
-          description: "Cola de ingesta llena (backpressure)"
+          description: "Cola de ingesta llena (backpressure, queue_full)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /logs/ingest:
+        '429':
+          description: "Rate limit excedido (declarado sin implementación, D3)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /telemetry/exceptions:
     post:
       summary: Ingesta de excepciones JavaScript
       operationId: ingestJsExceptions
-      description: "Recibe un lote de excepciones JavaScript capturadas por el agente RUM. Siempre se envía en batch."
+      description: "Recibe un lote de excepciones JavaScript capturadas por el agente RUM (batch ≤ 500). Requiere X-API-Key; el 202 se responde al encolar, no al persistir."
+      security:
+        - apiKey: []
       requestBody:
         required: true
         content:
@@ -70,25 +86,37 @@ paths:
               $ref: '#/components/schemas/JsExceptionBatch'
       responses:
         '202':
-          description: "Excepciones aceptadas para procesamiento"
+          description: "Excepciones aceptadas para procesamiento (al encolar)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/IngestResponse'
         '400':
-          description: "Payload inválido (schema validation error)"
+          description: "Envelope inválido (schema validation error; 422→400 en /telemetry/*)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: "Rate limit excedido"
+        '401':
+          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Aplicación autenticada inactiva (app_inactive)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '503':
-          description: "Cola de ingesta llena (backpressure)"
+          description: "Cola de ingesta llena (backpressure, queue_full)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: "Rate limit excedido (declarado sin implementación, D3)"
           content:
             application/json:
               schema:
@@ -779,7 +807,7 @@ components:
           description: "Eventos RUM incluidos en el lote"
     RumEvent:
       type: object
-      required: [schema_version, timestamp, session_id, application_id, metrics]
+      required: [schema_version, timestamp, session_id, metrics]
       properties:
         schema_version:
           type: string
@@ -796,7 +824,7 @@ components:
         application_id:
           type: string
           format: uuid
-          description: "Identificador de la aplicación que origina el evento"
+          description: "Identificador de la aplicación que origina el evento. Fuera de required (D2): el tenant se deriva EXCLUSIVAMENTE de la API key (IAUTH-2); el payload nunca es autoridad."
         metrics:
           type: array
           minItems: 1
@@ -872,7 +900,7 @@ components:
           description: "Excepciones JavaScript incluidas en el lote"
     JsExceptionEvent:
       type: object
-      required: [error_type, message, session_id, application_id, timestamp]
+      required: [error_type, message, session_id, timestamp]
       properties:
         error_type:
           type: string
@@ -893,7 +921,7 @@ components:
         application_id:
           type: string
           format: uuid
-          description: "Identificador de la aplicación; necesario para resolver/crear la sesión en el ingest"
+          description: "Identificador de la aplicación. Fuera de required (D2): el tenant se deriva EXCLUSIVAMENTE de la API key (IAUTH-2); el payload nunca es autoridad."
         metric_id:
           type: string
           format: uuid
@@ -926,7 +954,7 @@ components:
                 description: "Posición del evento rechazado dentro del batch"
               reason:
                 type: string
-                description: "Código de rechazo (unknown_metric_type, invalid_range, ...)"
+                description: "Código de rechazo por evento (missing_required_field, invalid_uuid, invalid_metric_type, invalid_unit, invalid_range, invalid_timestamp, oversized_event)"
     ErrorResponse:
       type: object
       required: [error]
@@ -1160,7 +1188,7 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
-      description: "Credencial de ingesta (ISS-S2-02): key ilp_ emitida por POST /applications/{id}/api-key; se persiste solo su hash SHA-256. Aplicable a /telemetry/* (handlers en #37, OAS-6); en este cambio ningún path existente exige apiKey."
+      description: "Credencial de ingesta (ISS-S2-02): key ilp_ emitida por POST /applications/{id}/api-key; se persiste solo su hash SHA-256. Aplicado a los paths de ingesta POST /telemetry/metrics y POST /telemetry/exceptions (OAS-6, ISS-S2-03): 401 invalid_api_key + WWW-Authenticate, 403 app_inactive."
     bearerAuth:
       type: http
       scheme: bearer
