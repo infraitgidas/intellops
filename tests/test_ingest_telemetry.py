@@ -174,7 +174,9 @@ def test_policy_rejects_empty_metrics():
 
 def test_policy_rejects_fcp_and_ttfb_above_sanity_bounds():
     """FCP > 120000 y TTFB > 60000 DEBEN rechazarse con invalid_range."""
-    assert validate_rum_event(_rum(metrics=[_metric(type_="FCP", value=120001)])) == "invalid_range"
+    assert validate_rum_event(
+        _rum(metrics=[_metric(type_="FCP", value=120001)])
+    ) == "invalid_range"
     assert validate_rum_event(_rum(metrics=[_metric(value=60001)])) == "invalid_range"
 
 
