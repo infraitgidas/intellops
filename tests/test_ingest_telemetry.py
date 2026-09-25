@@ -6,7 +6,7 @@ integration (httpx ASGI + Postgres real) y contract (openapi.yaml).
 """
 
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -679,6 +679,353 @@ def _noop_repo_factory(session):
     return None
 
 
+# -- Helpers HTTP (router /telemetry/*, RUM-1/IAUTH-5) -------------------------
+
+def _rum_batch_payload(n: int = 1, **event_overrides) -> dict:
+    """Payload de RumEventBatch válido para POST /telemetry/metrics."""
+    events = []
+    for _ in range(n):
+        event = _rum()
+        event.update(event_overrides)
+        events.append(event)
+    return {"schema_version": "1.0", "events": events}
+
+
+def _js_batch_payload(n: int = 1, **event_overrides) -> dict:
+    """Payload de JsExceptionBatch válido para POST /telemetry/exceptions."""
+    events = []
+    for _ in range(n):
+        event = _js()
+        event.update(event_overrides)
+        events.append(event)
+    return {"schema_version": "1.0", "events": events}
+
+
+def _api_key_header(key: str) -> dict[str, str]:
+    return {"X-API-Key": key}
+
+
+async def _setup_ingest(client, make_admin, *, queue=None, counters=None):
+    """Crea app + key y inyecta cola/contadores en app.state (por test).
+
+    La cola se inyecta vía app.state.ingest_queue (punto crítico de tests:
+    maxsize 1 → 503). Devuelve el entorno para aserciones.
+    """
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.main import app
+
+    _, token = await make_admin()
+    created = await client.post(
+        "/applications",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "rum-app"},
+    )
+    app_id = created.json()["app_id"]
+    key_resp = await client.post(
+        f"/applications/{app_id}/api-key",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    key = key_resp.json()["api_key"]
+
+    ingest_queue = queue if queue is not None else _FakeQueue()
+    ingest_counters = counters if counters is not None else IngestCounters()
+    app.state.ingest_queue = ingest_queue
+    app.state.ingest_counters = ingest_counters
+    return {
+        "app_id": app_id,
+        "key": key,
+        "queue": ingest_queue,
+        "counters": ingest_counters,
+        "token": token,
+    }
+
+
+@pytest.fixture(autouse=True)
+def _clean_ingest_app_state():
+    """Limpia app.state.ingest_* después de cada test (estado global)."""
+    from api.main import app
+
+    yield
+    app.state.ingest_queue = None
+    app.state.ingest_counters = None
+
+
+@pytest.fixture(autouse=True)
+def _reenable_ingest_loggers():
+    """Gotcha del entorno: alembic env.py corre fileConfig(alembic.ini) durante
+    la migración de sesión y `disable_existing_loggers` (default True) deja
+    disabled los loggers de api.* creados antes. Los re-habilitamos para poder
+    aseverar logs de ingesta (RUM-7/RUM-8) con caplog."""
+    import logging
+
+    logging.getLogger("api.infrastructure.ingest.queue").disabled = False
+    yield
+
+
+# -- RUM-1: guard require_api_key en /telemetry/* (IAUTH-5) --------------------
+
+async def test_telemetry_401_missing_key_with_www_authenticate(client):
+    """POST /telemetry/metrics sin X-API-Key → 401 invalid_api_key con
+    WWW-Authenticate (RUM-1, escenario Key ausente)."""
+    resp = await client.post("/telemetry/metrics", json=_rum_batch_payload())
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "invalid_api_key"
+    assert resp.headers.get("www-authenticate") == "ApiKey"
+
+
+async def test_telemetry_exceptions_401_invalid_key_indistinguishable(client):
+    """X-API-Key inválida → 401 idéntico al caso ausente (fail-closed,
+    RUM-1, escenario Key inválida)."""
+    missing = await client.post("/telemetry/exceptions", json=_js_batch_payload())
+    invalid = await client.post(
+        "/telemetry/exceptions",
+        headers=_api_key_header("ilp_" + "A" * 43),
+        json=_js_batch_payload(),
+    )
+    assert missing.status_code == 401
+    assert invalid.status_code == 401
+    assert invalid.json() == missing.json()
+
+
+async def test_telemetry_403_app_inactive(client, make_admin):
+    """App con is_active=false y key válida → 403 app_inactive y el batch no
+    se procesa (RUM-1, escenario Aplicación inactiva)."""
+    env = await _setup_ingest(client, make_admin)
+    deactivated = await client.put(
+        f"/applications/{env['app_id']}",
+        headers={"Authorization": f"Bearer {env['token']}"},
+        json={"is_active": False},
+    )
+    assert deactivated.status_code == 200
+
+    resp = await client.post(
+        "/telemetry/exceptions",
+        headers=_api_key_header(env["key"]),
+        json=_js_batch_payload(),
+    )
+    assert resp.status_code == 403
+    assert resp.json()["error"]["code"] == "app_inactive"
+    assert env["queue"].enqueued == []  # el batch no se procesa
+
+
+# -- IAUTH-2: tenant desde la key, nunca del payload ---------------------------
+
+async def test_telemetry_tenant_comes_from_key_not_payload(client, make_admin):
+    """Key de A + payload con application_id B → 202 y el evento se encola con
+    tenant A (RUM-1/IAUTH-2, escenario Tenant desde la key)."""
+    env = await _setup_ingest(client, make_admin)
+    other_app_id = str(uuid4())  # B: reclamo falso del payload
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=_rum_batch_payload(application_id=other_app_id),
+    )
+    assert resp.status_code == 202
+    queued = env["queue"].enqueued[0]
+    assert queued.tenant_app_id == UUID(env["app_id"])
+    assert queued.payload["application_id"] == other_app_id
+
+
+# -- RUM-3 vía HTTP: 202 parcial con rejected[{index, reason}] -----------------
+
+async def test_telemetry_metrics_202_partial_rejection(client, make_admin):
+    """Batch mixto vía HTTP → 202 con rejected [{index, reason}] y
+    accepted + len(rejected) == total (RUM-3)."""
+    env = await _setup_ingest(client, make_admin)
+    payload = _rum_batch_payload(n=3)
+    payload["events"][1] = _rum(session_id="no-es-uuid")
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["accepted"] == 2
+    assert body["rejected"] == [{"index": 1, "reason": "invalid_uuid"}]
+    assert body["accepted"] + len(body["rejected"]) == 3
+    assert len(env["queue"].enqueued) == 2
+
+
+# -- RUM-5 vía HTTP: backpressure 503 queue_full (maxsize 1) -------------------
+
+async def test_telemetry_503_queue_full_when_queue_maxsize_1(client, make_admin):
+    """Cola llena (maxsize 1, worker sin consumir) → 503 queue_full sin
+    bloquear el request (RUM-5, escenario Backpressure)."""
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    queue = AsyncioIngestQueue(
+        maxsize=1,
+        worker_count=0,
+        repository_factory=_noop_repo_factory,
+        counters=IngestCounters(),
+    )
+    env = await _setup_ingest(client, make_admin, queue=queue)
+    # Lleno la cola con un evento previo (sin workers que consuman).
+    await queue.enqueue(_queued_event())
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=_rum_batch_payload(),
+    )
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "queue_full"
+
+
+async def test_telemetry_202_enqueued_with_capacity(client, make_admin):
+    """Con capacidad, POST /telemetry/metrics → 202 y los eventos quedan
+    encolados para el worker (RUM-5, escenario Encolado con capacidad)."""
+    env = await _setup_ingest(client, make_admin)
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=_rum_batch_payload(n=2),
+    )
+    assert resp.status_code == 202
+    assert resp.json()["accepted"] == 2
+    assert len(env["queue"].enqueued) == 2
+
+
+# -- D5: handler 422→400 scoped SOLO a /telemetry/* ----------------------------
+
+async def test_telemetry_422_becomes_400_schema_validation_error(client, make_admin):
+    """Envelope inválido en /telemetry/metrics (schema_version ≠ 1.0) DEBE
+    responder 400 schema_validation_error (RUM-2, D5) y NO encolar nada."""
+    env = await _setup_ingest(client, make_admin)
+    payload = _rum_batch_payload()
+    payload["schema_version"] = "2.0"
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "schema_validation_error"
+    assert env["queue"].enqueued == []  # envelope inválido no encola (RUM-2)
+
+
+async def test_telemetry_422_becomes_400_for_501_events(client, make_admin):
+    """501 eventos en /telemetry/metrics DEBE responder 400 schema_validation_error
+    (RUM-2, escenario Envelope sobre el límite)."""
+    env = await _setup_ingest(client, make_admin)
+    payload = _rum_batch_payload(n=501)
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "schema_validation_error"
+    assert env["queue"].enqueued == []
+
+
+async def test_admin_endpoints_keep_422(client, make_admin):
+    """Regresión (D5): los paths administrativos DEBEN conservar el 422 de
+    validación Pydantic; el 422→400 es scoped SOLO a /telemetry/*."""
+    _, token = await make_admin()
+    resp = await client.post(
+        "/applications",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": ""},
+    )
+    assert resp.status_code == 422
+
+
+# -- RUM-7: drenado en shutdown (close → join → persistir) ---------------------
+
+async def test_queue_drains_pending_events_on_shutdown(db_session):
+    """Con eventos pendientes y un cierre de shutdown, close()+join(timeout)
+    DEBEN persistirlos antes de cerrar (RUM-7, escenario Drenado en shutdown)."""
+    from sqlalchemy import text
+
+    from api.domain.entities.application import Application
+    from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
+        SQLAlchemyIngestRepository,
+    )
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    tenant = uuid4()
+    db_session.add(Application(app_id=tenant, name="drain-app"))
+    await db_session.commit()
+
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters,
+    )
+    await queue.start()
+    session_id = str(uuid4())
+    await queue.enqueue(
+        _queued_event(
+            tenant_app_id=tenant,
+            payload=_rum(session_id=session_id),
+        )
+    )
+    # Evento de shutdown: close() → no acepta más → join() drena.
+    await queue.close()
+    await queue.join(timeout=5.0)
+
+    session_rows = (
+        await db_session.execute(
+            text("SELECT COUNT(*) FROM user_session WHERE session_id = :s"),
+            {"s": session_id},
+        )
+    ).scalar_one()
+    assert session_rows == 1
+    assert counters.snapshot()["ingest.persisted_total"] == 1
+
+
+async def test_queue_shutdown_timeout_logs_unpersisted_events(caplog):
+    """Si el timeout de drenado vence, los eventos no persistidos DEBEN
+    loguearse con su cantidad y el proceso cierra igual (RUM-7, escenario
+    Timeout de drenado)."""
+    import asyncio
+
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    class _SlowRepo:
+        def __init__(self) -> None:
+            self.metric_type_cache = {}
+
+        async def persist_chunk(self, sessions, metrics, exceptions):
+            await asyncio.sleep(5.0)  # más lento que el timeout de shutdown
+            return None
+
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=10,
+        worker_count=1,
+        repository_factory=lambda session: _SlowRepo(),
+        counters=counters,
+    )
+    await queue.start()
+    await queue.enqueue(_queued_event())
+    await queue.close()
+
+    # Timeout acotado y corto: vence antes de que el worker persista.
+    await queue.join(timeout=0.2)
+
+    assert any(
+        "ingest shutdown timeout" in record.getMessage()
+        for record in caplog.records
+    )
+    assert any(
+        "1 events not persisted" in record.getMessage()
+        for record in caplog.records
+    )
+
+
 # -- RUM-6: persistencia del worker (Postgres real, D1) ------------------------
 
 async def test_worker_persists_batch_to_postgres(db_session):
@@ -845,7 +1192,9 @@ async def test_worker_sends_permanent_error_to_dead_letter(caplog):
     # Permanente: sin retry (1 llamada) y dead-letter contado y logueado.
     assert broken.calls == 1
     assert counters.snapshot()["ingest.persistence_dead_letter_total"] == 1
-    assert any("dead-lettered" in record.message for record in caplog.records)
+    assert any(
+        "dead-lettered" in record.getMessage() for record in caplog.records
+    )
 
 
 def _rum_event_model(**overrides):

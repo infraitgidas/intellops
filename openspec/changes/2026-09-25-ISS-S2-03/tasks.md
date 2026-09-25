@@ -27,17 +27,17 @@ Chain strategy: size-exception
 
 ## Fase 2 — Núcleo: servicio, cola y persistencia
 
-- [ ] 2.1 RED `tests/test_ingest_telemetry.py`: 400 envelope (schema_version ≠ 1.0, 501 eventos) y 202 parcial (rejected[{index,reason}], batch_id, accepted+rejected=total) + crear `src/api/presentation/schemas/ingest.py` (application_id opcional, OAS-12) + `src/api/domain/services/ingest_service.py` (process_batch: uuid4, 2 niveles, enqueue, 202) (RUM-2/3).
-- [ ] 2.2 RED 503 `queue_full` (maxsize 1) + crear `src/api/infrastructure/ingest/queue.py` (Protocol enqueue/close/join + `AsyncioIngestQueue` put_nowait→503) (RUM-5).
-- [ ] 2.3 RED persistencia: `user_session` ON CONFLICT con app_id autenticado, bulk `rum_metric`/`js_exception`, retry ≤3, dead-letter (RUM-6).
-- [ ] 2.4 Crear `src/api/domain/repositories/ingest_repository.py` (Protocol upsert/bulk; sin commit, ADR-10) + `src/api/infrastructure/db/repositories/sqlalchemy_ingest_repository.py` (insert Core, catálogo cacheado, chunks 500, retry 3 backoff 0.5/1/2 transitorios, dead-letter `ingest.dead_letter_total`).
+- [x] 2.1 RED `tests/test_ingest_telemetry.py`: 400 envelope (schema_version ≠ 1.0, 501 eventos) y 202 parcial (rejected[{index,reason}], batch_id, accepted+rejected=total) + crear `src/api/presentation/schemas/ingest.py` (application_id opcional, OAS-12) + `src/api/domain/services/ingest_service.py` (process_batch: uuid4, 2 niveles, enqueue, 202) (RUM-2/3).
+- [x] 2.2 RED 503 `queue_full` (maxsize 1) + crear `src/api/infrastructure/ingest/queue.py` (Protocol enqueue/close/join + `AsyncioIngestQueue` put_nowait→503) (RUM-5).
+- [x] 2.3 RED persistencia: `user_session` ON CONFLICT con app_id autenticado, bulk `rum_metric`/`js_exception`, retry ≤3, dead-letter (RUM-6).
+- [x] 2.4 Crear `src/api/domain/repositories/ingest_repository.py` (Protocol upsert/bulk; sin commit, ADR-10) + `src/api/infrastructure/db/repositories/sqlalchemy_ingest_repository.py` (insert Core, catálogo cacheado, chunks 500, retry 3 backoff 0.5/1/2 transitorios, dead-letter `ingest.dead_letter_total`).
 
 ## Fase 3 — Integración y wiring
 
-- [ ] 3.1 RED `tests/test_ingest_telemetry.py`: 401 + WWW-Authenticate, 403 `app_inactive`, tenant de key ≠ payload (RUM-1, IAUTH-2) + crear `src/api/presentation/routers/telemetry.py` (`POST /telemetry/{metrics,exceptions}` con `Depends(require_api_key)`) (IAUTH-5).
-- [ ] 3.2 Handler `RequestValidationError` scoped `/telemetry/*`→400 en `src/api/presentation/errors.py` + registro en `src/api/main.py` (D5).
-- [ ] 3.3 Lifespan `src/api/main.py`: workers al startup; shutdown `close→join(timeout)→log→dispose`; RED drenado/timeout (RUM-7).
-- [ ] 3.4 Invertir `tests/test_ingest_auth.py::test_prod_app_has_no_api_key_wiring`: aseverar `/telemetry/*` cubiertos (IAUTH-5).
+- [x] 3.1 RED `tests/test_ingest_telemetry.py`: 401 + WWW-Authenticate, 403 `app_inactive`, tenant de key ≠ payload (RUM-1, IAUTH-2) + crear `src/api/presentation/routers/telemetry.py` (`POST /telemetry/{metrics,exceptions}` con `Depends(require_api_key)`) (IAUTH-5).
+- [x] 3.2 Handler `RequestValidationError` scoped `/telemetry/*`→400 en `src/api/presentation/errors.py` + registro en `src/api/main.py` (D5).
+- [x] 3.3 Lifespan `src/api/main.py`: workers al startup; shutdown `close→join(timeout)→log→dispose`; RED drenado/timeout (RUM-7).
+- [x] 3.4 Invertir `tests/test_ingest_auth.py::test_prod_app_has_no_api_key_wiring`: aseverar `/telemetry/*` cubiertos (IAUTH-5).
 
 ## Fase 4 — Testing y contrato
 

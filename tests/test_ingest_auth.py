@@ -146,23 +146,35 @@ async def test_probe_binding_1_1_ignores_claimed_app_id_in_payload(
     assert resp.json()["claimed_app_id"] != app_id
 
 
-# -- IAUTH-5: guard reutilizable, sin wiring en producción --------------------
+# -- IAUTH-5: guard cableado a producción en /telemetry/* ----------------------
 
-def test_prod_app_has_no_api_key_wiring():
-    """IAUTH-5: el guard NO se aplica a ningún path existente en este cambio;
-    la ruta de prueba /_probe solo existe en la app de tests (conftest)."""
+def _walk_apiroutes(routes):
+    """Aplana los routes de la app: FastAPI reciente envuelve los routers
+    incluidos en `_IncludedRouter` (sin `.path`); los desenvuelve vía
+    `original_router.routes` para inspeccionar APIRoute."""
+    for route in routes:
+        if type(route).__name__ == "_IncludedRouter":
+            yield from _walk_apiroutes(route.original_router.routes)
+        elif hasattr(route, "path") and hasattr(route, "dependant"):
+            yield route
+
+
+def test_prod_app_wires_api_key_guard_to_telemetry_paths():
+    """IAUTH-5: el guard require_api_key DEBE estar cableado a los paths de
+    producción /telemetry/metrics y /telemetry/exceptions (ISS-S2-03)."""
     from api.main import app
+    from api.presentation.dependencies import require_api_key
 
-    probe_paths = [
-        route.path
-        for route in app.routes
-        if hasattr(route, "path") and "_probe" in route.path
-    ]
-    assert probe_paths == []
-    # Los handlers de ingesta de #37 aún no existen en la app.
-    all_paths = {route.path for route in app.routes if hasattr(route, "path")}
-    assert "/metrics/ingest" not in all_paths
-    assert "/logs/ingest" not in all_paths
+    covered = set()
+    for route in _walk_apiroutes(app.routes):
+        if not route.path.startswith("/telemetry/"):
+            continue
+        dependency_calls = [d.call for d in route.dependant.dependencies]
+        assert require_api_key in dependency_calls, (
+            f"{route.path} DEBE aplicar Depends(require_api_key)"
+        )
+        covered.add(route.path)
+    assert covered == {"/telemetry/metrics", "/telemetry/exceptions"}
 
 
 async def test_probe_injects_authenticated_application(
