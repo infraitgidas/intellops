@@ -8,6 +8,8 @@ integration (httpx ASGI + Postgres real) y contract (openapi.yaml).
 from datetime import datetime, timezone
 from uuid import uuid4
 
+import pytest
+
 from api.domain.services.ingest_policy import (
     REJECTION_CODES,
     validate_js_exception,
@@ -326,3 +328,530 @@ def test_counters_rejected_accumulates_by_reason():
         "invalid_range": 2,
         "invalid_uuid": 1,
     }
+
+
+# -- RUM-2/OAS-12: schemas de ingesta — envelope estricto, evento laxo --------
+
+def test_envelope_schema_rejects_unknown_schema_version():
+    """schema_version ≠ 1.0 DEBE fallar la validación del envelope (RUM-2):
+    el batch completo se rechaza antes de validar por evento."""
+    from pydantic import ValidationError
+
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    with pytest.raises(ValidationError):
+        RumEventBatch(schema_version="2.0", events=[_rum_event_model()])
+
+
+def test_envelope_schema_rejects_501_events():
+    """Un envelope con 501 eventos DEBE fallar la validación (RUM-2)."""
+    from pydantic import ValidationError
+
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    with pytest.raises(ValidationError):
+        RumEventBatch(
+            schema_version="1.0",
+            events=[_rum_event_model() for _ in range(501)],
+        )
+
+
+def test_envelope_schema_rejects_empty_events():
+    """Un envelope sin eventos DEBE fallar la validación (RUM-2)."""
+    from pydantic import ValidationError
+
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    with pytest.raises(ValidationError):
+        RumEventBatch(schema_version="1.0", events=[])
+
+
+def test_rum_event_schema_application_id_optional():
+    """application_id DEBE estar fuera de required en RumEvent (OAS-12, D2)."""
+    from api.presentation.schemas.ingest import RumEvent
+
+    event = RumEvent(
+        schema_version="1.0",
+        timestamp=_ts(),
+        session_id=str(uuid4()),
+        metrics=[{"type": "TTFB", "value": 100, "unit": "ms"}],
+    )
+    assert event.application_id is None
+    assert "application_id" not in event.model_fields_set
+
+
+def test_js_exception_schema_application_id_optional():
+    """application_id DEBE estar fuera de required en JsExceptionEvent
+    (OAS-12, D2)."""
+    from api.presentation.schemas.ingest import JsExceptionEvent
+
+    event = JsExceptionEvent(
+        schema_version="1.0",
+        error_type="TypeError",
+        message="boom",
+        session_id=str(uuid4()),
+        timestamp=_ts(),
+    )
+    assert event.application_id is None
+
+
+def test_rum_event_schema_accepts_over_50_metrics():
+    """El schema del EVENTO NO DEBE fijar maxItems en metrics: el límite de 50
+    lo aplica la política por evento (202 parcial con oversized_event, RUM-4)."""
+    from api.presentation.schemas.ingest import RumEvent
+
+    metrics = [{"type": "TTFB", "value": float(i), "unit": "ms"} for i in range(51)]
+    event = RumEvent(
+        schema_version="1.0",
+        timestamp=_ts(),
+        session_id=str(uuid4()),
+        metrics=metrics,
+    )
+    assert len(event.metrics) == 51
+
+
+# -- RUM-2/3: IngestService.process_batch — 202 parcial al encolar -------------
+
+async def test_service_process_batch_returns_202_with_batch_id_and_totals():
+    """Un batch válido DEBE devolver IngestResponse con batch_id UUID,
+    accepted + len(rejected) == total y 202 al encolar, no al persistir
+    (RUM-3, semántica §3.4)."""
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import IngestResponse, RumEventBatch
+
+    fake_queue = _FakeQueue()
+    service = IngestService(queue=fake_queue, counters=IngestCounters())
+    batch = RumEventBatch(
+        schema_version="1.0", events=[_rum_event_model(), _rum_event_model()]
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert isinstance(result, IngestResponse)
+    assert result.accepted == 2
+    assert result.rejected == []
+    assert len(fake_queue.enqueued) == 2
+    # batch_id es UUID generado por el servidor (correlación; no se persiste).
+    from uuid import UUID as _UUID
+
+    assert _UUID(result.batch_id)
+
+
+async def test_service_process_batch_partial_rejection_with_index_and_reason():
+    """Batch mixto de 3 con 1 inválido en la posición 1 DEBE devolver 202 con
+    rejected [{index: 1, reason}] y encolar solo 2 (RUM-3, escenario Batch
+    mixto)."""
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    fake_queue = _FakeQueue()
+    service = IngestService(queue=fake_queue, counters=IngestCounters())
+    valid = _rum_event_model()
+    invalid = _rum_event_model(session_id="no-es-uuid")
+    batch = RumEventBatch(
+        schema_version="1.0", events=[valid, invalid, _rum_event_model()]
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert result.accepted == 2
+    assert len(result.rejected) == 1
+    assert result.rejected[0].index == 1
+    assert result.rejected[0].reason == "invalid_uuid"
+    assert result.accepted + len(result.rejected) == 3
+    assert len(fake_queue.enqueued) == 2
+
+
+async def test_service_process_batch_all_invalid_returns_accepted_zero():
+    """Batch bien formado con todos los eventos inválidos DEBE devolver 202 con
+    accepted 0 y los N índices rechazados (el nivel evento no rechaza el
+    batch, RUM-3, escenario Batch íntegramente inválido)."""
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    fake_queue = _FakeQueue()
+    service = IngestService(queue=fake_queue, counters=IngestCounters())
+    batch = RumEventBatch(
+        schema_version="1.0",
+        events=[
+            _rum_event_model(session_id="no-es-uuid"),
+            _rum_event_model(session_id="tampoco"),
+        ],
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert result.accepted == 0
+    assert [r.index for r in result.rejected] == [0, 1]
+    assert fake_queue.enqueued == []
+
+
+async def test_service_process_batch_queued_event_carries_tenant_from_key():
+    """Los eventos encolados DEBEN llevar tenant_app_id fijado desde la key
+    (D2/IAUTH-2) y el índice original, no el application_id del payload."""
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    tenant = uuid4()
+    fake_queue = _FakeQueue()
+    service = IngestService(queue=fake_queue, counters=IngestCounters())
+    payload_claims_other_app = _rum_event_model(application_id=str(uuid4()))
+    batch = RumEventBatch(schema_version="1.0", events=[payload_claims_other_app])
+
+    result = await service.process_batch(batch, tenant_app_id=tenant)
+
+    assert result.accepted == 1
+    queued = fake_queue.enqueued[0]
+    assert queued.tenant_app_id == tenant
+    assert queued.index == 0
+    assert queued.kind == "metric"
+
+
+async def test_service_process_batch_uses_correct_kind_for_exceptions():
+    """JsExceptionBatch DEBE encolar eventos kind=exception."""
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import JsExceptionBatch
+
+    fake_queue = _FakeQueue()
+    service = IngestService(queue=fake_queue, counters=IngestCounters())
+    batch = JsExceptionBatch(
+        schema_version="1.0",
+        events=[
+            {
+                "schema_version": "1.0",
+                "error_type": "TypeError",
+                "message": "boom",
+                "session_id": str(uuid4()),
+                "timestamp": _ts(),
+            }
+        ],
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert result.accepted == 1
+    assert fake_queue.enqueued[0].kind == "exception"
+
+
+async def test_service_process_batch_updates_counters():
+    """Un batch de 3 con 1 rechazado DEBE actualizar received +3, accepted +2
+    y rejected_total{reason} +1 (RUM-8)."""
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    fake_queue = _FakeQueue()
+    counters = IngestCounters()
+    service = IngestService(queue=fake_queue, counters=counters)
+    batch = RumEventBatch(
+        schema_version="1.0",
+        events=[
+            _rum_event_model(),
+            _rum_event_model(session_id="no-es-uuid"),
+            _rum_event_model(),
+        ],
+    )
+
+    await service.process_batch(batch, tenant_app_id=uuid4())
+
+    snapshot = counters.snapshot()
+    assert snapshot["ingest.received_total"] == 3
+    assert snapshot["ingest.accepted_total"] == 2
+    assert snapshot["ingest.rejected_total"] == {"invalid_uuid": 1}
+
+
+class _FakeQueue:
+    """Fake del puerto IngestQueue para unit tests del service (sin workers)."""
+
+    def __init__(self) -> None:
+        self.enqueued = []
+
+    async def enqueue(self, event) -> None:
+        self.enqueued.append(event)
+
+    async def close(self) -> None:
+        pass
+
+    async def join(self, timeout: float) -> None:
+        pass
+
+
+def _queued_event(**overrides):
+    """QueuedEvent válido base para tests de cola."""
+    from api.infrastructure.ingest.queue import QueuedEvent
+
+    base = {
+        "batch_id": uuid4(),
+        "index": 0,
+        "tenant_app_id": uuid4(),
+        "kind": "metric",
+        "payload": _rum(),
+    }
+    base.update(overrides)
+    return QueuedEvent(**base)
+
+
+# -- RUM-5: AsyncioIngestQueue — backpressure 503, close, qsize ---------------
+
+async def test_queue_enqueue_when_full_raises_503_queue_full():
+    """Cola llena (maxsize 1, sin workers) DEBE responder 503 queue_full sin
+    bloquear el request (RUM-5, escenario Backpressure)."""
+    from api.domain.exceptions import ServiceUnavailableError
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    queue = AsyncioIngestQueue(
+        maxsize=1,
+        worker_count=0,
+        repository_factory=_noop_repo_factory,
+        counters=IngestCounters(),
+    )
+    await queue.enqueue(_queued_event())
+
+    with pytest.raises(ServiceUnavailableError) as excinfo:
+        await queue.enqueue(_queued_event())
+
+    assert excinfo.value.http_code == 503
+    assert excinfo.value.code == "queue_full"
+
+
+async def test_queue_enqueue_after_close_raises_503_queue_full():
+    """Cola cerrada DEBE rechazar enqueue nuevos con 503 (RUM-7: shutdown deja
+    de aceptar eventos)."""
+    from api.domain.exceptions import ServiceUnavailableError
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    queue = AsyncioIngestQueue(
+        maxsize=10,
+        worker_count=0,
+        repository_factory=_noop_repo_factory,
+        counters=IngestCounters(),
+    )
+    await queue.close()
+
+    with pytest.raises(ServiceUnavailableError) as excinfo:
+        await queue.enqueue(_queued_event())
+
+    assert excinfo.value.code == "queue_full"
+
+
+async def test_queue_qsize_reflects_enqueued_events():
+    """qsize DEBE reflejar los eventos encolados (contador queue_depth, RUM-8)."""
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    queue = AsyncioIngestQueue(
+        maxsize=10,
+        worker_count=0,
+        repository_factory=_noop_repo_factory,
+        counters=IngestCounters(),
+    )
+    await queue.enqueue(_queued_event())
+    await queue.enqueue(_queued_event())
+
+    assert queue.qsize() == 2
+
+
+async def test_queue_accepts_events_with_capacity():
+    """Con capacidad disponible, enqueue DEBE aceptar sin excepción (RUM-5,
+    escenario Encolado con capacidad)."""
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    queue = AsyncioIngestQueue(
+        maxsize=10,
+        worker_count=0,
+        repository_factory=_noop_repo_factory,
+        counters=IngestCounters(),
+    )
+    await queue.enqueue(_queued_event())
+    assert queue.qsize() == 1
+
+
+def _noop_repo_factory(session):
+    """Factory de repositorio que no persiste (tests de cola sin workers)."""
+    return None
+
+
+# -- RUM-6: persistencia del worker (Postgres real, D1) ------------------------
+
+async def test_worker_persists_batch_to_postgres(db_session):
+    """Un batch encolado con 2 métricas y 1 excepción de una sesión nueva DEBE
+    persistir filas en rum_metric/js_exception y crear user_session con el
+    app_id de la app autenticada (RUM-6, escenario Persistencia verificada)."""
+    from sqlalchemy import text
+
+    from api.domain.entities.application import Application
+    from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
+        SQLAlchemyIngestRepository,
+    )
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue, QueuedEvent
+
+    # El tenant debe existir como aplicación (FK user_session.app_id).
+    tenant = uuid4()
+    db_session.add(Application(app_id=tenant, name="ingest-app"))
+    await db_session.commit()
+
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters,
+    )
+    await queue.start()
+    session_id = str(uuid4())
+    batch_id = uuid4()
+    await queue.enqueue(
+        QueuedEvent(
+            batch_id=batch_id,
+            index=0,
+            tenant_app_id=tenant,
+            kind="metric",
+            payload=_rum(session_id=session_id),
+        )
+    )
+    await queue.enqueue(
+        QueuedEvent(
+            batch_id=batch_id,
+            index=1,
+            tenant_app_id=tenant,
+            kind="metric",
+            payload=_rum(
+                session_id=session_id,
+                metrics=[{"type": "FCP", "value": 900.0, "unit": "ms"}],
+            ),
+        )
+    )
+    await queue.enqueue(
+        QueuedEvent(
+            batch_id=batch_id,
+            index=2,
+            tenant_app_id=tenant,
+            kind="exception",
+            payload=_js(session_id=session_id),
+        )
+    )
+    await queue.close()
+    await queue.join(timeout=5.0)
+
+    metric_rows = (
+        await db_session.execute(text("SELECT COUNT(*) FROM rum_metric"))
+    ).scalar_one()
+    exception_rows = (
+        await db_session.execute(text("SELECT COUNT(*) FROM js_exception"))
+    ).scalar_one()
+    session_row = (
+        await db_session.execute(
+            text(
+                "SELECT app_id, user_agent FROM user_session "
+                "WHERE session_id = :session_id"
+            ),
+            {"session_id": session_id},
+        )
+    ).one()
+
+    assert metric_rows == 2
+    assert exception_rows == 1
+    assert session_row.app_id == tenant
+    assert session_row.user_agent == "ua"
+    assert counters.snapshot()["ingest.persisted_total"] == 3
+
+
+async def test_worker_retries_transient_db_error_then_persists():
+    """Una falla transitoria de BD DEBE reintentarse con backoff y el chunk
+    DEBE persistir en el intento ≤ 3 sin pérdida (RUM-6, escenario Retry
+    transitorio)."""
+    import sqlalchemy.exc
+
+    from api.domain.repositories.ingest_repository import PersistStats
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    class _FlakyRepo:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.metric_type_cache = {}
+
+        async def persist_chunk(self, sessions, metrics, exceptions):
+            self.calls += 1
+            if self.calls <= 2:
+                raise sqlalchemy.exc.OperationalError(
+                    "statement", {}, Exception("connection lost")
+                )
+            return PersistStats(
+                rows=len(metrics) + len(exceptions), metric_id_unknown=0
+            )
+
+    flaky = _FlakyRepo()
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=10,
+        worker_count=1,
+        repository_factory=lambda session: flaky,
+        counters=counters,
+        retry_delays=(0.0, 0.0, 0.0),
+    )
+    await queue.start()
+    await queue.enqueue(_queued_event())
+    await queue.close()
+    await queue.join(timeout=5.0)
+
+    assert flaky.calls == 3  # 2 fallos transitorios + 1 éxito
+    snapshot = counters.snapshot()
+    assert snapshot["ingest.persisted_total"] == 1
+    assert snapshot["ingest.persistence_dead_letter_total"] == 0
+
+
+async def test_worker_sends_permanent_error_to_dead_letter(caplog):
+    """Un error permanente de BD (constraint violation) DEBE ir a dead-letter
+    (log + contador) sin excepción silenciosa (RUM-6, escenario Dead-letter)."""
+    import sqlalchemy.exc
+
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    class _BrokenRepo:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.metric_type_cache = {}
+
+        async def persist_chunk(self, sessions, metrics, exceptions):
+            self.calls += 1
+            raise sqlalchemy.exc.IntegrityError(
+                "INSERT INTO rum_metric", {}, Exception("duplicate key")
+            )
+
+    broken = _BrokenRepo()
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=10,
+        worker_count=1,
+        repository_factory=lambda session: broken,
+        counters=counters,
+    )
+    await queue.start()
+    await queue.enqueue(_queued_event())
+    await queue.close()
+    await queue.join(timeout=5.0)
+
+    # Permanente: sin retry (1 llamada) y dead-letter contado y logueado.
+    assert broken.calls == 1
+    assert counters.snapshot()["ingest.persistence_dead_letter_total"] == 1
+    assert any("dead-lettered" in record.message for record in caplog.records)
+
+
+def _rum_event_model(**overrides):
+    """RumEvent Pydantic válido base; overrides por test."""
+    from api.presentation.schemas.ingest import RumEvent
+
+    payload = _rum()
+    payload.update(overrides)
+    return RumEvent.model_validate(payload)
