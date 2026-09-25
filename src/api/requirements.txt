@@ -5,7 +5,7 @@ pydantic>=2.10.0
 pydantic-settings>=2.7.0
 
 # Base de datos (PostgreSQL 16 — DER v1.2)
-sqlalchemy>=2.0.36
+sqlalchemy[asyncio]>=2.0.36
 asyncpg>=0.29.0
 alembic>=1.13.0
 psycopg[binary]>=3.2.0
