@@ -41,9 +41,9 @@ Chain strategy: size-exception
 
 ## Fase 4 — Testing y contrato
 
-- [ ] 4.1 Actualizar `openspec/specs/openapi.yaml`: `/telemetry/*` con `security:[apiKey]`, requestBody, 202/400/401/403/503/429 (429 sin impl, D3); quitar `/metrics/ingest`+`/logs/ingest`; scheme descripción; `application_id` fuera de required; sin `unknown_application` (OAS-6/11/12).
-- [ ] 4.2 Actualizar `tests/test_contract.py`: `_SCOPED_PATH_RE`+telemetry, expected_statuses+503; OAS-6 invertido; OAS-10 sin paths viejos; asserts OAS-9/11/12 + completar `tests/test_ingest_telemetry.py`: RUM-8 log redactado + contadores, aislamiento IAUTH-2.
-- [ ] 4.3 Suite `pytest --cov=src` ≥70%, flake8 (99), pylint ≥7.0; validar `openspec/specs/openapi.yaml` (read-only).
+- [x] 4.1 Actualizar `openspec/specs/openapi.yaml`: `/telemetry/*` con `security:[apiKey]`, requestBody, 202/400/401/403/503/429 (429 sin impl, D3); quitar `/metrics/ingest`+`/logs/ingest`; scheme descripción; `application_id` fuera de required; sin `unknown_application` (OAS-6/11/12).
+- [x] 4.2 Actualizar `tests/test_contract.py`: `_SCOPED_PATH_RE`+telemetry, expected_statuses+503; OAS-6 invertido; OAS-10 sin paths viejos; asserts OAS-9/11/12 + completar `tests/test_ingest_telemetry.py`: RUM-8 log redactado + contadores, aislamiento IAUTH-2.
+- [x] 4.3 Suite `pytest --cov=src` ≥70%, flake8 (99), pylint ≥7.0; validar `openspec/specs/openapi.yaml` (read-only).
 
 ## Fase 5 — Documentación
 

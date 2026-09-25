@@ -13,6 +13,8 @@ timestamp → size limits.
 from datetime import datetime
 from uuid import UUID
 
+# pylint: disable=too-many-return-statements  # cadena determinista de validación
+
 REJECTION_CODES = frozenset(
     {
         "missing_required_field",

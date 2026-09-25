@@ -7,6 +7,8 @@ commitea (ADR-10): el worker coordina commit/rollback por chunk y aplica
 retry transitorio / dead-letter (DD-4).
 """
 
+# pylint: disable=too-few-public-methods  # repositorio con un solo método público
+
 from sqlalchemy import insert, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession

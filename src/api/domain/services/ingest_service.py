@@ -10,6 +10,8 @@ The 202 is produced on ENQUEUE, never on persist (semantics §3.4).
 import logging
 from uuid import UUID, uuid4
 
+# pylint: disable=too-few-public-methods  # caso de uso con un solo método público
+
 from api.domain.services.ingest_policy import (
     validate_js_exception,
     validate_rum_event,

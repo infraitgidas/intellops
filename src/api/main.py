@@ -7,7 +7,7 @@ PI+D+i | Grupo GIDAS | UTN FrLP | Equipo InfraIT
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

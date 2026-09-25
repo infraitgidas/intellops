@@ -12,6 +12,8 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+# pylint: disable=too-many-instance-attributes,too-few-public-methods  # DTOs planos
+
 
 @dataclass(frozen=True)
 class SessionRow:

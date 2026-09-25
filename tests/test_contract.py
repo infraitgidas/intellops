@@ -1,14 +1,16 @@
-"""Contract tests — OAS-6..OAS-10 (spec §4, design §7, ADR-24).
+"""Contract tests — OAS-6..OAS-12 (spec §4, design §7, ADR-24).
 
 Estructura:
 - Aserciones estructurales sobre `openspec/specs/openapi.yaml` (siempre
-  verdes y deterministas): scheme apiKey declarado sin `security:` en paths
-  existentes (OAS-6/OAS-10), paths POST/DELETE api-key con los status codes
-  esperados + schema ApiKeyResponse (OAS-7), ApplicationRead sin
-  api_token_hash (OAS-8), documento 3.1 cargable por schemathesis.
+  verdes y deterministas): scheme apiKey declarado y aplicado con
+  `security: [apiKey]` a /telemetry/* (OAS-6/OAS-11), paths viejos
+  /metrics/ingest y /logs/ingest ausentes (OAS-10), application_id fuera de
+  required (OAS-12), paths POST/DELETE api-key con los status codes
+  esperados (OAS-7), ApplicationRead sin api_token_hash (OAS-8), documento
+  3.1 cargable por schemathesis (OAS-9).
 - Corrida live de schemathesis contra la app ASGI sobre el subset de paths
-  implementados (incluye los endpoints api-key nuevos), con checks que
-  declaran 2xx/401/403/404/409/422 (OAS-9). Envolver en `xfail` documentado:
+  implementados (incluye /telemetry/*), con checks que declaran
+  2xx/401/403/404/409/422/503 (OAS-9). Envolver en `xfail` documentado:
   el soporte 3.1 fue experimental (OPEN_API_3_1.enable()) y una limitación
   de herramienta se degrada documentada sin romper el gate (ADR-24).
 """
@@ -36,9 +38,9 @@ except ImportError:
     # schemathesis >= 4.0: OpenAPI 3.1 nativo, sin flag experimental.
     _OPEN_API_3_1_EXPERIMENTAL = False
 
-# Paths implementados en la app (excluye /telemetry/* y dashboard/ML que
-# viven en #37 y slices posteriores; OAS-10 los declara en el documento).
-_SCOPED_PATH_RE = r"/(health|ready|auth|users|applications)"
+# Paths implementados en la app (ISS-S2-03 agrega /telemetry/*; dashboard/ML
+# viven en slices posteriores; OAS-10 los declara en el documento).
+_SCOPED_PATH_RE = r"/(health|ready|auth|users|applications|telemetry)"
 
 
 def _contract() -> dict:
@@ -46,24 +48,45 @@ def _contract() -> dict:
         return yaml.safe_load(handle)
 
 
-# -- OAS-6/OAS-10: scheme apiKey declarado, paths existentes intactos --------
+# -- OAS-6/OAS-10: scheme apiKey aplicado a /telemetry/* (ISS-S2-03) -----------
 
-def test_oas6_api_key_scheme_declared_without_security_on_existing_paths():
-    """El scheme apiKey (X-API-Key) DEBE permanecer declarado y NO agregarse
-    `security: [apiKey]` a ningún path existente en este cambio (OAS-6)."""
+def test_oas6_telemetry_paths_require_api_key():
+    """El scheme apiKey (X-API-Key) DEBE estar declarado y aplicado con
+    `security: [apiKey]` a los paths /telemetry/metrics y
+    /telemetry/exceptions (OAS-6, escenario Ingesta protegida)."""
     doc = _contract()
     scheme = doc["components"]["securitySchemes"]["apiKey"]
     assert scheme["type"] == "apiKey"
     assert scheme["in"] == "header"
     assert scheme["name"] == "X-API-Key"
 
-    for path in ("/metrics/ingest", "/logs/ingest"):
+    for path in ("/telemetry/metrics", "/telemetry/exceptions"):
         operation = doc["paths"][path]["post"]
-        assert "security" not in operation, (
-            f"{path} no debe exigir apiKey hasta #37 (OAS-6)"
+        assert operation["security"] == [{"apiKey": []}], (
+            f"{path} DEBE exigir apiKey (OAS-6)"
         )
         declared = set(operation["responses"])
-        assert declared == {"202", "400", "429", "503"}  # OAS-10
+        assert declared == {"202", "400", "401", "403", "503", "429"}  # OAS-11
+
+
+def test_oas6_scheme_description_no_longer_defers_wiring():
+    """La descripción del scheme apiKey DEBE documentar su aplicabilidad
+    vigente a /telemetry/* y NO decir que ningún path lo exige aún (OAS-6)."""
+    description = _contract()["components"]["securitySchemes"]["apiKey"][
+        "description"
+    ]
+    assert "/telemetry" in description
+    assert "ningún path" not in description
+
+
+def test_oas10_ingest_paths_replaced_by_telemetry():
+    """Los paths /metrics/ingest y /logs/ingest DEBEN eliminarse y reemplazarse
+    por /telemetry/metrics y /telemetry/exceptions (OAS-10, REMOVED)."""
+    doc = _contract()
+    assert "/metrics/ingest" not in doc["paths"]
+    assert "/logs/ingest" not in doc["paths"]
+    assert "/telemetry/metrics" in doc["paths"]
+    assert "/telemetry/exceptions" in doc["paths"]
 
 
 def test_oas10_preexisting_paths_intact():
@@ -72,8 +95,8 @@ def test_oas10_preexisting_paths_intact():
     expected = {
         "/health",
         "/ready",
-        "/metrics/ingest",
-        "/logs/ingest",
+        "/telemetry/metrics",
+        "/telemetry/exceptions",
         "/metrics/query",
         "/metrics/list",
         "/anomalies",
@@ -96,6 +119,61 @@ def test_oas10_preexisting_paths_intact():
         "/applications/{application_id}",
     }
     assert expected <= set(doc["paths"])
+
+
+# -- OAS-11: requestBody y respuestas completas en /telemetry/* ----------------
+
+def test_oas11_telemetry_paths_declare_request_body_and_responses():
+    """Los paths /telemetry/* DEBEN declarar requestBody (RumEventBatch/
+    JsExceptionBatch) y las respuestas 202/400/401/403/503/429 con sus
+    schemas (OAS-11, escenario Contrato de respuestas completo)."""
+    doc = _contract()
+    metrics = doc["paths"]["/telemetry/metrics"]["post"]
+    exceptions = doc["paths"]["/telemetry/exceptions"]["post"]
+
+    assert (
+        metrics["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/RumEventBatch"
+    )
+    assert (
+        exceptions["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/JsExceptionBatch"
+    )
+    for operation in (metrics, exceptions):
+        assert (
+            operation["responses"]["202"]["content"]["application/json"]["schema"][
+                "$ref"
+            ]
+            == "#/components/schemas/IngestResponse"
+        )
+        for code in ("400", "401", "403", "503", "429"):
+            assert (
+                operation["responses"][code]["content"]["application/json"]["schema"][
+                    "$ref"
+                ]
+                == "#/components/schemas/ErrorResponse"
+            )
+
+
+# -- OAS-12: application_id fuera de required; sin unknown_application ----------
+
+def test_oas12_application_id_not_required_and_no_unknown_application():
+    """application_id DEBE salir de required en RumEvent/JsExceptionEvent y
+    `unknown_application` NO DEBE figurar como código de rechazo documentado
+    (OAS-12, D2/IAUTH-2)."""
+    doc = _contract()
+    rum_event = doc["components"]["schemas"]["RumEvent"]
+    js_event = doc["components"]["schemas"]["JsExceptionEvent"]
+
+    assert "application_id" not in rum_event["required"]
+    assert "application_id" not in js_event["required"]
+    assert "application_id" in rum_event["properties"]
+    assert "application_id" in js_event["properties"]
+
+    rejected_reason = doc["components"]["schemas"]["IngestResponse"]["properties"][
+        "rejected"
+    ]
+    assert "unknown_application" not in str(rejected_reason)
 
 
 # -- OAS-7: paths api-key + ApiKeyResponse ----------------------------------
@@ -152,7 +230,8 @@ def test_oas9_openapi_document_loads_in_schemathesis():
     assert len(operations) >= 30  # documento completo, no truncado
     paths = {op.ok().path for op in operations}
     assert "/applications/{application_id}/api-key" in paths
-    assert "/metrics/ingest" in paths
+    assert "/telemetry/metrics" in paths
+    assert "/telemetry/exceptions" in paths
 
 
 # -- OAS-9: corrida live scoped (xfail documentado, ADR-24) ------------------
@@ -163,8 +242,8 @@ def test_oas9_openapi_document_loads_in_schemathesis():
         "OAS-9/ADR-24: el contract layer de schemathesis se degrada documentado. "
         "OpenAPI 3.1 fue experimental (OPEN_API_3_1.enable()); en schemathesis "
         ">=4.0 es nativo. El subset scoped cubre los paths implementados "
-        "(health/ready/auth/users/applications) y los checks declaran "
-        "2xx/401/403/404/409/422. Una limitación de herramienta no rompe el gate."
+        "(health/ready/auth/users/applications/telemetry) y los checks declaran "
+        "2xx/401/403/404/409/422/503. Una limitación de herramienta no rompe el gate."
     ),
 )
 def test_schemathesis_live_contract_scoped():
@@ -177,7 +256,7 @@ def test_schemathesis_live_contract_scoped():
         allow_header_conformance=SimpleCheckConfig(enabled=False),
         positive_data_acceptance=PositiveDataAcceptanceConfig(
             expected_statuses=[
-                200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 429,
+                200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 429, 503,
             ]
         ),
     )

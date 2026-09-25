@@ -758,7 +758,11 @@ def _reenable_ingest_loggers():
     aseverar logs de ingesta (RUM-7/RUM-8) con caplog."""
     import logging
 
-    logging.getLogger("api.infrastructure.ingest.queue").disabled = False
+    for name in (
+        "api.infrastructure.ingest.queue",
+        "api.domain.services.ingest_service",
+    ):
+        logging.getLogger(name).disabled = False
     yield
 
 
@@ -889,6 +893,88 @@ async def test_telemetry_202_enqueued_with_capacity(client, make_admin):
     assert resp.status_code == 202
     assert resp.json()["accepted"] == 2
     assert len(env["queue"].enqueued) == 2
+
+
+# -- RUM-8: log de rechazo redactado (ADR-23) + contadores en proceso ----------
+
+async def test_ingest_rejection_log_redacted_with_batch_id_index_reason(
+    client, make_admin, caplog
+):
+    """El log de rechazo DEBE contener batch_id, index y reason y NUNCA la
+    X-API-Key (RUM-8, escenario Log de rechazo redactado; ADR-23)."""
+    import logging
+
+    env = await _setup_ingest(client, make_admin)
+    payload = _rum_batch_payload(n=2)
+    payload["events"][0] = _rum(session_id="no-es-uuid")
+
+    with caplog.at_level(logging.WARNING, logger="api.domain.services.ingest_service"):
+        resp = await client.post(
+            "/telemetry/metrics",
+            headers=_api_key_header(env["key"]),
+            json=payload,
+        )
+
+    assert resp.status_code == 202
+    rejection_logs = [
+        record
+        for record in caplog.records
+        if "ingest event rejected" in record.getMessage()
+    ]
+    assert len(rejection_logs) == 1
+    record = rejection_logs[0]
+    assert record.batch_id
+    assert record.index == 0
+    assert record.reason == "invalid_uuid"
+    # ADR-23: el plaintext de la key nunca aparece en logs.
+    assert env["key"] not in caplog.text
+
+
+async def test_ingest_counters_updated_on_http_request(client, make_admin):
+    """Batch de 3 con 1 rechazado vía HTTP DEBE dejar received +3, accepted +2
+    y rejected_total{reason} +1 (RUM-8, escenario Contadores en proceso)."""
+    from api.infrastructure.ingest.counters import IngestCounters
+
+    counters = IngestCounters()
+    env = await _setup_ingest(client, make_admin, counters=counters)
+    payload = _rum_batch_payload(n=3)
+    payload["events"][1] = _rum(session_id="no-es-uuid")
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+
+    assert resp.status_code == 202
+    snapshot = counters.snapshot()
+    assert snapshot["ingest.received_total"] == 3
+    assert snapshot["ingest.accepted_total"] == 2
+    assert snapshot["ingest.rejected_total"] == {"invalid_uuid": 1}
+
+
+async def test_ingest_queue_depth_counter_reflects_enqueued(client, make_admin):
+    """ingest.queue_depth DEBE reflejar lo encolado tras el request (RUM-8)."""
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=0,
+        repository_factory=_noop_repo_factory,
+        counters=counters,
+    )
+    env = await _setup_ingest(client, make_admin, queue=queue, counters=counters)
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=_rum_batch_payload(n=2),
+    )
+
+    assert resp.status_code == 202
+    assert counters.snapshot()["ingest.queue_depth"] == 2
 
 
 # -- D5: handler 422→400 scoped SOLO a /telemetry/* ----------------------------
