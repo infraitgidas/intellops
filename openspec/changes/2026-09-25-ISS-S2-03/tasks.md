@@ -47,5 +47,5 @@ Chain strategy: size-exception
 
 ## Fase 5 — Documentación
 
-- [ ] 5.1 Actualizar `openspec/specs/architecture/{interfaces,components,quality-attributes}.md` (nomenclatura `/telemetry/*`, árbol routers/telemetry.py, artefacto `POST /telemetry/metrics`; ARCH-1..3) y docs vivas `docs/architecture/{PipelineIngestaRUM,ContratoIngestaRUM}.md` + `docs/brief-v2.md` (rutas y semántica 202/503; históricos intactos; ARCH-4).
-- [ ] 5.2 Verificar/ajustar `docs/adr/0002-pipeline-ingesta-async.md` contra DD-7 (Nygard; ya creado) y actualizar `CHANGELOG.md`.
+- [x] 5.1 Actualizar `openspec/specs/architecture/{interfaces,components,quality-attributes}.md` (nomenclatura `/telemetry/*`, árbol routers/telemetry.py, artefacto `POST /telemetry/metrics`; ARCH-1..3) y docs vivas `docs/architecture/{PipelineIngestaRUM,ContratoIngestaRUM}.md` + `docs/brief-v2.md` (rutas y semántica 202/503; históricos intactos; ARCH-4).
+- [x] 5.2 Verificar/ajustar `docs/adr/0002-pipeline-ingesta-async.md` contra DD-7 (Nygard; ya creado) y actualizar `CHANGELOG.md`.

@@ -13,7 +13,7 @@ src/api/
 ├── main.py                    ← FastAPI app, startup/shutdown, middlewares
 ├── routers/
 │   ├── health.py              ← GET /health, GET /ready
-│   ├── ingest.py              ← POST /metrics/ingest, POST /logs/ingest
+│   ├── telemetry.py           ← POST /telemetry/metrics, POST /telemetry/exceptions (ISS-S2-03; antes routers/ingest.py)
 │   ├── metrics.py             ← GET /metrics/query, GET /metrics/list
 │   ├── anomalies.py           ← GET /anomalies, GET /anomalies/{id}
 │   ├── predictions.py         ← GET /predictions, GET /predictions/forecast
@@ -139,9 +139,9 @@ sequenceDiagram
     participant W as Worker persistencia
     participant DB as PostgreSQL 16
 
-    Agent->>API: POST /metrics/ingest (RumEventBatch)
-    API->>API: Validación por evento
-    API-->>Agent: 202 {batch_id, accepted, rejected}
+    Agent->>API: POST /telemetry/metrics (X-API-Key, RumEventBatch)
+    API->>API: require_api_key → tenant + validación por evento
+    API-->>Agent: 202 {batch_id, accepted, rejected} (al encolar)
     API->>Q: enqueue eventos válidos
     Q->>W: chunk de 500
     W->>DB: Resolver sesión + bulk insert (asyncpg)

@@ -8,11 +8,11 @@
 
 ### 1.1. OpenAPI 3.1 — REST API
 
-**Arquitectura de nomenclatura unificada (ISS-S1-02):**
-Se decidió usar `/metrics/ingest` como endpoint canonical por sobre `/telemetry/metrics`,
-basado en la adopción existente en la especificación actual y para mantener compatibilidad
-con la convención de ingesta OTel del agente RUM. Todos los endpoints relacionados con
-métricas deben usar el prefijo `/metrics/`.
+**Arquitectura de nomenclatura unificada (ISS-S1-02, revertida por ISS-S2-03):**
+La decisión S1 unificó el prefijo `/metrics/` para toda la ingesta. El criterio 8 de #37
+(ISS-S2-03) revierte esa decisión: la nomenclatura definitiva es `/telemetry/*` —
+`POST /telemetry/metrics` y `POST /telemetry/exceptions` — sin runtime que romper
+(no existía implementación de ingesta). Ver ADR-0002.
 
 **Archivo**: `openspec/specs/openapi.yaml` (por crear en primer cambio)
 
@@ -20,8 +20,8 @@ métricas deben usar el prefijo `/metrics/`.
 |--------|------|-----------|--------|
 | GET | `/health` | Health check del sistema | ✅ Planificado |
 | GET | `/ready` | Readiness check (dependencias listas) | ✅ Planificado |
-| POST | `/metrics/ingest` | Ingesta de métricas RUM (batch) | ✅ Planificado |
-| POST | `/logs/ingest` | Ingesta de excepciones JS (batch) | ✅ Planificado |
+| POST | `/telemetry/metrics` | Ingesta de métricas RUM (batch ≤ 500) | ✅ Planificado |
+| POST | `/telemetry/exceptions` | Ingesta de excepciones JS (batch ≤ 500) | ✅ Planificado |
 | GET | `/metrics/query` | Consulta de métricas históricas | ✅ Planificado |
 | GET | `/metrics/list` | Listado de métricas disponibles | ✅ Planificado |
 | GET | `/anomalies` | Listado de anomalías detectadas | ✅ Planificado |
@@ -40,9 +40,11 @@ métricas deben usar el prefijo `/metrics/`.
 
 #### Endpoints Críticos
 
-##### POST /metrics/ingest
+##### POST /telemetry/metrics
 
 ```yaml
+security:
+  - apiKey: []
 requestBody:
   required: true
   content:
@@ -51,16 +53,24 @@ requestBody:
         $ref: '#/components/schemas/RumEventBatch'
 responses:
   '202':
-    description: "Eventos RUM aceptados para procesamiento"
+    description: "Eventos RUM aceptados para procesamiento (al encolar)"
   '400':
-    description: "Payload inválido (schema validation error)"
+    description: "Envelope inválido (schema validation error; 422→400 en /telemetry/*)"
+  '401':
+    description: "X-API-Key ausente o inválida (invalid_api_key)"
+  '403':
+    description: "Aplicación autenticada inactiva (app_inactive)"
+  '503':
+    description: "Cola de ingesta llena (backpressure, queue_full)"
   '429':
-    description: "Rate limit excedido"
+    description: "Rate limit excedido (declarado sin implementación)"
 ```
 
-##### POST /logs/ingest
+##### POST /telemetry/exceptions
 
 ```yaml
+security:
+  - apiKey: []
 requestBody:
   required: true
   content:
@@ -69,11 +79,17 @@ requestBody:
         $ref: '#/components/schemas/JsExceptionBatch'
 responses:
   '202':
-    description: "Excepciones aceptadas para procesamiento"
+    description: "Excepciones aceptadas para procesamiento (al encolar)"
   '400':
-    description: "Payload inválido (schema validation error)"
+    description: "Envelope inválido (schema validation error; 422→400 en /telemetry/*)"
+  '401':
+    description: "X-API-Key ausente o inválida (invalid_api_key)"
+  '403':
+    description: "Aplicación autenticada inactiva (app_inactive)"
+  '503':
+    description: "Cola de ingesta llena (backpressure, queue_full)"
   '429':
-    description: "Rate limit excedido"
+    description: "Rate limit excedido (declarado sin implementación)"
 ```
 
 ##### POST /assistant/query

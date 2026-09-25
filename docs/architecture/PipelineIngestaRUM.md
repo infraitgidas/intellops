@@ -19,10 +19,10 @@ sequenceDiagram
     participant DB as PostgreSQL 16
 
     App->>Agent: Instrumentación (web-vitals, navigation, errors)
-    Agent->>API: POST /metrics/ingest | POST /logs/ingest (batch ≤ 500)
+    Agent->>API: POST /telemetry/metrics | POST /telemetry/exceptions (batch ≤ 500)
     API->>API: Validación envelope (schema_version, estructura, ≤ 500)
     API->>API: Validación por evento (uuid, tipo, unidad, rango)
-    API-->>Agent: 202 {batch_id, accepted, rejected}
+    API-->>Agent: 202 {batch_id, accepted, rejected} (al encolar)
     API->>Q: enqueue eventos válidos
     Q->>W: chunk de 500
     W->>DB: Resolver/crear user_session (ON CONFLICT DO NOTHING)
@@ -45,7 +45,7 @@ sequenceDiagram
   "batch_id": "3f2a0f6e-9f1e-4b6e-8c2a-1a2b3c4d5e6f",
   "accepted": 497,
   "rejected": [
-    { "index": 12, "reason": "unknown_metric_type" },
+    { "index": 12, "reason": "invalid_uuid" },
     { "index": 13, "reason": "invalid_range" }
   ]
 }
@@ -53,6 +53,7 @@ sequenceDiagram
 
 - `batch_id` lo genera el servidor por batch recibido; sirve para correlacionar el envío con logs y retries del agente. **No se persiste en la BD en S1.**
 - `index` es la posición del evento dentro del array `events` del batch enviado.
+- El 202 se responde al **encolar**, no al persistir (§3.4).
 
 ### 2.3. Códigos de rechazo por evento
 
@@ -63,9 +64,10 @@ sequenceDiagram
 | `invalid_metric_type` | `type` fuera del enum (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
 | `invalid_unit` | `unit` fuera de `ms`/`count` o incoherente con el tipo |
 | `invalid_range` | `value` fuera del rango de cordura (ej. TTFB > 60000) |
-| `invalid_timestamp` | `timestamp` no parseable o fuera de ventana aceptable |
-| `unknown_application` | `application_id` no existe en `APPLICATION` (no se puede crear la sesión) |
-| `oversized_event` | Excede límites de longitud (ej. `stack_trace` > 20000) |
+| `invalid_timestamp` | `timestamp` no parseable o sin zona horaria explícita |
+| `oversized_event` | Excede límites de longitud (ej. `stack_trace` > 20000, > 50 métricas) |
+
+> **ISS-S2-03 (D2)**: el código `unknown_application` fue eliminado del flujo — el tenant se deriva EXCLUSIVAMENTE de la API key (IAUTH-2) y el `application_id` del payload es opcional y nunca autoridad.
 
 ### 2.4. Manejo de eventos rechazados
 
@@ -74,7 +76,7 @@ sequenceDiagram
 
 ## 3. Estrategia de persistencia asíncrona (bulk insert)
 
-Para S1 se adopta una **cola en proceso (`asyncio.Queue`) acotada**, priorizando simplicidad operacional, bajo consumo de recursos y backpressure sin incorporar infraestructura adicional. La cola no ofrece durabilidad ante reinicios del proceso; esta limitación es **aceptada explícitamente en S1**. La interfaz de cola se abstrae para permitir migración futura a un broker durable.
+Para S1 se adopta una **cola en proceso (`asyncio.Queue`) acotada** (ISS-S2-03), priorizando simplicidad operacional, bajo consumo de recursos y backpressure sin incorporar infraestructura adicional. La cola no ofrece durabilidad ante reinicios del proceso; esta limitación es **aceptada explícitamente en S1**. La interfaz de cola se abstrae para permitir migración futura a un broker durable. Los endpoints de ingesta son `POST /telemetry/metrics` y `POST /telemetry/exceptions` (nomenclatura definitiva `/telemetry/*`, ADR-0002).
 
 ### 3.1. Configuración propuesta
 
@@ -89,7 +91,7 @@ Para S1 se adopta una **cola en proceso (`asyncio.Queue`) acotada**, priorizando
 
 ### 3.2. Secuencia de persistencia por chunk
 
-1. **Resolver sesión**: `INSERT INTO user_session (session_id, app_id, start_timestamp, user_agent) VALUES (...) ON CONFLICT (session_id) DO NOTHING` — `app_id` sale del `application_id` del evento; `user_agent` del metadata si viene.
+1. **Resolver sesión**: `INSERT INTO user_session (session_id, app_id, start_timestamp, user_agent) VALUES (...) ON CONFLICT (session_id) DO NOTHING` — `app_id` sale de la **aplicación autenticada por la API key** (IAUTH-2/D2; el `application_id` del payload nunca es autoridad); `user_agent` del metadata si viene.
 2. **Bulk insert `rum_metric`**: filas desde `RumEvent.metrics[]` (type → `metric_type_id` resuelto contra el catálogo).
 3. **Bulk insert `js_exception`**: filas desde `JsExceptionEvent` (`metric_id` se persiste si viene y existe; si viene y no existe → NULL + contador `ingest.metric_id_unknown_total`, es correlación blanda).
 

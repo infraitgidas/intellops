@@ -32,11 +32,11 @@ Cada atributo se especifica como un **escenario de calidad** siguiendo el format
 |----------|---------------|
 | **Fuente** | Agente RUM / API externa |
 | **Estímulo** | Envío de 1000 métricas/seg en burst |
-| **Artefacto** | Endpoint `/metrics/ingest` |
+| **Artefacto** | Endpoint `POST /telemetry/metrics` |
 | **Entorno** | Carga normal en servidor GIDAS |
-| **Respuesta** | Acepta métricas, responde 202, persiste en < 500ms |
+| **Respuesta** | Acepta métricas, responde 202 (al encolar), persiste en < 500ms |
 | **Medición** | **Target**: < 200ms p99 | **Mínimo**: < 500ms p99 |
-| **Estrategia** | FastAPI async, SQLite WAL mode, batching configurable |
+| **Estrategia** | FastAPI async, cola asyncio acotada con backpressure (503 queue_full), batching configurable |
 
 | Elemento | Especificación |
 |----------|---------------|
