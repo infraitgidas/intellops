@@ -19,6 +19,8 @@ class IngestCounters:
         self._persisted = 0
         self._dead_letter = 0
         self._metric_id_unknown = 0
+        self._session_foreign = 0
+        self._metric_id_foreign = 0
         self._queue_depth = 0
 
     def received(self, n: int = 1) -> None:
@@ -45,6 +47,15 @@ class IngestCounters:
         """metric_id de correlación blanda inexistente → NULL (RUM-6)."""
         self._metric_id_unknown += n
 
+    def session_foreign(self, n: int = 1) -> None:
+        """Filas de métricas/excepciones descartadas por sesión extranjera
+        (RUM-9/DD-8: session_id de OTRA aplicación en el chunk)."""
+        self._session_foreign += n
+
+    def metric_id_foreign(self, n: int = 1) -> None:
+        """metric_id existente pero de OTRO tenant → NULL (RUM-10/DD-8)."""
+        self._metric_id_foreign += n
+
     def set_queue_depth(self, n: int) -> None:
         """Ocupación actual de la cola (gauge)."""
         self._queue_depth = n
@@ -58,5 +69,7 @@ class IngestCounters:
             "ingest.persisted_total": self._persisted,
             "ingest.persistence_dead_letter_total": self._dead_letter,
             "ingest.metric_id_unknown_total": self._metric_id_unknown,
+            "ingest.session_foreign_total": self._session_foreign,
+            "ingest.metric_id_foreign_total": self._metric_id_foreign,
             "ingest.queue_depth": self._queue_depth,
         }
