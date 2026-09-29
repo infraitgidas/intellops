@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # Password dev del seed Admin (migración 0002) — solo dev/CI.
     admin_bootstrap_password: str = "admin-dev-password"
 
+    # Ingesta RUM asíncrona (ISS-S2-03, RUM-5/DD-6): cola en proceso acotada
+    # con N workers y drenado en shutdown con timeout. Env: INGEST_*.
+    ingest_queue_maxsize: int = 10000
+    ingest_workers: int = 2
+    ingest_shutdown_timeout: float = 10.0
+
     @field_validator("jwt_secret")
     @classmethod
     def _validate_jwt_secret_length(cls, value: str) -> str:

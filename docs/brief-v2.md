@@ -298,16 +298,18 @@ info:
   version: 1.0.0
   description: API de observabilidad predictiva para infraestructura GIDAS
 paths:
-  /metrics/ingest:
+  /telemetry/metrics:
     post:
-      summary: Ingesta de métricas OTel
+      summary: Ingesta de métricas RUM
+      security:
+        - apiKey: []
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MetricBatch'
+              $ref: '#/components/schemas/RumEventBatch'
       responses:
-        '202': { description: Métricas aceptadas }
+        '202': { description: "Métricas aceptadas (al encolar; cola llena → 503 queue_full)" }
   /anomalies/detect:
     get:
       summary: Detección de anomalías

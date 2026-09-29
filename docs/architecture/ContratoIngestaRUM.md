@@ -12,10 +12,10 @@ La ingesta RUM se compone de dos endpoints, ambos de aceptación asíncrona (202
 
 | Endpoint | Payload | Propósito |
 |----------|---------|-----------|
-| `POST /metrics/ingest` | `RumEventBatch` | Métricas RUM (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
-| `POST /logs/ingest` | `JsExceptionBatch` | Excepciones JavaScript no manejadas |
+| `POST /telemetry/metrics` | `RumEventBatch` | Métricas RUM (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
+| `POST /telemetry/exceptions` | `JsExceptionBatch` | Excepciones JavaScript no manejadas |
 
-Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 y los envía con `schema_version: "1.0"`. Ambas respuestas son idénticas (202 / 400 / 429) y están definidas en `openspec/specs/openapi.yaml`.
+Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 y los envía con `schema_version: "1.0"`. Ambas respuestas son idénticas (202 / 400 / 401 / 403 / 503 / 429) y están definidas en `openspec/specs/openapi.yaml`. El 202 se responde al **encolar** (semántica §3.4 del pipeline); el 503 `queue_full` es backpressure de la cola llena. La nomenclatura `/telemetry/*` es la definitiva (ADR-0002).
 
 ## Matriz de validación del evento RUM
 
@@ -37,7 +37,7 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 | `message` | Sí | string | 2000 | Mensaje del error |
 | `stack_trace` | No | string | 20000 | Opcional |
 | `session_id` | Sí | string (uuid) | — | FK a `user_session` |
-| `application_id` | Sí | string (uuid) | — | Necesario para resolver/crear la sesión en el ingest |
+| `application_id` | No | string (uuid) | — | Opcional desde ISS-S2-03 (D2): el tenant se deriva EXCLUSIVAMENTE de la API key (IAUTH-2); el payload nunca es autoridad. Si viene, debe ser UUID válido |
 | `metric_id` | No | string (uuid) | — | FK nullable a `rum_metric`, ON DELETE SET NULL |
 | `timestamp` | Sí | string (date-time) | — | ISO 8601 UTC |
 
@@ -73,13 +73,13 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 | `metric_id` | `metric_id` | FK nullable a `rum_metric`, ON DELETE SET NULL |
 | `timestamp` | `timestamp` | `TIMESTAMPTZ NOT NULL` |
 
-> **Nota**: `application_id` no persiste directo en ninguna de las dos tablas. Se resuelve contra `user_session.app_id` al momento del ingest (para resolver o crear la sesión).
+> **Nota**: `application_id` no persiste directo en ninguna de las dos tablas. El tenant de la sesión (`user_session.app_id`) se fija desde la aplicación autenticada por la API key al momento del ingest (IAUTH-2/D2), no desde el payload.
 
 ## Decisiones registradas
 
-1. **JS_EXCEPTION por `/logs/ingest`**: las excepciones JS usan un endpoint propio, no `/metrics/ingest`, según lo planificado en `openspec/specs/architecture/components.md` (router `ingest.py` expone ambos).
-2. **Wrapper de batch incluido en esta issue**: los esquemas `RumEventBatch` y `JsExceptionBatch` forman parte del contrato de esta issue. El bulk insert asíncrono es del ISS-S1-06.
-3. **`application_id` en JsExceptionEvent**: se agregó aunque no figura en el criterio literal de la issue, porque el ingest necesita resolver o crear la sesión contra `user_session.app_id`; sin este campo sería imposible validar la FK.
+1. **JS_EXCEPTION por `/telemetry/exceptions`**: las excepciones JS usan un endpoint propio, no `/telemetry/metrics`, según la nomenclatura definitiva `/telemetry/*` (ADR-0002).
+2. **Wrapper de batch incluido en esta issue**: los esquemas `RumEventBatch` y `JsExceptionBatch` forman parte del contrato de esta issue. El bulk insert asíncrono es del ISS-S2-03.
+3. **`application_id` opcional (ISS-S2-03, D2)**: salió de `required` en `RumEvent` y `JsExceptionEvent` porque el tenant se deriva exclusivamente de la API key (IAUTH-2); el payload no es autoridad y el código `unknown_application` fue eliminado del flujo.
 
 ## Referencias
 
