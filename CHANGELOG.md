@@ -37,6 +37,19 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tenant fijado desde la key (`application_id` fuera de required, D2/IAUTH-2).
   Nomenclatura definitiva `/telemetry/*` (reemplaza `/metrics/ingest` y
   `/logs/ingest`); ADR-0002 registra la decisión.
+- Hardening de aislamiento multi-tenant + read path (ISS-S3-01, #40):
+  ownership de sesión en el upsert (`_upsert_sessions` resuelve por PK antes
+  del insert; sesión de OTRA app → filas del lote descartadas +
+  `ingest.session_foreign_total`), correlación `metric_id` scoped por tenant
+  (cross-app → `NULL` + `ingest.metric_id_foreign_total`; inexistente →
+  `metric_id_unknown_total`), endpoints `GET /metrics/query` (`queryMetrics`)
+  y `GET /metrics/list` (`listMetrics`) con `require_api_key` (tenant solo de
+  la key), query repository app-scoped con agregación temporal EN SQL
+  (shape ML `(application_id, metric_type_id, timestamp, value,
+  session_count)`, ventana default 15 min / ≤ 7 d / bucket ≥ 60 s → 422
+  `invalid_query_range`), contrato OpenAPI 124-137 completado sin romper
+  operationIds, y tests de collision/replay cross-tenant (C5). ADR-0003
+  registra la decisión (DD-8/DD-9/DD-10).
 
 ### Changed
 
