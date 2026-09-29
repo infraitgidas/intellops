@@ -43,7 +43,8 @@ ml/data/processed/
 ml/models/*.bin
 ml/models/*.onnx
 ml/models/*.gguf
-ml/experiments/
+ml/experiments/*
+!ml/experiments/ISS-S3-05_EDA.ipynb
 ml/.dvc/
 *.dvc
 
