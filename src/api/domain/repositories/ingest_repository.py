@@ -54,10 +54,18 @@ class ExceptionRow:
 
 @dataclass(frozen=True)
 class PersistStats:
-    """Resultado de persistir un chunk."""
+    """Resultado de persistir un chunk.
+
+    `session_foreign`/`metric_id_foreign` (DD-10/RUM-9/RUM-10) cuentan los
+    descartes por ownership: filas referenciando sesiones de OTRA app y
+    correlaciones metric_id existentes pero de otro tenant. Defaults a 0
+    para compat con mocks existentes.
+    """
 
     rows: int
     metric_id_unknown: int
+    session_foreign: int = 0  # filas descartadas por sesión extranjera (RUM-9)
+    metric_id_foreign: int = 0  # metric_id existente pero de otro tenant (RUM-10)
 
 
 class IngestRepository(Protocol):

@@ -65,3 +65,14 @@ class ServiceUnavailableError(DomainError):
 
     http_code = 503
     default_code = "queue_full"
+
+
+class QueryRangeError(DomainError):
+    """422 — rango/parámetros de consulta de métricas fuera de límite (TQ-2).
+
+    Read path: ventana > 7 días, bucket < 60 s o start >= end → la consulta
+    se rechaza con `invalid_query_range` sin ejecutar la agregación.
+    """
+
+    http_code = 422
+    default_code = "invalid_query_range"
