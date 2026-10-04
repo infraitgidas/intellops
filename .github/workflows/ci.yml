@@ -1,32 +1,67 @@
 name: IntellOps CI
 
+# Pipeline de QA (ISS-S2-04): lint → unit tests (sin DB) → suite completa con
+# Postgres + reporte de cobertura. Contract, license-scan y docker corren en
+# paralelo/después; la evolución (integration/build/staging/E2E) se suma acá.
+
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
+
+# Un push nuevo a la misma rama/PR cancela la corrida anterior en curso.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   PYTHON_VERSION: "3.11"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: python -m pip install --upgrade pip
-      - run: pip install ".[dev]"
-      - run: flake8 src/ tests/
-      - run: pylint src/ --fail-under=7.0
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - name: flake8 (PEP 8, 0 warnings)
+        run: flake8 src/ tests/
+      - name: pylint (score mínimo 9.0)
+        run: pylint src/ --fail-under=9.0
+
+  unit:
+    name: Unit Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      # Sin Postgres: los tests `unit` no tocan DB (ver tests/conftest.py).
+      - run: PYTHONPATH=. pytest -m unit
 
   test:
     name: Unit & Integration Tests
-    needs: lint
+    needs: unit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16-alpine
@@ -48,13 +83,48 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - run: pip install -e ".[dev]"
       - run: alembic upgrade head
-      - run: PYTHONPATH=. pytest --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=70
-      - uses: codecov/codecov-action@v4
+      # Gate de cobertura (fail_under) y rutas de salida en pyproject.toml.
+      - name: pytest + cobertura
+        run: >-
+          PYTHONPATH=. pytest
+          --cov
+          --cov-report=term-missing
+          --cov-report=xml
+          --cov-report=html
+          --junitxml=reports/junit.xml
+      - name: Resumen de cobertura
+        if: always()
+        run: |
+          if [ ! -f .coverage ]; then
+            echo "No se generó cobertura (pytest no llegó a correr)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## Cobertura de tests: $(coverage report --format=total --fail-under=0)%"
+            echo
+            echo "Umbral mínimo: 70% (\`[tool.coverage.report] fail_under\` en pyproject.toml)."
+            echo
+            echo "<details><summary>Detalle por archivo</summary>"
+            echo
+            coverage report --format=markdown --fail-under=0
+            echo
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publicar reporte de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+          name: coverage-report
+          path: |
+            coverage.xml
+            htmlcov/
+            reports/junit.xml
+          if-no-files-found: ignore
+          retention-days: 14
 
   contract:
     name: Contract Tests (schemathesis, OpenAPI 3.1)
