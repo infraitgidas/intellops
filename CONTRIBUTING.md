@@ -112,13 +112,24 @@ observabilidad/
 - **Integración**: `pytest + httpx.AsyncClient` — al menos flujo feliz + error
 - **Contrato**: `schemathesis` — validación automática contra OpenAPI
 - **Carga**: `Locust` o `k6` — para endpoints críticos (ingesta, detección)
-- **Cobertura mínima**: 70% en módulos críticos
+- **Cobertura mínima**: 70% (gate único en `[tool.coverage.report] fail_under` de `pyproject.toml`)
+
+### Capas: `unit` vs `integration`
+
+Cada test se clasifica automáticamente (`tests/conftest.py`):
+
+- **`integration`**: usa algún fixture de base de datos (`db_session`, `client`, `make_admin`, `seed_admin`, `alembic_cfg`, `conn`, …). Requiere Postgres migrado.
+- **`unit`**: todo lo demás. Corre **sin** Postgres.
+
+Si un test toca la DB sin pedir esos fixtures (p. ej. vía el engine global, como `/health`), marcalo con `@pytest.mark.integration`; de lo contrario fallará en el job `Unit Tests` del CI, que no tiene base de datos.
 
 ```bash
 # Ejecutar tests
-make test
+make test               # suite completa
+make test-unit          # solo unit (sin DB, segundos)
+make test-integration   # solo integración (Postgres)
 
-# Test con cobertura
+# Test con cobertura (HTML en htmlcov/)
 make test-cov
 
 # Test de contrato
@@ -126,6 +137,30 @@ make test-contract
 
 # Test de carga
 make test-load
+```
+
+### Pipeline de CI (`.github/workflows/ci.yml`)
+
+Corre en push a `main`/`develop`, en PRs hacia esas ramas y manualmente (`workflow_dispatch`). Un push nuevo cancela la corrida anterior de la misma rama.
+
+| Job | Qué valida | Falla si |
+|-----|-----------|----------|
+| `Lint & Format` | `flake8 src/ tests/` + `pylint src/` | hay warnings de flake8 o pylint < 9.0 |
+| `Unit Tests` | `pytest -m unit` sin Postgres | falla un test unitario |
+| `Unit & Integration Tests` | suite completa contra Postgres 16 + cobertura | falla un test o la cobertura < 70% |
+| `Contract Tests` | `tests/test_contract.py` (schemathesis, OpenAPI 3.1) | el contrato no valida |
+| `License Scan & SBOM` | SBOM CycloneDX + `pip-licenses` | hay dependencias SSPL/AGPL |
+| `Docker Build` | `docker compose build` | la imagen no construye |
+
+**Reporte de cobertura**: en la pestaña *Actions* de cada corrida, el resumen del job `Unit & Integration Tests` muestra el total y la tabla por archivo; el artefacto `coverage-report` trae `coverage.xml`, el HTML navegable (`htmlcov/index.html`) y `reports/junit.xml`.
+
+Reproducir el CI localmente sin Docker (con un Postgres accesible en `DATABASE_URL`):
+
+```bash
+pip install -e ".[dev]"
+flake8 src/ tests/ && pylint src/ --fail-under=9.0
+PYTHONPATH=. pytest -m unit
+alembic upgrade head && PYTHONPATH=. pytest --cov --cov-report=term-missing
 ```
 
 ## Pull Requests
