@@ -1,8 +1,13 @@
 """Tests del endpoint de health check."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
+
+# /health consulta Postgres con el engine global (sin fixtures de DB): se
+# declara integración explícitamente para que no corra en `pytest -m unit`.
+pytestmark = pytest.mark.integration
 
 client = TestClient(app)
 
