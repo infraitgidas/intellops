@@ -268,6 +268,33 @@ def test_service_unavailable_error_is_503_queue_full():
     assert exc.message == "ingest queue is full"
 
 
+def test_query_range_error_is_422_invalid_query_range():
+    """QueryRangeError DEBE ser 422 con código default invalid_query_range
+    (TQ-2: ventana fuera de límite o bucket < 60 s en el read path)."""
+    from api.domain.exceptions import QueryRangeError
+
+    exc = QueryRangeError("window exceeds 7 days")
+    assert exc.http_code == 422
+    assert exc.code == "invalid_query_range"
+    assert exc.message == "window exceeds 7 days"
+
+
+def test_persist_stats_defaults_ownership_counters():
+    """PersistStats DEBE defaultar session_foreign/metric_id_foreign a 0
+    (DD-10: compat con mocks existentes) y aceptarlos por keyword."""
+    from api.domain.repositories.ingest_repository import PersistStats
+
+    stats = PersistStats(rows=3, metric_id_unknown=1)
+    assert stats.session_foreign == 0
+    assert stats.metric_id_foreign == 0
+
+    explicit = PersistStats(
+        rows=3, metric_id_unknown=1, session_foreign=2, metric_id_foreign=1
+    )
+    assert explicit.session_foreign == 2
+    assert explicit.metric_id_foreign == 1
+
+
 # -- RUM-8/D4: contadores en proceso (prefijo ingest., sufijo _total) ----------
 
 def test_counters_snapshot_uses_ingest_prefix_and_total_suffix():
@@ -330,6 +357,25 @@ def test_counters_rejected_accumulates_by_reason():
         "invalid_range": 2,
         "invalid_uuid": 1,
     }
+
+
+def test_counters_snapshot_exposes_ownership_keys():
+    """El snapshot DEBE exponer ingest.session_foreign_total y
+    ingest.metric_id_foreign_total junto al resto de los keys (RUM-11,
+    DD-10)."""
+    from api.infrastructure.ingest.counters import IngestCounters
+
+    counters = IngestCounters()
+    counters.session_foreign(2)
+    counters.metric_id_foreign(1)
+
+    snapshot = counters.snapshot()
+    assert snapshot["ingest.session_foreign_total"] == 2
+    assert snapshot["ingest.metric_id_foreign_total"] == 1
+    # El resto de los keys permanecen (RUM-11, escenario Snapshot con descartes).
+    assert "ingest.persisted_total" in snapshot
+    assert "ingest.metric_id_unknown_total" in snapshot
+    assert "ingest.queue_depth" in snapshot
 
 
 # -- RUM-2/OAS-12: schemas de ingesta — envelope estricto, evento laxo --------
@@ -1283,6 +1329,341 @@ async def test_worker_sends_permanent_error_to_dead_letter(caplog):
     assert any(
         "dead-lettered" in record.getMessage() for record in caplog.records
     )
+
+
+# -- RUM-9 (C5): ownership de sesión en upsert — collision/replay cross-tenant -
+
+async def _seed_session_and_metric(
+    db_session, app_id, session_id, *, metric_id=None, value=100.0
+):
+    """Seed SQL directo: user_session + rum_metric de un tenant (control total
+    de metric_id para los tests de correlación RUM-10)."""
+    from sqlalchemy import text
+
+    await db_session.execute(
+        text(
+            "INSERT INTO user_session (session_id, app_id, start_timestamp) "
+            "VALUES (:s, :a, now())"
+        ),
+        {"s": str(session_id), "a": str(app_id)},
+    )
+    mid = metric_id or uuid4()
+    type_id = (
+        await db_session.execute(
+            text("SELECT metric_type_id FROM metric_type WHERE name = 'TTFB'")
+        )
+    ).scalar_one()
+    await db_session.execute(
+        text(
+            "INSERT INTO rum_metric (metric_id, session_id, metric_type_id, "
+            "value, unit, timestamp) VALUES (:m, :s, :t, :v, 'ms', now())"
+        ),
+        {"m": str(mid), "s": str(session_id), "t": type_id, "v": value},
+    )
+    await db_session.commit()
+    return mid
+
+
+async def test_worker_drops_foreign_session_rows_cross_tenant(db_session):
+    """C5 collision/replay: sesión S persistida bajo la app A; la app B reenvía
+    métricas + excepciones con session_id=S → esas filas NO se persisten bajo
+    A, user_session.app_id sigue siendo A, los datos de A quedan intactos y
+    ingest.session_foreign_total == filas descartadas (RUM-9/RUM-11)."""
+    from sqlalchemy import text
+
+    from api.domain.entities.application import Application
+    from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
+        SQLAlchemyIngestRepository,
+    )
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue, QueuedEvent
+
+    app_a, app_b = uuid4(), uuid4()
+    db_session.add(Application(app_id=app_a, name="app-a"))
+    db_session.add(Application(app_id=app_b, name="app-b"))
+    await db_session.commit()
+
+    # App A persiste la sesión S con una métrica (tenant A).
+    session_id = str(uuid4())
+    counters_a = IngestCounters()
+    queue_a = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters_a,
+    )
+    await queue_a.start()
+    await queue_a.enqueue(
+        QueuedEvent(
+            batch_id=uuid4(), index=0, tenant_app_id=app_a, kind="metric",
+            payload=_rum(session_id=session_id),
+        )
+    )
+    await queue_a.close()
+    await queue_a.join(timeout=5.0)
+
+    # App B reutiliza session_id=S (replay cross-tenant): 1 métrica + 1 excepción.
+    counters_b = IngestCounters()
+    queue_b = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters_b,
+    )
+    await queue_b.start()
+    await queue_b.enqueue(
+        QueuedEvent(
+            batch_id=uuid4(), index=0, tenant_app_id=app_b, kind="metric",
+            payload=_rum(session_id=session_id),
+        )
+    )
+    await queue_b.enqueue(
+        QueuedEvent(
+            batch_id=uuid4(), index=1, tenant_app_id=app_b, kind="exception",
+            payload=_js(session_id=session_id),
+        )
+    )
+    await queue_b.close()
+    await queue_b.join(timeout=5.0)
+
+    # Asserts en BD: solo la métrica de A persiste; la sesión sigue siendo de A.
+    metric_rows = (
+        await db_session.execute(text("SELECT COUNT(*) FROM rum_metric"))
+    ).scalar_one()
+    exception_rows = (
+        await db_session.execute(text("SELECT COUNT(*) FROM js_exception"))
+    ).scalar_one()
+    session_row = (
+        await db_session.execute(
+            text("SELECT app_id FROM user_session WHERE session_id = :s"),
+            {"s": session_id},
+        )
+    ).one()
+
+    assert metric_rows == 1  # solo la métrica de A (la de B se descartó)
+    assert exception_rows == 0  # la excepción de B se descartó
+    assert session_row.app_id == app_a  # user_session.app_id sigue siendo A
+    assert counters_b.snapshot()["ingest.session_foreign_total"] == 2
+    assert counters_a.snapshot()["ingest.session_foreign_total"] == 0
+
+
+async def test_worker_same_tenant_resend_is_noop_without_foreign_counter(db_session):
+    """Reenvío del mismo tenant: A reenvía eventos con session_id=S existente →
+    el upsert de user_session es no-op, sin descarte y sin incremento de
+    ingest.session_foreign_total (RUM-9, escenario Reenvío del mismo tenant)."""
+    from sqlalchemy import text
+
+    from api.domain.entities.application import Application
+    from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
+        SQLAlchemyIngestRepository,
+    )
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue, QueuedEvent
+
+    tenant = uuid4()
+    db_session.add(Application(app_id=tenant, name="resend-app"))
+    await db_session.commit()
+
+    session_id = str(uuid4())
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters,
+    )
+    await queue.start()
+    await queue.enqueue(
+        QueuedEvent(
+            batch_id=uuid4(), index=0, tenant_app_id=tenant, kind="metric",
+            payload=_rum(session_id=session_id),
+        )
+    )
+    await queue.close()
+    await queue.join(timeout=5.0)
+
+    # Reenvío: el mismo tenant vuelve a enviar eventos con session_id=S.
+    counters2 = IngestCounters()
+    queue2 = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters2,
+    )
+    await queue2.start()
+    await queue2.enqueue(
+        QueuedEvent(
+            batch_id=uuid4(), index=0, tenant_app_id=tenant, kind="metric",
+            payload=_rum(session_id=session_id),
+        )
+    )
+    await queue2.close()
+    await queue2.join(timeout=5.0)
+
+    session_count = (
+        await db_session.execute(
+            text("SELECT COUNT(*) FROM user_session WHERE session_id = :s"),
+            {"s": session_id},
+        )
+    ).scalar_one()
+    session_app = (
+        await db_session.execute(
+            text("SELECT app_id FROM user_session WHERE session_id = :s"),
+            {"s": session_id},
+        )
+    ).scalar_one()
+
+    assert session_count == 1  # upsert no-op: no se duplica la sesión
+    assert session_app == tenant
+    assert counters2.snapshot()["ingest.session_foreign_total"] == 0
+    assert counters2.snapshot()["ingest.persisted_total"] == 1  # la métrica sí
+
+
+# -- RUM-10: correlación metric_id scoped por ownership ------------------------
+
+async def test_worker_correlation_cross_app_metric_id_is_null_and_counted(
+    db_session,
+):
+    """Reivindicación cross-app: la métrica M es de la app A y la excepción de
+    la app B reclama metric_id=M → js_exception.metric_id es NULL y
+    ingest.metric_id_foreign_total incrementa (RUM-10, RUM-11)."""
+    from sqlalchemy import text
+
+    from api.domain.entities.application import Application
+    from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
+        SQLAlchemyIngestRepository,
+    )
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue, QueuedEvent
+
+    app_a, app_b = uuid4(), uuid4()
+    db_session.add(Application(app_id=app_a, name="app-a"))
+    db_session.add(Application(app_id=app_b, name="app-b"))
+    await db_session.commit()
+
+    session_a = uuid4()
+    metric_id = await _seed_session_and_metric(db_session, app_a, session_a)
+
+    # B tiene su propia sesión (no extranjera) y reclama metric_id=M de A.
+    session_b = uuid4()
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters,
+    )
+    await queue.start()
+    await queue.enqueue(
+        QueuedEvent(
+            batch_id=uuid4(), index=0, tenant_app_id=app_b, kind="exception",
+            payload=_js(session_id=str(session_b), metric_id=str(metric_id)),
+        )
+    )
+    await queue.close()
+    await queue.join(timeout=5.0)
+
+    stored_metric_id = (
+        await db_session.execute(text("SELECT metric_id FROM js_exception"))
+    ).scalar_one()
+    snapshot = counters.snapshot()
+    assert stored_metric_id is None  # correlación cross-app → NULL
+    assert snapshot["ingest.metric_id_foreign_total"] == 1
+    assert snapshot["ingest.metric_id_unknown_total"] == 0
+
+
+async def test_worker_correlation_legitimate_keeps_metric_id(db_session):
+    """Reivindicación legítima: la métrica M es de la misma sesión del lote →
+    js_exception.metric_id se conserva y los contadores de descarte no
+    incrementan (RUM-10, escenario Reivindicación legítima)."""
+    from sqlalchemy import text
+
+    from api.domain.entities.application import Application
+    from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
+        SQLAlchemyIngestRepository,
+    )
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue, QueuedEvent
+
+    tenant = uuid4()
+    db_session.add(Application(app_id=tenant, name="claim-app"))
+    await db_session.commit()
+
+    session_id = uuid4()
+    metric_id = await _seed_session_and_metric(db_session, tenant, session_id)
+
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters,
+    )
+    await queue.start()
+    await queue.enqueue(
+        QueuedEvent(
+            batch_id=uuid4(), index=0, tenant_app_id=tenant, kind="exception",
+            payload=_js(session_id=str(session_id), metric_id=str(metric_id)),
+        )
+    )
+    await queue.close()
+    await queue.join(timeout=5.0)
+
+    stored_metric_id = (
+        await db_session.execute(text("SELECT metric_id FROM js_exception"))
+    ).scalar_one()
+    snapshot = counters.snapshot()
+    assert stored_metric_id == metric_id  # correlación conservada
+    assert snapshot["ingest.metric_id_foreign_total"] == 0
+    assert snapshot["ingest.metric_id_unknown_total"] == 0
+
+
+async def test_worker_correlation_unknown_metric_id_is_null_and_counted(
+    db_session,
+):
+    """metric_id inexistente → js_exception.metric_id es NULL y
+    ingest.metric_id_unknown_total incrementa sin tocar el contador foreign
+    (RUM-10/RUM-6, regresión de la correlación blanda)."""
+    from sqlalchemy import text
+
+    from api.domain.entities.application import Application
+    from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
+        SQLAlchemyIngestRepository,
+    )
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue, QueuedEvent
+
+    tenant = uuid4()
+    db_session.add(Application(app_id=tenant, name="unknown-app"))
+    await db_session.commit()
+
+    session_id = uuid4()
+    await _seed_session_and_metric(db_session, tenant, session_id)
+
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters,
+    )
+    await queue.start()
+    await queue.enqueue(
+        QueuedEvent(
+            batch_id=uuid4(), index=0, tenant_app_id=tenant, kind="exception",
+            payload=_js(session_id=str(session_id), metric_id=str(uuid4())),
+        )
+    )
+    await queue.close()
+    await queue.join(timeout=5.0)
+
+    stored_metric_id = (
+        await db_session.execute(text("SELECT metric_id FROM js_exception"))
+    ).scalar_one()
+    snapshot = counters.snapshot()
+    assert stored_metric_id is None  # inexistente → NULL (RUM-6)
+    assert snapshot["ingest.metric_id_unknown_total"] == 1
+    assert snapshot["ingest.metric_id_foreign_total"] == 0
 
 
 def _rum_event_model(**overrides):

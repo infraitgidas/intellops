@@ -217,6 +217,10 @@ class AsyncioIngestQueue:
         self._counters.persisted(stats.rows)
         if stats.metric_id_unknown:
             self._counters.metric_id_unknown(stats.metric_id_unknown)
+        if stats.session_foreign:
+            self._counters.session_foreign(stats.session_foreign)
+        if stats.metric_id_foreign:
+            self._counters.metric_id_foreign(stats.metric_id_foreign)
 
     def _dead_letter(self, chunk: list[QueuedEvent]) -> None:
         """Dead-letter: log + contador, nunca pérdida silenciosa (RUM-6)."""
