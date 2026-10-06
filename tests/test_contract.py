@@ -38,9 +38,10 @@ except ImportError:
     # schemathesis >= 4.0: OpenAPI 3.1 nativo, sin flag experimental.
     _OPEN_API_3_1_EXPERIMENTAL = False
 
-# Paths implementados en la app (ISS-S2-03 agrega /telemetry/*; dashboard/ML
-# viven en slices posteriores; OAS-10 los declara en el documento).
-_SCOPED_PATH_RE = r"/(health|ready|auth|users|applications|telemetry)"
+# Paths implementados en la app (ISS-S2-03 agrega /telemetry/*; ISS-S3-01
+# agrega /metrics/*; dashboard/ML viven en slices posteriores; OAS-10 los
+# declara en el documento).
+_SCOPED_PATH_RE = r"/(health|ready|auth|users|applications|telemetry|metrics)"
 
 
 def _contract() -> dict:
@@ -174,6 +175,56 @@ def test_oas12_application_id_not_required_and_no_unknown_application():
         "rejected"
     ]
     assert "unknown_application" not in str(rejected_reason)
+
+
+# -- OAS-13: contrato de consulta completado (/metrics/query, /metrics/list) --
+
+def test_oas13_metrics_paths_complete_contract():
+    """Los paths GET /metrics/query (queryMetrics) y /metrics/list
+    (listMetrics) DEBEN declarar security apiKey, parámetros de query
+    (start/end/bucket_seconds/metric_type), respuestas 200/401/403/422 y
+    mantener los operationIds y paths intactos (OAS-13, escenario Contrato
+    intacto)."""
+    doc = _contract()
+    query = doc["paths"]["/metrics/query"]["get"]
+    listing = doc["paths"]["/metrics/list"]["get"]
+
+    assert query["operationId"] == "queryMetrics"
+    assert listing["operationId"] == "listMetrics"
+
+    for operation in (query, listing):
+        assert operation["security"] == [{"apiKey": []}], (
+            "los paths de consulta DEBEN exigir apiKey (OAS-13)"
+        )
+        assert {"200", "401", "403", "422"} <= set(operation["responses"])
+
+    param_names = {param["name"] for param in query["parameters"]}
+    assert {"start", "end", "bucket_seconds", "metric_type"} <= param_names
+    query_200 = query["responses"]["200"]["content"]["application/json"]["schema"]
+    assert query_200["items"]["$ref"] == "#/components/schemas/MetricAggregate"
+    list_200 = listing["responses"]["200"]["content"]["application/json"]["schema"]
+    assert list_200["items"]["$ref"] == "#/components/schemas/MetricTypeInfo"
+
+
+def test_oas13_metric_aggregate_shape_ml():
+    """El schema MetricAggregate DEBE declarar exactamente los 5 campos del
+    shape ML C6 (application_id, metric_type_id, timestamp, value,
+    session_count) como required (OAS-13, escenario Respuesta con shape ML)."""
+    schema = _contract()["components"]["schemas"]["MetricAggregate"]
+    assert schema["required"] == [
+        "application_id",
+        "metric_type_id",
+        "timestamp",
+        "value",
+        "session_count",
+    ]
+    assert set(schema["properties"]) == {
+        "application_id",
+        "metric_type_id",
+        "timestamp",
+        "value",
+        "session_count",
+    }
 
 
 # -- OAS-7: paths api-key + ApiKeyResponse ----------------------------------

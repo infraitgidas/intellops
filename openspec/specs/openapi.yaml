@@ -125,16 +125,98 @@ paths:
     get:
       summary: Consulta de métricas históricas
       operationId: queryMetrics
+      description: "Read path app-scoped (OAS-14): métricas RUM de la aplicación autenticada agregadas por bucket temporal (TQ-1), shape ML (application_id, metric_type_id, timestamp, value, session_count). Requiere X-API-Key; el tenant se deriva EXCLUSIVAMENTE de la key. Ventana default 15 min, máximo 7 días, bucket mínimo 60 s (TQ-2)."
+      security:
+        - apiKey: []
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "Inicio de la ventana (ISO 8601 UTC). Default: ahora - 15 min (TQ-2)."
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "Fin de la ventana (ISO 8601 UTC). Default: ahora. La ventana no puede superar 7 días (TQ-2)."
+        - name: bucket_seconds
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 60
+          description: "Tamaño del bucket temporal en segundos (mínimo 60, TQ-2). Default: 60."
+        - name: metric_type
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: "Filtro opcional por metric_type_id del catálogo (OAS-13)."
       responses:
         '200':
-          description: Lista de métricas históricas
+          description: "Filas agregadas con el shape ML de la aplicación autenticada"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetricAggregate'
+        '401':
+          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Aplicación autenticada inactiva (app_inactive)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Rango fuera de límite (invalid_query_range: ventana > 7 días, bucket < 60 s o start >= end; la agregación no se ejecuta)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /metrics/list:
     get:
       summary: Listado de métricas disponibles
       operationId: listMetrics
+      description: "Catálogo metric_type (metric_type_id, name, description). Requiere X-API-Key (OAS-13/OAS-14)."
+      security:
+        - apiKey: []
       responses:
         '200':
-          description: Listado de métricas disponibles
+          description: "Catálogo de tipos de métrica disponibles"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetricTypeInfo'
+        '401':
+          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Aplicación autenticada inactiva (app_inactive)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Error de dominio no recuperable (invalid_query_range, contrato ErrorResponse)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /anomalies:
     get:
       summary: Listado de anomalías detectadas
@@ -969,6 +1051,40 @@ components:
             message:
               type: string
               description: "Descripción legible del error"
+    MetricAggregate:
+      type: object
+      required: [application_id, metric_type_id, timestamp, value, session_count]
+      properties:
+        application_id:
+          type: string
+          format: uuid
+          description: "Aplicación autenticada (tenant derivado de la key, OAS-14)"
+        metric_type_id:
+          type: integer
+          description: "Id del tipo de métrica en el catálogo metric_type"
+        timestamp:
+          type: string
+          format: date-time
+          description: "Inicio del bucket temporal (anclado a la ventana del request, TQ-1)"
+        value:
+          type: number
+          description: "AVG(value) de las métricas del bucket"
+        session_count:
+          type: integer
+          description: "COUNT(DISTINCT session_id) de las métricas del bucket"
+    MetricTypeInfo:
+      type: object
+      required: [metric_type_id, name]
+      properties:
+        metric_type_id:
+          type: integer
+          description: "Id del tipo de métrica"
+        name:
+          type: string
+          description: "Nombre canónico del tipo (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK)"
+        description:
+          type: string
+          description: "Descripción del tipo de métrica"
     LoginRequest:
       type: object
       required: [email, password]
