@@ -2,7 +2,10 @@
 
 - `_migrated_database` (session): corre `alembic upgrade head` una vez.
 - `db_session` (session): sesión async reutilizando el engine global.
-- `clean_db` (autouse): TRUNCATE de tablas de datos por test; catálogos intactos.
+- `clean_db` (autouse): TRUNCATE de tablas de datos por test de integración;
+  catálogos intactos.
+- Capas: cada test se marca `unit` (sin DB) o `integration` (Postgres) según
+  los fixtures que usa — ver `pytest_collection_modifyitems` (ISS-S2-04).
 - `seed_admin`: re-inserta el seed Admin de 0002 (mismo UUID fijo y password dev).
 - `client`: httpx AsyncClient con override de get_session.
 - `make_admin` / `make_researcher`: crean usuario vía repositorio + hasher + JWT.
@@ -58,10 +61,38 @@ def _alembic_config() -> Config:
     return cfg
 
 
+# -- Capas de test: unit (sin DB) vs integration (Postgres real) — ISS-S2-04 --
+#
+# Un test es `integration` si pide (directa o transitivamente) alguno de estos
+# fixtures, o si lo marca explícitamente (p. ej. test_health usa el engine
+# global vía TestClient). El resto es `unit` y corre sin Postgres
+# (`pytest -m unit`, job "Unit Tests" del CI).
+DB_FIXTURES = frozenset({"db_session", "test_engine", "alembic_cfg", "conn"})
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Marca cada test como `unit` o `integration` según sus fixtures."""
+    for item in items:
+        if item.get_closest_marker("integration") or item.get_closest_marker("unit"):
+            continue
+        if DB_FIXTURES.intersection(getattr(item, "fixturenames", ())):
+            item.add_marker(pytest.mark.integration)
+        else:
+            item.add_marker(pytest.mark.unit)
+
+
+def _needs_database(item: pytest.Item) -> bool:
+    return item.get_closest_marker("integration") is not None
+
+
 @pytest.fixture(scope="session", autouse=True)
-def _migrated_database() -> None:
-    """Asegura el esquema en head antes de la suite (Postgres real)."""
-    command.upgrade(_alembic_config(), "head")
+def _migrated_database(request: pytest.FixtureRequest) -> None:
+    """Asegura el esquema en head antes de la suite (Postgres real).
+
+    Se omite si la selección no incluye tests de integración (`-m unit`).
+    """
+    if any(_needs_database(item) for item in request.session.items):
+        command.upgrade(_alembic_config(), "head")
     yield
 
 
@@ -86,13 +117,20 @@ async def db_session(test_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-@pytest.fixture(autouse=True)
-async def clean_db(db_session: AsyncSession) -> AsyncIterator[None]:
-    """Trunca las tablas de datos por test; catálogos (user_role, ...) intactos."""
+@pytest.fixture
+async def _truncate_data_tables(db_session: AsyncSession) -> None:
+    """TRUNCATE de tablas de datos; catálogos (user_role, ...) intactos."""
     await db_session.execute(
         text(f"TRUNCATE {', '.join(DATA_TABLES)} RESTART IDENTITY CASCADE")
     )
     await db_session.commit()
+
+
+@pytest.fixture(autouse=True)
+def clean_db(request: pytest.FixtureRequest) -> None:
+    """Trunca las tablas de datos por test de integración; los unit no tocan DB."""
+    if _needs_database(request.node):
+        request.getfixturevalue("_truncate_data_tables")
     yield
 
 

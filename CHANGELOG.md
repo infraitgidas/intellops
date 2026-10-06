@@ -37,6 +37,12 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tenant fijado desde la key (`application_id` fuera de required, D2/IAUTH-2).
   Nomenclatura definitiva `/telemetry/*` (reemplaza `/metrics/ingest` y
   `/logs/ingest`); ADR-0002 registra la decisión.
+- Pipeline de QA inicial (ISS-S2-04, #38): capas de test `unit` (sin DB) e
+  `integration` (Postgres) con markers asignados automáticamente en
+  `tests/conftest.py`; job `Unit Tests` sin Postgres entre lint y la suite
+  completa; reporte de cobertura publicado en el Job Summary y como artefacto
+  `coverage-report` (xml, html, junit); targets `make test-unit` y
+  `make test-integration`.
 - Hardening de aislamiento multi-tenant + read path (ISS-S3-01, #40):
   ownership de sesión en el upsert (`_upsert_sessions` resuelve por PK antes
   del insert; sesión de OTRA app → filas del lote descartadas +
@@ -53,6 +59,11 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- CI (ISS-S2-04, #38): pylint `--fail-under` sube de 7.0 a 9.0; gate de
+  cobertura único (70%) en `pyproject.toml` con `source = ["src"]`; cache de
+  pip, `concurrency` con cancelación, timeouts y `workflow_dispatch`.
+- CI (ISS-S2-04, #38): se quita el envío a Codecov (no había `CODECOV_TOKEN`
+  configurado y fallaba en silencio); se reincorporará en una issue aparte.
 - Migración de GitLab a GitHub como plataforma principal de control de versiones (#1)
 - Reemplazo de ELK Stack por Grafana + Loki + Prometheus en Módulo de Seguridad y stack general (#2)
   - Ver ADR-0001 para justificación completa (licencias SSPL, footprint de recursos, unificación de stack)

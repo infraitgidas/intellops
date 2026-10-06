@@ -297,6 +297,9 @@ def test_oas9_openapi_document_loads_in_schemathesis():
         "2xx/401/403/404/409/422/503. Una limitación de herramienta no rompe el gate."
     ),
 )
+# Ejercita la app real (incluye /health → Postgres) sin fixtures de DB: se
+# declara integración para que no corra (ni xfailee por la DB) en `-m unit`.
+@pytest.mark.integration
 def test_schemathesis_live_contract_scoped():
     """Corre schemathesis contra la app ASGI real validando respuestas contra
     el spec 3.1 (OAS-9). xfail documentado: la degradación del contract layer
