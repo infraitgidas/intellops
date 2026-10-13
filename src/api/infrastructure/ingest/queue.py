@@ -17,7 +17,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID, uuid4
 
@@ -235,7 +235,14 @@ class AsyncioIngestQueue:
 def _build_rows(
     chunk: list[QueuedEvent],
 ) -> tuple[list[SessionRow], list[MetricRow], list[ExceptionRow]]:
-    """Mapea eventos encolados a filas del repositorio (tenant ya resuelto)."""
+    """Mapea eventos encolados a filas del repositorio (tenant ya resuelto).
+
+    Consume el payload CANÓNICO producido por `IngestService` (que ya normalizó
+    timestamp/unidad/nombre antes de validar, ISS-S3-02): no re-coacciona el
+    valor numérico ni reescribe el timestamp al tiempo de ingesta. Si un
+    timestamp faltara, se propaga `None` y la BD (NOT NULL) lo rechaza — nunca
+    se inventa.
+    """
     sessions: dict[UUID, SessionRow] = {}
     metrics: list[MetricRow] = []
     exceptions: list[ExceptionRow] = []
@@ -251,21 +258,20 @@ def _build_rows(
             sessions[session_id] = SessionRow(
                 session_id=session_id,
                 app_id=event.tenant_app_id,
-                start_timestamp=ts or datetime.now(timezone.utc),
+                start_timestamp=ts,
                 user_agent=user_agent,
             )
         if event.kind == "metric":
             event_metadata = payload.get("metadata") or {}
             for metric in payload.get("metrics", []):
-                metric_ts = metric.get("timestamp") or payload.get("timestamp")
                 metrics.append(
                     MetricRow(
                         metric_id=uuid4(),
                         session_id=session_id,
                         metric_type=metric["type"],
-                        value=float(metric["value"]),
+                        value=metric["value"],
                         unit=metric["unit"],
-                        timestamp=_parse_ts(metric_ts) or datetime.now(timezone.utc),
+                        timestamp=_parse_ts(metric.get("timestamp")),
                         page_url=metric.get("page_url")
                         or event_metadata.get("page_url"),
                         metadata=metric.get("metadata"),
@@ -279,7 +285,7 @@ def _build_rows(
                     session_id=session_id,
                     error_type=payload["error_type"],
                     message=payload["message"],
-                    timestamp=ts or datetime.now(timezone.utc),
+                    timestamp=ts,
                     metric_id=UUID(metric_id) if metric_id else None,
                     stack_trace=payload.get("stack_trace"),
                 )

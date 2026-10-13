@@ -36,8 +36,8 @@ Chain strategy: pending
 
 ## Fase 3 — Limpieza del worker
 
-- [ ] 3.1 RED: el worker persiste el ts canónico; sin `now()` (NORM-2, ARCH-5).
-- [ ] 3.2 `src/api/infrastructure/ingest/queue.py` `:235-301`: quitar `float()`, `now()` y ts-precedence duplicada; consumir solo el ts canónico (NORM-2/6).
+- [x] 3.1 RED: el worker persiste el ts canónico; sin `now()` (NORM-2, ARCH-5).
+- [x] 3.2 `src/api/infrastructure/ingest/queue.py` `:235-301`: quitar `float()`, `now()` y ts-precedence duplicada; consumir solo el ts canónico (NORM-2/6).
 
 ## Fase 4 — Contrato / OpenAPI
 
