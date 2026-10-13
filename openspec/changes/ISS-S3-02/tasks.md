@@ -55,7 +55,7 @@ Chain strategy: pending
 
 ## Fase 7 — Verificación
 
-- [ ] 7.1 `pytest --cov=src` ≥70%, flake8/pylint, schemathesis verdes (NORM-1..7, ARCH-5/6).
+- [x] 7.1 `pytest --cov=src` ≥70%, flake8/pylint, schemathesis verdes (NORM-1..7, ARCH-5/6).
 
 ## Dependencias
 
