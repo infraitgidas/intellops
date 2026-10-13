@@ -2,7 +2,7 @@
 
 - **Domain**: Arquitectura y Diseño de Sistemas
 - **Estado**: Activo
-- **Última actualización**: 2026-05-27
+- **Última actualización**: 2026-10-13
 - **Autores**: Emanuel Rodriguez, Equipo InfraIT GIDAS
 
 ## 1. Visión General
@@ -81,3 +81,32 @@ C4Context
 | `constraints.md` | Restricciones arquitectónicas y principios de diseño | Spec |
 | `interfaces.md` | Índice de contratos de API | Spec |
 | `../../docs/adr/*.md` | Architecture Decision Records | ADR |
+
+## Requirements
+
+### Requirement: ARCH-5 (orden del pipeline de ingesta)
+
+El pipeline de ingesta DEBE documentarse e implementarse como `Raw → Normalize → Validate → Enqueue → Store`: una etapa de normalización en el dominio DEBE correr antes de la validación por evento, y la validación DEBE seguir siendo la autoridad única de rechazo. La normalización DEBE resolver representaciones (timestamp, unidad, nombre) que de otro modo la validación rechazaría.
+(Previamente: sin etapa de normalización con nombre; la única coerción era implícita en el worker de infraestructura, post-`202`.)
+
+#### Scenario: Orden observable
+
+- GIVEN el flujo de ingesta
+- WHEN se envía un evento que lleva un alias de unidad
+- THEN la normalización corre primero y la validación ve el evento canónico
+
+#### Scenario: Autoridad de rechazo sin cambios
+
+- GIVEN un evento canónico que viola una cota de sanity
+- WHEN corre la validación
+- THEN la validación (no la normalización) devuelve la razón de rechazo
+
+### Requirement: ARCH-6 (flexibilidad de contrato documentada)
+
+La declaración `RumMetric.unit` de OpenAPI DEBE ampliarse para aceptar la familia de alias (`s`, `sec`, `secs`, `msec`, `millis`, `counts`) junto con `ms`/`count`, para que el contrato documentado coincida con la flexibilidad en runtime. La ampliación DEBE ser retrocompatible; las unidades y nombres de métrica desconocidos DEBEN seguir rechazándose.
+
+#### Scenario: El contrato refleja los alias
+
+- GIVEN el `openspec/specs/openapi.yaml` actualizado
+- WHEN se inspecciona `RumMetric.unit`
+- THEN la familia de alias se acepta y la semántica de envelope / `schema_version` no cambia
