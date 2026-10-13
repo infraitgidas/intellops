@@ -29,6 +29,8 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 
 > **ACLARACIÓN IMPORTANTE**: el rango del contrato es un rango de CORdura, es decir, de rechazo de valores absurdos (ej. TTFB negativo o mayor a 60s). NO es un rango de calidad: un TTFB de 9000ms es un dato legítimo que el sistema acepta — es justamente el valor que el sistema debe detectar como anomalía. Los ratings good/poor son referencia para dashboard y alertas, no criterio de rechazo en el ingest.
 
+> **Unidad (ISS-S3-02/ADR-0007)**: la columna "Unidad permitida" lista la unidad **canónica almacenada** (`ms`/`count`). La ingesta acepta además la familia de alias `s`, `sec`, `secs`, `msec`, `millis` (→ `ms`) y `counts` (→ `count`), que se convierten a la canónica preservando la magnitud (`1 s = 1000 ms`) en la etapa de normalización; el enum de OpenAPI `RumMetric.unit` refleja esta flexibilidad (ARCH-6).
+
 ## Matriz de validación del evento JS_EXCEPTION
 
 | Campo | Obligatorio | Tipo | Longitud máxima | Notas |
@@ -47,6 +49,12 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 - **Timestamp**: formato ISO 8601 en UTC, con zona horaria explícita.
 - **Límites de batch**: máximo 500 eventos por batch y máximo 50 métricas por evento.
 - **Versión**: `schema_version` debe ser exactamente `"1.0"`.
+- **Normalización (ISS-S3-02, ADR-0004/0005/0006/0007)**: antes de la validación por evento corre una etapa de normalización pura de **solo representación** que resuelve inconsistencias que de otro modo serían rechazadas:
+  - canonicaliza timestamps a UTC con zona explícita; el `timestamp` de la métrica **hereda** el del envelope si falta, y un naïve/no parseable **no** se reescribe con `now()` (se rechaza);
+  - convierte alias de unidad a la canónica (`s`/`sec`/`secs`/`msec`/`millis` → `ms`, `counts` → `count`), idempotente y preservando la magnitud;
+  - canonicaliza nombres de tipo de métrica (trim/case) y `error_type` (trim/case + catálogo; desconocido → `Other`);
+  - coacciona cadenas numéricas **finitas** (`"120.5"` → `120.5`) y recorta espacios en los campos de clasificación.
+  - **Nunca** recorta/repara magnitudes: los valores fuera de rango y los conteos no enteros se rechazan (`invalid_range`). La validación sigue siendo la **autoridad única de rechazo** (semántica parcial `202` intacta).
 
 ## Alineación con el DDL
 
@@ -80,6 +88,7 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 1. **JS_EXCEPTION por `/telemetry/exceptions`**: las excepciones JS usan un endpoint propio, no `/telemetry/metrics`, según la nomenclatura definitiva `/telemetry/*` (ADR-0002).
 2. **Wrapper de batch incluido en esta issue**: los esquemas `RumEventBatch` y `JsExceptionBatch` forman parte del contrato de esta issue. El bulk insert asíncrono es del ISS-S2-03.
 3. **`application_id` opcional (ISS-S2-03, D2)**: salió de `required` en `RumEvent` y `JsExceptionEvent` porque el tenant se deriva exclusivamente de la API key (IAUTH-2); el payload no es autoridad y el código `unknown_application` fue eliminado del flujo.
+4. **Normalizar antes de validar (ISS-S3-02, ADR-0004)**: el pipeline de ingesta es `Raw → Normalize → Validate → Enqueue → Store`. La normalización es de solo representación (ADR-0005); `error_type` se canonicaliza en código sin DDL (ADR-0006); los alias de unidad se convierten a la canónica (ADR-0007). Las unidades/nombres desconocidos siguen rechazándose y la validación sigue siendo la autoridad única de rechazo.
 
 ## Referencias
 

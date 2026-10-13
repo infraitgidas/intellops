@@ -21,6 +21,7 @@ sequenceDiagram
     App->>Agent: Instrumentación (web-vitals, navigation, errors)
     Agent->>API: POST /telemetry/metrics | POST /telemetry/exceptions (batch ≤ 500)
     API->>API: Validación envelope (schema_version, estructura, ≤ 500)
+    API->>API: Normalización por evento (timestamp, unidad, nombre) — solo representación
     API->>API: Validación por evento (uuid, tipo, unidad, rango)
     API-->>Agent: 202 {batch_id, accepted, rejected} (al encolar)
     API->>Q: enqueue eventos válidos
@@ -36,6 +37,7 @@ sequenceDiagram
 | Nivel | Qué valida | Falla → |
 |-------|-----------|---------|
 | Envelope | `schema_version`, estructura de batch, `events ≤ 500` | **400** — se rechaza el batch completo |
+| Normalización | Canonicaliza SOLO representación (timestamp UTC, alias de unidad/nombre, `error_type`, coerción numérica finita); nunca recorta magnitudes (ADR-0004/0005) | No rechaza — el evento canónico pasa a la validación |
 | Evento | UUIDs, tipo de métrica, unidad, rango de cordura, campos requeridos, `application_id` conocido | **202 parcial** — se rechaza solo el evento |
 
 ### 2.2. Respuesta del batch (202)
@@ -63,7 +65,7 @@ sequenceDiagram
 | `invalid_uuid` | `session_id` / `application_id` / `metric_id` no son UUID válidos |
 | `invalid_metric_type` | `type` fuera del enum (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
 | `invalid_unit` | `unit` fuera de `ms`/`count` o incoherente con el tipo |
-| `invalid_range` | `value` fuera del rango de cordura (ej. TTFB > 60000) |
+| `invalid_range` | `value` fuera del rango de cordura (ej. TTFB > 60000), conteo no entero o valor no finito (`NaN`/`Infinity`) |
 | `invalid_timestamp` | `timestamp` no parseable o sin zona horaria explícita |
 | `oversized_event` | Excede límites de longitud (ej. `stack_trace` > 20000, > 50 métricas) |
 
