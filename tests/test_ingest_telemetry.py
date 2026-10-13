@@ -112,8 +112,9 @@ def test_policy_rejects_incoherent_unit():
 
 
 def test_policy_rejects_unknown_unit():
-    """unit fuera de ms/count DEBE rechazarse con invalid_unit."""
-    event = _rum(metrics=[{"type": "TTFB", "value": 100, "unit": "s"}])
+    """unit fuera de ms/count DEBE rechazarse con invalid_unit (la política
+    opera sobre el evento canónico; los alias los resuelve el normalizador)."""
+    event = _rum(metrics=[{"type": "TTFB", "value": 100, "unit": "furlongs"}])
     assert validate_rum_event(event) == "invalid_unit"
 
 

@@ -41,8 +41,8 @@ Chain strategy: pending
 
 ## Fase 4 — Contrato / OpenAPI
 
-- [ ] 4.1 RED contrato: enum `unit` ampliado aceptado; desconocida rechazada (ARCH-6, NORM-3).
-- [ ] 4.2 `openspec/specs/openapi.yaml` `:953-956`: ampliar enum `RumMetric.unit` a `[ms, count, s, sec, secs, msec, millis, counts]` + nota `error_type` (ARCH-6).
+- [x] 4.1 RED contrato: enum `unit` ampliado aceptado; desconocida rechazada (ARCH-6, NORM-3).
+- [x] 4.2 `openspec/specs/openapi.yaml` `:953-956`: ampliar enum `RumMetric.unit` a `[ms, count, s, sec, secs, msec, millis, counts]` + nota `error_type` (ARCH-6).
 
 ## Fase 5 — Integración `/telemetry/*`
 

@@ -952,8 +952,8 @@ components:
           description: "ms para TTFB/FCP/XHR_LATENCY; count para JS_EXCEPTION_RATE/RAGE_CLICK"
         unit:
           type: string
-          enum: [ms, count]
-          description: "Unidad de medida del valor"
+          enum: [ms, count, s, sec, secs, msec, millis, counts]
+          description: "Unidad de medida del valor; los alias (s, sec, secs, msec, millis, counts) se canonicalizan a ms/count al normalizar la ingesta"
         timestamp:
           type: string
           format: date-time
@@ -987,7 +987,7 @@ components:
         error_type:
           type: string
           maxLength: 100
-          description: "Tipo de error (ej: TypeError, ReferenceError, RangeError, UnhandledRejection, Other)"
+          description: "Tipo de error (ej: TypeError, ReferenceError, RangeError, UnhandledRejection, Other); el valor se canonicaliza y los desconocidos se agrupan en Other"
         message:
           type: string
           maxLength: 2000
