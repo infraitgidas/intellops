@@ -56,9 +56,21 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `invalid_query_range`), contrato OpenAPI 124-137 completado sin romper
   operationIds, y tests de collision/replay cross-tenant (C5). ADR-0003
   registra la decisión (DD-8/DD-9/DD-10).
+- Normalización de datos de ingesta (ISS-S3-02, #41): etapa de normalización
+  pura y con nombre (`ingest_normalizer`) que corre por evento **antes** de la
+  validación (`Raw → Normalize → Validate → Enqueue → Store`); canonicaliza
+  timestamps a UTC con tz (el `timestamp` de la métrica hereda el del envelope),
+  convierte alias de unidad (`s`/`sec`/`secs`/`msec`/`millis` → `ms`,
+  `counts` → `count`) de forma idempotente, canonicaliza nombres de tipo y
+  `error_type` (desconocido → `Other`, sin DDL/migración), coacciona cadenas
+  numéricas finitas y **nunca** recorta magnitudes (el TTFB de 9000 ms es la
+  señal de anomalía). La validación sigue siendo la autoridad única de rechazo;
+  se rechazan conteos no enteros y valores no finitos (`invalid_range`). El
+  worker deja de reescribir timestamps con `now()` y de re-coaccionar el valor.
+  Registros compartidos en `ingest_policy`; enum `RumMetric.unit` de OpenAPI
+  ampliado a la familia de alias (ARCH-6); ADR-0004..0007.
 
 ### Changed
-
 - CI (ISS-S2-04, #38): pylint `--fail-under` sube de 7.0 a 9.0; gate de
   cobertura único (70%) en `pyproject.toml` con `source = ["src"]`; cache de
   pip, `concurrency` con cancelación, timeouts y `workflow_dispatch`.

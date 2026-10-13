@@ -50,8 +50,8 @@ Chain strategy: pending
 
 ## Fase 6 — Docs / ADR
 
-- [ ] 6.1 Finalizar `docs/adr/0004-normalize-before-validate.md`, `docs/adr/0005-representation-only-normalization.md`, `docs/adr/0006-error-type-in-code-catalog.md`, `docs/adr/0007-unit-alias-conversion.md` (Propuesto→Aceptado) + `docs/adr/README.md` (ARCH-5/6).
-- [ ] 6.2 Actualizar `docs/architecture/ContratoIngestaRUM.md`, `docs/architecture/PipelineIngestaRUM.md` y `CHANGELOG.md` (ARCH-5/6).
+- [x] 6.1 Finalizar `docs/adr/0004-normalize-before-validate.md`, `docs/adr/0005-representation-only-normalization.md`, `docs/adr/0006-error-type-in-code-catalog.md`, `docs/adr/0007-unit-alias-conversion.md` (Propuesto→Aceptado) + `docs/adr/README.md` (ARCH-5/6).
+- [x] 6.2 Actualizar `docs/architecture/ContratoIngestaRUM.md`, `docs/architecture/PipelineIngestaRUM.md` y `CHANGELOG.md` (ARCH-5/6).
 
 ## Fase 7 — Verificación
 
