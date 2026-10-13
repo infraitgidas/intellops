@@ -198,6 +198,43 @@ def test_policy_rejects_invalid_metric_value_type():
     assert validate_rum_event(event) == "invalid_range"
 
 
+# -- NORM-6 (ISS-S3-02): conteos no enteros y valores no finitos --------------
+
+def test_policy_rejects_fractional_count_value():
+    """Un conteo no entero DEBE rechazarse con invalid_range, sin redondear
+    (NORM-6, decisión f)."""
+    event = _rum(
+        metrics=[{"type": "JS_EXCEPTION_RATE", "value": 1.5, "unit": "count"}]
+    )
+    assert validate_rum_event(event) == "invalid_range"
+    rage = _rum(metrics=[{"type": "RAGE_CLICK", "value": 0.5, "unit": "count"}])
+    assert validate_rum_event(rage) == "invalid_range"
+
+
+def test_policy_accepts_integer_valued_count_float():
+    """Un conteo con valor entero (2.0) DEBE aceptarse (NORM-6)."""
+    event = _rum(metrics=[{"type": "RAGE_CLICK", "value": 2.0, "unit": "count"}])
+    assert validate_rum_event(event) is None
+
+
+def test_policy_rejects_non_finite_values():
+    """`NaN`/`Infinity` DEBEN rechazarse con invalid_range en métricas de
+    duración y de conteo (NORM-6; guard `math.isfinite`)."""
+    inf, nan = float("inf"), float("nan")
+    assert validate_rum_event(
+        _rum(metrics=[{"type": "JS_EXCEPTION_RATE", "value": inf, "unit": "count"}])
+    ) == "invalid_range"
+    assert validate_rum_event(
+        _rum(metrics=[{"type": "JS_EXCEPTION_RATE", "value": nan, "unit": "count"}])
+    ) == "invalid_range"
+    assert validate_rum_event(
+        _rum(metrics=[{"type": "TTFB", "value": nan, "unit": "ms"}])
+    ) == "invalid_range"
+    assert validate_rum_event(
+        _rum(metrics=[{"type": "TTFB", "value": inf, "unit": "ms"}])
+    ) == "invalid_range"
+
+
 def _metric(type_: str = "TTFB", value: float = 120.5) -> dict:
     """Métrica RUM válida base."""
     return {"type": type_, "value": value, "unit": "ms"}

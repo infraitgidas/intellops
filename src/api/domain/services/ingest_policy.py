@@ -11,6 +11,7 @@ timestamp → size limits.
 """
 
 from datetime import datetime
+from math import isfinite
 from uuid import UUID
 
 # pylint: disable=too-many-return-statements  # cadena determinista de validación
@@ -151,7 +152,9 @@ def _is_number(value: object) -> bool:
 
 
 def _in_range(type_: str, value: object) -> bool:
-    if not _is_number(value):
+    if not _is_number(value) or not isfinite(value):
+        # NaN/Infinity no son comparables: sin el guard, NaN pasaría todas las
+        # comparaciones (NORM-6) y Infinity pasaría las cotas sin máximo.
         return False
     low, high = RANGE_BY_TYPE[type_]
     if value < low:
@@ -184,6 +187,10 @@ def _validate_metric(metric: object) -> str | None:
     if unit not in VALID_UNITS or UNIT_BY_TYPE[type_] != unit:
         return "invalid_unit"
     if not _in_range(type_, metric["value"]):
+        return "invalid_range"
+    if type_ in COUNT_TYPES and not float(metric["value"]).is_integer():
+        # Conteos no enteros: sin redondeo (redondear cambia la magnitud,
+        # NORM-6/decisión f).
         return "invalid_range"
     metric_ts = metric.get("timestamp")
     if metric_ts is not None and not _is_timestamp(metric_ts):

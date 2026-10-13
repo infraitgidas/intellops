@@ -278,3 +278,218 @@ def test_normalize_is_deterministic():
     (NORM-7: puro, CPU-only, sin estado)."""
     event = _rum(metrics=[_metric(value=2, unit="sec")])
     assert normalize_rum_event(event) == normalize_rum_event(event)
+
+
+def test_normalizer_has_no_third_party_dependencies():
+    """NORM-7: el normalizador solo usa stdlib (`math`, `datetime`) y el
+    dominio del proyecto — sin dependencias nuevas."""
+    import ast
+    import inspect
+
+    from api.domain.services import ingest_normalizer
+
+    tree = ast.parse(inspect.getsource(ingest_normalizer))
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module.split(".")[0])
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                modules.add(alias.name.split(".")[0])
+    assert modules <= {"math", "datetime", "api"}
+
+
+# -- Fase 2: wiring del servicio (normalizar ANTES de validar, ARCH-5) --------
+
+class _CapturingQueue:
+    """Fake de IngestQueue que captura los eventos encolados (sin workers)."""
+
+    def __init__(self) -> None:
+        self.enqueued: list = []
+
+    async def enqueue(self, event) -> None:
+        self.enqueued.append(event)
+
+    async def close(self) -> None:
+        pass
+
+    async def join(self, timeout: float) -> None:
+        pass
+
+
+def _rum_model(**overrides):
+    """RumEvent Pydantic válido base para los tests del servicio."""
+    from api.presentation.schemas.ingest import RumEvent
+
+    payload = {
+        "schema_version": "1.0",
+        "timestamp": "2026-10-13T12:00:00+00:00",
+        "session_id": "9f8c5a2e-1b2c-4d5e-8f9a-0b1c2d3e4f5a",
+        "metrics": [{"type": "TTFB", "value": 120, "unit": "ms"}],
+    }
+    payload.update(overrides)
+    return RumEvent.model_validate(payload)
+
+
+async def test_service_normalizes_unit_alias_before_validate():
+    """Un alias de unidad DEBE resolverse ANTES de la validación: el evento se
+    acepta y se encola canónico (NORM-1/NORM-3, ARCH-5)."""
+    from uuid import uuid4
+
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    queue = _CapturingQueue()
+    service = IngestService(queue=queue, counters=IngestCounters())
+    batch = RumEventBatch(
+        schema_version="1.0",
+        events=[_rum_model(metrics=[{"type": "TTFB", "value": 2, "unit": "s"}])],
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert result.accepted == 1
+    metric = queue.enqueued[0].payload["metrics"][0]
+    assert metric["unit"] == "ms"
+    assert metric["value"] == 2000
+
+
+async def test_service_rejects_unknown_unit_after_normalization():
+    """Una unidad desconocida NO DEBE ser resuelta por el normalizador y la
+    validación DEBE rechazarla (invalid_unit) (NORM-1/NORM-3, ARCH-5)."""
+    from uuid import uuid4
+
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    queue = _CapturingQueue()
+    service = IngestService(queue=queue, counters=IngestCounters())
+    batch = RumEventBatch(
+        schema_version="1.0",
+        events=[_rum_model(metrics=[{"type": "TTFB", "value": 1, "unit": "furlongs"}])],
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert result.accepted == 0
+    assert result.rejected[0].reason == "invalid_unit"
+    assert queue.enqueued == []
+
+
+async def test_service_preserves_partial_202_when_alias_unresolvable():
+    """Un lote con un evento de unidad no resoluble DEBE seguir siendo 202
+    parcial: el event válido se acepta y el otro va a rejected[] (NORM-1)."""
+    from uuid import uuid4
+
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    queue = _CapturingQueue()
+    service = IngestService(queue=queue, counters=IngestCounters())
+    batch = RumEventBatch(
+        schema_version="1.0",
+        events=[
+            _rum_model(metrics=[{"type": "TTFB", "value": 2, "unit": "s"}]),
+            _rum_model(metrics=[{"type": "TTFB", "value": 1, "unit": "furlongs"}]),
+        ],
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert result.accepted == 1
+    assert [r.index for r in result.rejected] == [1]
+    assert result.rejected[0].reason == "invalid_unit"
+    assert result.accepted + len(result.rejected) == 2
+
+
+async def test_service_inherits_envelope_timestamp_into_metric():
+    """El timestamp de la métrica DEBE heredar el del envelope canonicalizado a
+    UTC antes de validar (NORM-2, ARCH-5)."""
+    from uuid import uuid4
+
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    queue = _CapturingQueue()
+    service = IngestService(queue=queue, counters=IngestCounters())
+    batch = RumEventBatch(
+        schema_version="1.0",
+        events=[
+            _rum_model(
+                timestamp="2026-10-13T12:00:00-03:00",
+                metrics=[{"type": "TTFB", "value": 100, "unit": "ms"}],
+            )
+        ],
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert result.accepted == 1
+    assert (
+        queue.enqueued[0].payload["metrics"][0]["timestamp"]
+        == "2026-10-13T15:00:00+00:00"
+    )
+
+
+async def test_service_accepts_optional_absent_without_fabrication():
+    """Un opcional ausente (stack_trace) DEBE aceptarse sin valor fabricado
+    (NORM-5)."""
+    from uuid import uuid4
+
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import JsExceptionBatch
+
+    queue = _CapturingQueue()
+    service = IngestService(queue=queue, counters=IngestCounters())
+    batch = JsExceptionBatch(
+        schema_version="1.0",
+        events=[
+            {
+                "schema_version": "1.0",
+                "error_type": "TypeError",
+                "message": "boom",
+                "session_id": "9f8c5a2e-1b2c-4d5e-8f9a-0b1c2d3e4f5a",
+                "timestamp": "2026-10-13T12:00:00+00:00",
+            }
+        ],
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert result.accepted == 1
+    assert queue.enqueued[0].payload.get("stack_trace") is None
+
+
+async def test_service_canonicalizes_error_type_before_validate():
+    """`error_type` desconocido DEBE agruparse en `Other` antes de encolar
+    (NORM-4)."""
+    from uuid import uuid4
+
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import JsExceptionBatch
+
+    queue = _CapturingQueue()
+    service = IngestService(queue=queue, counters=IngestCounters())
+    batch = JsExceptionBatch(
+        schema_version="1.0",
+        events=[
+            {
+                "schema_version": "1.0",
+                "error_type": "WeirdError",
+                "message": "boom",
+                "session_id": "9f8c5a2e-1b2c-4d5e-8f9a-0b1c2d3e4f5a",
+                "timestamp": "2026-10-13T12:00:00+00:00",
+            }
+        ],
+    )
+
+    result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert result.accepted == 1
+    assert queue.enqueued[0].payload["error_type"] == "Other"
