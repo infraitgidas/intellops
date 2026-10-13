@@ -1769,6 +1769,80 @@ async def test_worker_correlation_unknown_metric_id_is_null_and_counted(
     assert snapshot["ingest.metric_id_foreign_total"] == 0
 
 
+# -- ISS-S3-02 / NORM-1..3, ARCH-5: normalización en /telemetry/* ------------
+
+async def test_telemetry_normalizes_alias_and_persists_canonical(
+    db_session, client, make_admin
+):
+    """Un alias de unidad vía HTTP DEBE aceptarse, encolarse canónico (ms ×1000)
+    y persistirse con el ts del envelope (sin now()) por el worker
+    (NORM-1/2/3, ARCH-5)."""
+    from sqlalchemy import text
+
+    from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
+        SQLAlchemyIngestRepository,
+    )
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters,
+    )
+    env = await _setup_ingest(client, make_admin, queue=queue, counters=counters)
+    await queue.start()
+    try:
+        payload = _rum_batch_payload()
+        payload["events"][0] = _rum(
+            timestamp="2026-10-13T12:00:00-03:00",
+            metrics=[{"type": "TTFB", "value": 2, "unit": "s"}],
+        )
+        resp = await client.post(
+            "/telemetry/metrics",
+            headers=_api_key_header(env["key"]),
+            json=payload,
+        )
+        assert resp.status_code == 202
+        assert resp.json()["accepted"] == 1
+    finally:
+        await queue.close()
+        await queue.join(timeout=5.0)
+
+    row = (
+        await db_session.execute(
+            text("SELECT value, unit, timestamp FROM rum_metric")
+        )
+    ).one()
+    assert row.unit == "ms"  # alias s -> ms (canónico persistido)
+    assert row.value == 2000  # magnitud preservada (×1000 una sola vez)
+    assert row.timestamp == datetime(2026, 10, 13, 15, 0, tzinfo=timezone.utc)
+
+
+async def test_telemetry_rejects_naive_timestamp_without_persisting(
+    client, make_admin
+):
+    """Un timestamp naïve DEBE seguir rechazándose (invalid_timestamp), sin
+    reemplazo por now() ni encolado (NORM-2, ARCH-5)."""
+    env = await _setup_ingest(client, make_admin)
+    payload = _rum_batch_payload()
+    payload["events"][0] = _rum(timestamp="2026-10-13T12:00:00")
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["accepted"] == 0
+    assert body["rejected"] == [{"index": 0, "reason": "invalid_timestamp"}]
+    assert env["queue"].enqueued == []
+
+
 def _rum_event_model(**overrides):
     """RumEvent Pydantic válido base; overrides por test."""
     from api.presentation.schemas.ingest import RumEvent

@@ -46,7 +46,7 @@ Chain strategy: pending
 
 ## Fase 5 — Integración `/telemetry/*`
 
-- [ ] 5.1 RED integración `tests/test_ingest_telemetry.py` (`-m integration`): alias aceptado → canónico persistido; naive rechazado; worker sin `now()` (NORM-1/2/3, ARCH-5).
+- [x] 5.1 RED integración `tests/test_ingest_telemetry.py` (`-m integration`): alias aceptado → canónico persistido; naive rechazado; worker sin `now()` (NORM-1/2/3, ARCH-5).
 
 ## Fase 6 — Docs / ADR
 
