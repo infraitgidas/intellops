@@ -251,9 +251,9 @@ Cada pregunta indica las opciones que habilita.
 
 | Decisión | Opción elegida | Fecha | Quién |
 |---|---|---|---|
-| D2 — `metric_id` (M1 / M2 / M3 / M4) | _(pendiente)_ | | |
-| D4 — frontera de implementación ((a) / (b)) | _(pendiente)_ | | |
-| Observaciones / condiciones | | | |
+| D2 — `metric_id` (M1 / M2 / M3 / M4) | **M4** — anclar la anomalía a la serie/bucket `(application_id, metric_type_id, timestamp, bucket_seconds)`; se quita `metric_id` del input ML | 2026-10-14 | Romeo (owner ML) |
+| D4 — frontera de implementación ((a) / (b)) | **(a) con un solo implementador** — S3-04 incluye el reader/adaptador en `src/ml` y el cambio de `ANOMALY`; lo ejecuta Romeo íntegro, sin depender de Federico | 2026-10-14 | Romeo (owner ML) |
+| Observaciones / condiciones | Sin solapamiento con PR #59 (ISS-S3-02, write path de ingesta). Puntos de roce a respetar: CHANGELOG, `openapi.yaml` (enum `RumMetric.unit`) y numeración de ADR (0004–0007 ocupados por #59). El read path debe exponer `bucket_seconds` (cambio aditivo). | 2026-10-14 | Romeo |
 
 ---
 
