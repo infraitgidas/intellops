@@ -257,7 +257,12 @@ CREATE INDEX idx_ml_model_status
 
 CREATE TABLE anomaly (
     anomaly_id UUID PRIMARY KEY,
-    metric_id UUID NOT NULL,
+    -- Ancla a la serie/bucket agregada (migración 0004, ISS-S3-04):
+    -- reemplaza metric_id. timestamp = instante de detección.
+    application_id UUID NOT NULL,
+    metric_type_id SMALLINT NOT NULL,
+    bucket_start TIMESTAMPTZ NOT NULL,
+    bucket_seconds INTEGER NOT NULL,
     model_id UUID NOT NULL,
     expected_value DOUBLE PRECISION NOT NULL,
     actual_value DOUBLE PRECISION NOT NULL,
@@ -265,9 +270,20 @@ CREATE TABLE anomaly (
     confidence_score DOUBLE PRECISION NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL,
 
-    CONSTRAINT fk_anomaly_metric
-        FOREIGN KEY (metric_id)
-        REFERENCES rum_metric(metric_id)
+    CONSTRAINT ck_anomaly_bucket_seconds
+        CHECK (bucket_seconds >= 60),
+
+    CONSTRAINT ck_anomaly_bucket_aligned
+        CHECK ((EXTRACT(EPOCH FROM bucket_start)::bigint % bucket_seconds) = 0),
+
+    CONSTRAINT fk_anomaly_application
+        FOREIGN KEY (application_id)
+        REFERENCES application(app_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_anomaly_metric_type
+        FOREIGN KEY (metric_type_id)
+        REFERENCES metric_type(metric_type_id)
         ON DELETE RESTRICT,
 
     CONSTRAINT fk_anomaly_model
@@ -275,6 +291,9 @@ CREATE TABLE anomaly (
         REFERENCES ml_model(model_id)
         ON DELETE RESTRICT
 );
+
+CREATE UNIQUE INDEX idx_anomaly_series_bucket_model
+    ON anomaly(application_id, metric_type_id, bucket_start, bucket_seconds, model_id);
 
 CREATE INDEX idx_anomaly_timestamp
     ON anomaly(timestamp);
