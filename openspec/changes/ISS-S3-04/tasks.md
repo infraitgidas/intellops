@@ -71,17 +71,17 @@ alembic downgrade 0003 && alembic upgrade head
 
 Specs: MLD-2 a MLD-10, ARCH-AI-1.2, ARCH-AI-3.2.
 
-- [ ] **3.1 RED** `tests/test_ml_dataset_reader.py` (marker `unit`, sin Postgres): 
+- [x] **3.1 RED** `tests/test_ml_dataset_reader.py` (marker `unit`, sin Postgres): 
   - `align_window`: parametrizado (`s%b==0`, `e%b==0`, `e<=now`), MLD-4.1, 4.2, 4.3; errores naive tz, `s>=e`, ventana > 7 d tras alinear; 7 d exactos OK (MLD-6.1, 6.2).
   - `to_batch`: mapeo y propagación de `bucket_seconds` (MLD-2.1), vacío (MLD-2.2), campo faltante, extra ignorado, app mixta (MLD-7.2), duplicado `(metric_type_id, ts)`, fuera de `[start, end)`.
   - config: defaults (MLD-5.1), `bucket_seconds=30` falla sin request (MLD-5.2), falta API key / base URL nombra la variable (MLD-10.1), ventana 1..10080 y >= bucket, key como `SecretStr` ausente en `repr`/logs (MLD-10.2).
   - reader con `httpx.MockTransport`: URL, header `X-API-Key`, params `start/end/bucket_seconds` (MLD-3.1); 200 ok; 401/403 (MLD-9.1); 422 con status y código (MLD-6.3); 5xx y timeout (MLD-9.2); cuerpo no lista (MLD-9.3); sin fallback silencioso al mock.
   - aislamiento: test que escanea `src/ml/**/*.py` y falla si importa `src.api` (MLD-3.2, ARCH-AI-3.2).
-- [ ] **3.2 GREEN** `src/ml/config.py`: `MLDatasetSettings` (pydantic-settings) con las 6 variables `INTELLOPS_*` del design.
-- [ ] **3.3 GREEN** `src/ml/pipeline/mapper.py`: `DatasetReadError`, `to_batch(rows, bucket_seconds, start, end)` puro.
-- [ ] **3.4 GREEN** `src/ml/pipeline/api_reader.py`: `align_window` + `read_dataset(settings, client=None)`; `httpx.Client` sync inyectable, `HTTPTransport(retries=N)`, mapeo de status a `DatasetReadError`, sin loguear la key.
-- [ ] **3.5 GREEN** `pyproject.toml`: mover `httpx>=0.28.0` de `[project.optional-dependencies].dev` a `dependencies` (BSD-3, compatible con `pip-licenses --fail-on="SSPL;AGPL"`). Sin otras dependencias nuevas. No tocar `Dockerfile`/`docker-compose.yml`.
-- [ ] **3.6 REFACTOR**: eliminar duplicación entre reader y mapper; verificar pylint >= 9.0 sobre `src/ml`.
+- [x] **3.2 GREEN** `src/ml/config.py`: `MLDatasetSettings` (pydantic-settings) con las 6 variables `INTELLOPS_*` del design.
+- [x] **3.3 GREEN** `src/ml/pipeline/mapper.py`: `DatasetReadError`, `to_batch(rows, bucket_seconds, start, end)` puro.
+- [x] **3.4 GREEN** `src/ml/pipeline/api_reader.py`: `align_window` + `read_dataset(settings, client=None)`; `httpx.Client` sync inyectable, `HTTPTransport(retries=N)`, mapeo de status a `DatasetReadError`, sin loguear la key.
+- [x] **3.5 GREEN** `pyproject.toml`: mover `httpx>=0.28.0` de `[project.optional-dependencies].dev` a `dependencies` (BSD-3, compatible con `pip-licenses --fail-on="SSPL;AGPL"`). Sin otras dependencias nuevas. No tocar `Dockerfile`/`docker-compose.yml`.
+- [x] **3.6 REFACTOR**: eliminar duplicación entre reader y mapper; verificar pylint >= 9.0 sobre `src/ml`.
 
 Archivos: `src/ml/config.py`, `src/ml/pipeline/mapper.py`, `src/ml/pipeline/api_reader.py`, `pyproject.toml`, `tests/test_ml_dataset_reader.py`.
 
