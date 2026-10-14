@@ -30,12 +30,12 @@ Reparto: commit 1 ~120, commit 2 ~250, commit 3 ~380.
 
 Specs: MLD-1.1, MLD-1.2, MLD-1.3.
 
-- [ ] **1.1 RED**: en `tests/test_ml_worker.py` (marker `unit`) agregar tests: registro válido sin `metric_id` (MLD-1.1); falta `bucket_seconds` falla (MLD-1.2); `metric_id` presente falla por `extra="forbid"`; `timestamp` naive falla; `epoch(timestamp) % bucket_seconds != 0` falla; `bucket_seconds < 60` falla; `mock_data.json` y salida del generador validan sin `metric_id` (MLD-1.3). Ajustar los tests existentes que usan `metric_id`.
-- [ ] **1.2 GREEN** `src/ml/schemas.py`: `MetricBatchInput` con `ConfigDict(extra="forbid", frozen=True)`, sin `metric_id`, con `bucket_seconds: int = Field(ge=60)`, `timestamp: AwareDatetime`, `model_validator` de alineación a epoch.
-- [ ] **1.3 GREEN** `src/ml/mock_data.json`: quitar `metric_id`, agregar `bucket_seconds: 60`, 2.º registro a `21:15:00Z` (alineado).
-- [ ] **1.4 GREEN** `ml/data/generate_mock_dataset.py`: `metric_id` -> `bucket_seconds: 60`; actualizar docstring; quitar `import uuid` si queda sin uso (flake8 F401 no corre en `ml/`, pero mantenerlo limpio).
-- [ ] **1.5** `docs/architecture/IsolationForest/ContratoEntradaSalida.md`: entrada/salida M4 (sin `metric_id`, con `bucket_seconds`, identidad de serie).
-- [ ] **1.6 REFACTOR**: revisar que `mock_reader.py` y `src/ml/main.py` no referencien `metric_id` (`rg metric_id src/ml ml/data`).
+- [x] **1.1 RED**: en `tests/test_ml_worker.py` (marker `unit`) agregar tests: registro válido sin `metric_id` (MLD-1.1); falta `bucket_seconds` falla (MLD-1.2); `metric_id` presente falla por `extra="forbid"`; `timestamp` naive falla; `epoch(timestamp) % bucket_seconds != 0` falla; `bucket_seconds < 60` falla; `mock_data.json` y salida del generador validan sin `metric_id` (MLD-1.3). Ajustar los tests existentes que usan `metric_id`.
+- [x] **1.2 GREEN** `src/ml/schemas.py`: `MetricBatchInput` con `ConfigDict(extra="forbid", frozen=True)`, sin `metric_id`, con `bucket_seconds: int = Field(ge=60)`, `timestamp: AwareDatetime`, `model_validator` de alineación a epoch.
+- [x] **1.3 GREEN** `src/ml/mock_data.json`: quitar `metric_id`, agregar `bucket_seconds: 60`, 2.º registro a `21:15:00Z` (alineado).
+- [x] **1.4 GREEN** `ml/data/generate_mock_dataset.py`: `metric_id` -> `bucket_seconds: 60`; actualizar docstring; quitar `import uuid` si queda sin uso (flake8 F401 no corre en `ml/`, pero mantenerlo limpio).
+- [x] **1.5** `docs/architecture/IsolationForest/ContratoEntradaSalida.md`: entrada/salida M4 (sin `metric_id`, con `bucket_seconds`, identidad de serie).
+- [x] **1.6 REFACTOR**: revisar que `mock_reader.py` y `src/ml/main.py` no referencien `metric_id` (`rg metric_id src/ml ml/data`).
 
 Archivos: `src/ml/schemas.py`, `src/ml/mock_data.json`, `ml/data/generate_mock_dataset.py`, `docs/architecture/IsolationForest/ContratoEntradaSalida.md`, `tests/test_ml_worker.py`.
 
