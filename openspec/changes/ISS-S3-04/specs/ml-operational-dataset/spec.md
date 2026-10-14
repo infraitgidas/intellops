@@ -122,21 +122,21 @@ Cada ejecución DEBE operar sobre una única aplicación, determinada por la API
 #### Scenario: MLD-7.2 Registro de otra app
 - GIVEN una respuesta que contiene un `application_id` distinto al esperado
 - WHEN el reader valida
-- THEN descarta la fila y la cuenta como malformada (MLD-8)
+- THEN rechaza el lote completo con error de validación (MLD-8)
 
 ### Requirement: MLD-8 (validación de cada MetricAggregate)
 
-El reader DEBE validar CADA `MetricAggregate` recibido contra `MetricBatchInput` (tipos, `value` finito, `session_count >= 0`, `timestamp` con zona UTC). Una fila inválida DEBE omitirse (no abortar el lote) y contarse en un contador de filas malformadas, y el reader DEBE registrar el total en log. Las filas válidas DEBEN devolverse. (Traceability: proposal Scope "reader validado"; riesgo de datos malformados.)
+El reader DEBE validar CADA `MetricAggregate` recibido contra `MetricBatchInput` (tipos, `value` finito, `session_count >= 0`, `timestamp` con zona UTC). Ante una fila inválida el reader DEBE rechazar el lote completo (fail-fast) y NO DEBE devolver datos parciales: una fila malformada es una violación del contrato del productor, no ruido a tolerar. (Traceability: proposal Scope "reader validado"; design "rechaza el lote entero".)
 
 #### Scenario: MLD-8.1 Fila malformada entre válidas
 - GIVEN una respuesta con 3 filas, una con `value = null`
 - WHEN el reader valida
-- THEN devuelve 2 registros y el contador de malformadas es 1
+- THEN lanza error de validación y no devuelve ningún registro
 
-#### Scenario: MLD-8.2 Todas malformadas
-- GIVEN una respuesta donde todas las filas son inválidas
+#### Scenario: MLD-8.2 Todas válidas
+- GIVEN una respuesta con filas que cumplen el contrato
 - WHEN el reader valida
-- THEN devuelve lista vacía y el contador iguala el total de filas
+- THEN devuelve todos los registros como `MetricBatchInput`
 
 ### Requirement: MLD-9 (errores y no disponibilidad)
 
