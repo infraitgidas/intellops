@@ -1,11 +1,11 @@
-﻿"""
+"""
 Synthetic RUM dataset generator for ISS-S3-05 EDA.
 
 Generates a realistic time-series dataset respecting the MetricBatchInput contract:
   - application_id: UUID4
-  - metric_id:      UUID4
   - metric_type_id: int (1-5, mapped to TTFB/FCP/XHR_LATENCY/JS_EXCEPTION_RATE/RAGE_CLICK)
-  - timestamp:      datetime (ISO-8601, UTC)
+  - timestamp:      datetime (ISO-8601, UTC; bucket_start aligned to bucket_seconds)
+  - bucket_seconds: int (>= 60)
   - value:          float   (metric-specific units and distribution)
   - session_count:  int
 
@@ -22,7 +22,6 @@ Usage:
 """
 import argparse
 import json
-import uuid
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -85,9 +84,9 @@ def generate_dataset(n_rows=1500, start=None, anomaly_rate=0.05, seed=42):
         session_count = max(1, int(rng.normal(30, 15)))
         records.append({
             "application_id": app_id,
-            "metric_id": str(uuid.uuid4()),
             "metric_type_id": metric_type_id,
             "timestamp": ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "bucket_seconds": 60,
             "value": value,
             "session_count": session_count,
         })

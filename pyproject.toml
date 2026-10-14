@@ -24,13 +24,13 @@ dependencies = [
     "PyJWT>=2.9.0",
     "pwdlib[argon2]>=0.2.0",
     "email-validator>=2.0.0",
+    "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=6.0.0",
-    "httpx>=0.28.0",
     "flake8>=7.0.0",
     "pylint>=3.0.0",
     "pytest-asyncio>=0.25.0",
