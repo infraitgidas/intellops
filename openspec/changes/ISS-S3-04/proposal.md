@@ -101,9 +101,9 @@ El motor ML lee hoy un mock estático (`src/ml/mock_data.json`) y su contrato ex
 
 ## Proposal question round
 
-> No se pudo consultar al usuario desde este sub-agente. Supuestos a revisar (D2/D4 no se reabren):
+> Resuelta con el usuario el 2026-10-14. D2/D4 no se reabren.
 
-1. **Nombre de columna**: ¿`bucket_start` para la serie y `timestamp` sigue siendo el instante de detección?
-2. **Alineación**: ¿aceptable que el reader alinee la ventana a epoch UTC, aunque difiera del default del read path (`now - 15 min`)?
-3. **Multi-app**: ¿el MVP alcanza con una app por ejecución (una key), o se necesitan varias keys en config desde ya?
-4. **Unicidad**: ¿puede haber más de una anomalía por `(serie, model_id)`? Define si va un índice único.
+1. **Nombre de columna**: `bucket_start` identifica la serie; `timestamp` se mantiene como instante de detección (sin `detected_at`).
+2. **Alineación**: el reader alinea `start`/`end` a múltiplos de `bucket_seconds` en epoch UTC, aunque difiera del default del read path.
+3. **Multi-app**: el MVP corre una app por ejecución (una key en config); multi-app es post-MVP y aditivo.
+4. **Unicidad**: índice único `(application_id, metric_type_id, bucket_start, bucket_seconds, model_id)` para que el reproceso sea idempotente.
