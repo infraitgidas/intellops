@@ -18,7 +18,7 @@ diferencia entre lo que declara el doc raíz y lo que existe (o no) en el reposi
 |---|-------|--------------------|--------------------------------------|-----------|
 | 1 | EDT | "No hay EDT en el repo" | develop SÍ: `docs/business/EDT intellops.md` (bdca8c2) | CONTRADICE |
 | 2 | Cronograma | "No hay cronograma" | develop SÍ existe | CONTRADICE |
-| 3 | ADR de base de datos | SQLite; "config.yaml dice SQLite" | develop: DB ya es PostgreSQL 16 (ddl_v1.0.sql + Alembic 0001–0004 + config.yaml); gestionProyecto: ADR-0002 PostgreSQL (Aceptado) | CORREGIDO (existe, otra rama) |
+| 3 | ADR de base de datos | SQLite; "config.yaml dice SQLite" | El repo ya usa **PostgreSQL 16**: `openspec/config.yaml` declara PostgreSQL (nunca dijo SQLite) y el DDL vive en `ddl_v1.0.sql` + Alembic 0001–0004. El ADR faltante existía en `gestionProyecto` y se portó como **`docs/adr/0009`**. | CONTRADICE (el doc atribuye SQLite a `config.yaml`); decisión ya resuelta (ADR-0009) |
 | 4 | Roadmap / hitos | Hitos M0–M4 | gestionProyecto: roadmap F0–F4 | SUPERPONE |
 | 5 | Probe HTTP (#12) | — | `demo/probe_ttfb.py` UNTRACKED | COINCIDE |
 | 6 | Sondas TLS y DNS | M1 | No existe en ninguna rama | FALTA |
@@ -35,8 +35,8 @@ diferencia entre lo que declara el doc raíz y lo que existe (o no) en el reposi
 | 17 | brief-v2 | — | Dos versiones divergentes entre refs | COLISIÓN |
 | 18 | docs/adr/README.md | — | Tabla de ADRs vacía | FALTA |
 | 19 | PR #7 | +5.399 líneas sin revisión | develop: docs/pr-007-review.md | COINCIDE (hay análisis) |
-| 20 | Baseline develop local | — | develop local 1707caf (29-sep) 24 commits atrás de origin/develop 1a46eb4 | DESFASE |
-| 21 | Arranque S1 19-oct-2026 | S1 empieza 19-oct | develop ya tiene S2 archivado y S3 en curso | ATRASADO ~2 sprints |
+| 20 | Baseline develop local | — | develop local quedó alineado a `origin/develop @1a46eb4` (partía de `1707caf`, 24 commits atrás) | DESFASE (resuelto) |
+| 21 | Arranque S1 19-oct-2026 | S1 empieza 19-oct | develop ya tiene S2 archivado (`openspec/changes/archive/`) y S3 en curso (ramas `ISS-S3-01/02/04/05`) | ATRASADO ~2 sprints |
 
 ---
 
@@ -65,9 +65,10 @@ diferencia entre lo que declara el doc raíz y lo que existe (o no) en el reposi
   `docs/business/issues-s2-s3.md`, `docs/adr/`, `docs/pr-007-review.md`, `openspec/config.yaml`,
   `openspec/specs/database/ddl_v1.0.sql`, `src/api/infrastructure/db/migrations/`.
 - **Rama `gestionProyecto`:** `gestionProyecto/roadmap/roadmap-producto.md`,
-  `gestionProyecto/roadmap/roadmap-mvp-pps.md`, `gestionProyecto/marco/` y
-  `gestionProyecto/decisiones/caso-postgresql-vs-sqlite.md`.
+  `gestionProyecto/roadmap/roadmap-mvp-pps.md`, `gestionProyecto/marco/03-diseno.md`,
+  `gestionProyecto/marco/04-especificaciones.md` y
+  `gestionProyecto/decisiones/caso-postgresql-vs-sqlite.md` (integrados en esta rama por cherry-pick).
 - **Trabajo no versionado:** `demo/probe_ttfb.py` (untracked).
 
-> Las filas 20 y 21 reflejan el estado observado al momento de relevar el contraste. El baseline
-> local de `develop` y el archivado de sprints pueden variar con el avance del repositorio.
+> Las filas 20 y 21 reflejan el estado al cierre de esta reconciliación: el baseline local de
+> `develop` ya fue alineado a `1a46eb4` y el archivado de sprints puede seguir avanzando.
