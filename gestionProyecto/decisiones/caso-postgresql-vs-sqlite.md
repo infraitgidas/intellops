@@ -3,7 +3,7 @@
 **Documento**: `decisiones/caso-postgresql-vs-sqlite.md`
 **Fecha**: 2026-09-11
 **Autor**: Coordinación InfraIT — Emanuel Rodríguez
-**Tipo**: Análisis de caso de decisión técnica (precede al ADR-0002)
+**Tipo**: Análisis de caso de decisión técnica (precede al ADR-0009)
 **Estado**: Aprobado para su implementación
 
 ---
@@ -72,13 +72,13 @@ contenedores **Docker/Podman** sobre **VM Rocky 10**.
 | **Un servicio más que operar** | Backup/restore, versionado, upgrades de Postgres | Contenedor inmutable + volumen; `pg_dump` diario a S3 free-tier (ya planificado con Rclone) |
 | **El paper pierde el claim "SQLite en vez de BD dedicada"** | Se debilita el pilar de innovación por restricción del §4.2 | Reescribir el relato: la innovación pasa a ser "stack completo de observabilidad en una sola VM con PostgreSQL tuneado y $0/mes" — no menos válido, distinto (ver §6) |
 | **Más piezas en Docker Compose** | Rebuild tarda un poco más; más superficie de configuración | Compose con servicio `db` estándar; healthchecks; documentación de onboarding |
-| **Contradice D-2026-04 (Aceptada)** | Requiere gestionar el cambio de decisión en toda la cadena de artefactos | ADR-0002 que supersede D-2026-04 + actualización de marco/backlog/PPS/paper (este documento y sus consecuencias) |
+| **Contradice D-2026-04 (Aceptada)** | Requiere gestionar el cambio de decisión en toda la cadena de artefactos | ADR-0009 que supersede D-2026-04 + actualización de marco/backlog/PPS/paper (este documento y sus consecuencias) |
 | **"Recursos escasos" como tesis de marca** | El nicho "Bajo Recurso + Alta IA" del paper puede leerse menos extremo | La restricción sigue: 1 VM, ~2-3 GB, CPU-only, $0/mes. No es Datadog; sigue siendo el cuadrante "bajo recurso + alta IA" |
 
 ## 5. Criterios de Aceptación del Cambio (Definition of Done)
 
-1. ✅ ADR-0002 creado en `docs/adr/` declarando PostgreSQL como almacenamiento del MVP y supersediendo D-2026-04.
-2. ✅ Marco `03-diseno.md`: tabla de decisiones (D-2026-04 → Superseded; nueva decisión ADR-0002), contenedor buffer, diagrama de capas, módulo M-ING.
+1. ✅ ADR-0009 creado en `docs/adr/` declarando PostgreSQL como almacenamiento del MVP y supersediendo D-2026-04.
+2. ✅ Marco `03-diseno.md`: tabla de decisiones (D-2026-04 → Superseded; nueva decisión ADR-0009), contenedor buffer, diagrama de capas, módulo M-ING.
 3. ✅ Marco `04-especificaciones.md`: RF-ING-03 a "PostgreSQL con SQLModel" + RF-ING-06 ajustado (migración a TimescaleDB como activación de extensión).
 4. ✅ Marco `02-analisis.md`: riesgo R3 y stack revisados.
 5. ✅ Backlog `T-020.3`: SQLite → PostgreSQL + repositorios SQLModel.
@@ -100,9 +100,9 @@ contenedores **Docker/Podman** sobre **VM Rocky 10**.
 **Recomendado**: adoptar PostgreSQL para el MVP. La VM dedicada remueve la restricción que justificaba
 SQLite; PostgreSQL elimina la migración futura, soporta la ingesta concurrente del sistema, habilita
 SQLModel/Alembic, y hace más honesto el relato de escalabilidad del paper. El costo (RAM adicional, un
-servicio más) es asumible y mitigable. El cambio se gestiona formalmente vía ADR-0002 y la cadena de
+servicio más) es asumible y mitigable. El cambio se gestiona formalmente vía ADR-0009 y la cadena de
 artefactos de este caso.
 
 ---
 
-*Este documento es el análisis de caso; la decisión formal se registra en `docs/adr/0002-reemplazo-sqlite-por-postgresql.md`.*
+*Este documento es el análisis de caso; la decisión formal se registra en `docs/adr/0009-postgresql-16-como-base-de-datos.md`.*

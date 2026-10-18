@@ -141,8 +141,8 @@ compartido).
 | ADR-0001 | Reemplazo ELK → Grafana + Loki + Prometheus (licencia SSPL) | Aceptado | `docs/adr/0001-reemplazo-elk-por-grafana-loki-prometheus.md` |
 | D-2026-02 | Agente RUM con OTel JS SDK, bundle < 30KB, CORS con echo origin + Vary | Aceptado | specs + memoria rum-observability |
 | D-2026-03 | Salud del usuario: User Health Score 0-100 con pesos configurables | Propuesto | backlog EPIC-ML |
-| D-2026-04 | ~~Almacenamiento SQLite (WAL) con migración planificada a TimescaleDB~~ | **Superseded** por ADR-0002 | brief §4.1 |
-| ADR-0002 | **Almacenamiento PostgreSQL + SQLModel en el MVP** (VM Rocky 10, Docker/Podman); TimescaleDB = extensión futura | **Aceptado** | `docs/adr/0002-reemplazo-sqlite-por-postgresql.md` |
+| D-2026-04 | ~~Almacenamiento SQLite (WAL) con migración planificada a TimescaleDB~~ | **Superseded** por ADR-0009 | brief §4.1 |
+| ADR-0009 | **Almacenamiento PostgreSQL + SQLModel en el MVP** (VM Rocky 10, Docker/Podman); TimescaleDB = extensión futura | **Aceptado** | `docs/adr/0009-postgresql-16-como-base-de-datos.md` |
 | D-2026-05 | ML baseline = Isolation Forest + Z-score + seasonal; LSTM como extensión | Aceptado (brief-v2) | brief §4.3 |
 | D-2026-06 | GenIA = LLM local cuantizado 1B (privacidad, $0, reproducción) | Aceptado (brief-v2) | brief §5.2 |
 | D-2026-07 | QA con quality gates OTel en CI/CD (latencia p99, error rate, trazas) | Propuesto | backlog EPIC-QA |

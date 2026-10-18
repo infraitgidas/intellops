@@ -5,7 +5,7 @@
 **Autor**: Coordinación InfraIT — Emanuel Rodríguez
 **Propósito**: acotar el roadmap completo (2026–2030) a la ventana del **MVP y de las PPS 2026**
 de Federico Blanco Cavallero (Seguridad), Romeo Monfroglio (ML/Anomalías) y Santiago Montanari (QA).
-**Stack de referencia (ADR-0002)**: React+TS · FastAPI · SQLModel · PostgreSQL · Docker/Podman · VM Rocky 10.
+**Stack de referencia (ADR-0009)**: React+TS · FastAPI · SQLModel · PostgreSQL · Docker/Podman · VM Rocky 10.
 
 ---
 
@@ -50,7 +50,7 @@ Las PPS 2026 tienen 3 restricciones duras:
 | may 1–2 | Esqueleto ML Engine (`base.py`, pipeline train/predict/eval) | E04 | EXP-001 seed fijo |
 | may 3–4 | Detector Isolation Forest + Z-score + seasonal; ensamble | E04 | F1 ≥ 0.70 objetivo |
 | jun 1–2 | Endpoint `POST /ml/detect` → `AnomalyList` | E04 | payload con `capa`, `impacto_ux_estimado` |
-| jun 3–4 | **PostgreSQL (ADR-0002)**: repositorios SQLModel + lecturas ML | E03/E04 | adapter a la interfaz de datos |
+| jun 3–4 | **PostgreSQL (ADR-0009)**: repositorios SQLModel + lecturas ML | E03/E04 | adapter a la interfaz de datos |
 | jul 1–4 | EDA con datos reales + EXP-001 versionado + `make reproduce` | E04 | DVC/MLflow |
 | ago 1–2 | User Health Score 0-100 (pesos configurables) + endpoint | E04 | r > 0.75 con reclamos |
 | ago 3–4 | Dashboard vista 3 (predicciones/anomalías) — React+TS | E05 | con Ema |
@@ -106,7 +106,7 @@ SANTIAGO (M-QA) ──► pipeline CI/CD, gates,    ◄── specs OpenAPI/Asyn
 **Puntos críticos de dependencia**:
 1. **Contratos publicados antes de implementar**: el schema de eventos de seguridad (Federico) alimenta
    la detección de Romeo; la OpenAPI/AsyncAPI (Coordinación) alimenta el contract testing de Santiago.
-2. **PostgreSQL (ADR-0002) disponible antes de julio**: lo usa Romeo (jun–jul) y el E2E de Santiago (ago).
+2. **PostgreSQL (ADR-0009) disponible antes de julio**: lo usa Romeo (jun–jul) y el E2E de Santiago (ago).
 3. **Health score (Romeo) listo para agosto**: lo consumen los gates de Santiago (E11, Fase 2) como señal.
 
 ---
@@ -115,7 +115,7 @@ SANTIAGO (M-QA) ──► pipeline CI/CD, gates,    ◄── specs OpenAPI/Asyn
 
 | Mes | Coordinación | Federico | Romeo | Santiago |
 |---|---|---|---|---|
-| **May** | ADR-0002, infra VM Rocky 10 | — | fundaciones ML + IF/zscore | — |
+| **May** | ADR-0009, infra VM Rocky 10 | — | fundaciones ML + IF/zscore | — |
 | **Jun** | contrato OpenAPI/AsyncAPI | audit Lynis + hardening CIS | ML + endpoint detect | pipeline GA + gates |
 | **Jul** | PostgreSQL+SQLModel listo | GLP seguridad + dashboards | EXP-001 + health score | suite unitaria |
 | **Ago** | revisión de integración | contrato eventos + RUM prod | dashboard vista 3 + informe | tests integración + E2E |

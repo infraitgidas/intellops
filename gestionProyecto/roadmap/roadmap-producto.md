@@ -4,7 +4,7 @@
 **Fecha**: 2026-09-11
 **Autor**: Coordinación InfraIT — Emanuel Rodríguez
 **Alcance**: visión completa del producto IntellOps, alineada al PID TC GIDAS (2027–2030) y a las PPS 2026.
-**Stack del MVP (ADR-0002)**: React+TS · FastAPI · SQLModel · PostgreSQL · Docker/Podman · VM Rocky 10.
+**Stack del MVP (ADR-0009)**: React+TS · FastAPI · SQLModel · PostgreSQL · Docker/Podman · VM Rocky 10.
 
 ---
 
@@ -28,14 +28,14 @@ Convertir la investigación previa (brief-v2, marco, papers) en **cimientos téc
 ### 2.2. Entregables
 | # | Entregable | Owner | Dependencia |
 |---|---|---|---|
-| F0-1 | ADR-0001 (GLP) + ADR-0002 (PostgreSQL) aprobados | Coordinación | — |
+| F0-1 | ADR-0001 (GLP) + ADR-0009 (PostgreSQL) aprobados | Coordinación | — |
 | F0-2 | Backlog priorizado E01-E12 + planning poker | Coordinación + equipo | F0-3 |
 | F0-3 | Contratos de datos publicados (OpenAPI 3.1 + AsyncAPI 3.0) | Federico/Romeo/Santiago | — |
 | F0-4 | M-SEG: hardening CIS + pipeline GLP seguridad + dashboards | Federico | ADR-0001 |
 | F0-5 | M-ML: anomalías (IF+zscore) + health score + endpoint | Romeo | F0-3 |
 | F0-6 | M-QA: pipeline GitHub Actions + gates + tests | Santiago | F0-3 |
 | F0-7 | M-DASH: dashboard React+TS 3 vistas (parcial) | Romeo + Ema | F0-5 |
-| F0-8 | M-ING: ingesta FastAPI + PostgreSQL (SQLModel/Alembic) | Coordinación | ADR-0002 |
+| F0-8 | M-ING: ingesta FastAPI + PostgreSQL (SQLModel/Alembic) | Coordinación | ADR-0009 |
 | F0-9 | Infra: VM Rocky 10, Docker/Podman, compose | Coordinación | — |
 | F0-10 | MVP-0 instalado y funcional (lab GIDAS) | Equipo completo | F0-4..F0-9 |
 
