@@ -42,3 +42,4 @@ Cada ADR sigue el formato [Nygard](https://cognitect.com/blog/2011/11/15/documen
 | 0002 | [Pipeline de ingesta RUM asíncrono en proceso y nomenclatura `/telemetry/*`](0002-pipeline-ingesta-async.md) | Aceptado | 2026-09-25 |
 | 0003 | [Ownership de tenant en la persistencia de telemetría y read path app-scoped](0003-ownership-tenant-read-path.md) | Aceptado | 2026-09-29 |
 | 0009 | [PostgreSQL 16 como base de datos del MVP (reemplazo de SQLite WAL)](0009-postgresql-16-como-base-de-datos.md) | Aceptado | 2026-09-11 |
+| 0010 | [Arquitectura de 4 contenedores para el MVP (monolito modular desacoplado)](0010-arquitectura-de-4-contenedores.md) | Aceptado | 2026-08-12 |

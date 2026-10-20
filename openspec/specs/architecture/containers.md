@@ -3,7 +3,7 @@
 - **Versión**: 2.0
 - **Fecha**: 2026-09-01
 - **Autores**: Equipo InfraIT GIDAS
-- **Referencias**: [`docs/infrastructure/Diagrama-C4-V2.puml`](../../../docs/infrastructure/Diagrama-C4-V2.puml), [`docs/der/Trazabilidad DER a Contenedores.md`](../../../docs/der/Trazabilidad%20DER%20a%20Contenedores.md), [`docker-compose.yml`](../../../docker-compose.yml)
+- **Referencias**: [`docs/infrastructure/Diagrama-C4-V2.puml`](../../../docs/infrastructure/Diagrama-C4-V2.puml), [`docs/der/Trazabilidad DER a Contenedores.md`](../../../docs/der/Trazabilidad%20DER%20a%20Contenedores.md), [`docker-compose.yml`](../../../docker-compose.yml), [`ADR-0010`](../../../docs/adr/0010-arquitectura-de-4-contenedores.md)
 
 > Esta versión reemplaza el diseño previo de 13 contenedores (stack LGTM completo:
 > Prometheus, Loki, Grafana, Tempo, Alertmanager, Netdata, RAG, LLM Server standalone,

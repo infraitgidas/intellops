@@ -153,7 +153,7 @@ Base: KPIs por fase del `roadmap-producto.md` §9 + criterios de aceptación de 
 | F1 (anomalías) | — | ≥ 0.70 | ≥ 0.75 | ≥ 0.80 | ≥ 0.80 | Dataset de validación |
 | Time-to-anomaly | — | < 10 s | < 8 s | < 8 s | < 8 s | Tarea medida |
 | SUS (4 personas académicas) | — | > 75 | > 75 | > 78 | > 78 | Cuestionario |
-| Uptime del stack | > 99 % | > 99.5 % | > 99.5 % | > 99.5 % | > 99.5 % | Netdata |
+| Uptime del stack | > 99 % | > 99.5 % | > 99.5 % | > 99.5 % | > 99.5 % | Healthchecks + Netdata (post-MVP) |
 | Costo operativo mensual | $0 | $0 | $0 | $0 | $0 | Tracking |
 | Laboratorios adoptantes | 0 | 0 | 0 | 2+ | 2+ | Acuerdos |
 | Publicaciones | 0 | 3 borradores | 2 papers | 2+ papers | 4+ publicaciones | Repositorio |
@@ -165,7 +165,7 @@ Base: riesgos del `roadmap-producto.md` §10 + riesgos y supuestos de `marco/04-
 | Riesgo | Fase | Mitigación |
 |--------|------|------------|
 | PPS terminan (oct 2026) sin entregables completos | F0 | Contratos publicados temprano; seguimiento semanal; DoD único |
-| El stack no entra en 2 GB de RAM (Grafana, Loki, Tempo, Prometheus, PostgreSQL y LLM) | F0/F1 | Medir con `docker stats` en M1; tuning conservador; presupuesto de recursos por contenedor |
+| El stack no entra en 2 GB de RAM (core + ai-engine + comms + PostgreSQL; el stack LGTM de producto es roadmap y el GLP de seguridad corre aparte) | F0/F1 | Medir con `docker stats` en M1; tuning conservador; presupuesto de recursos por contenedor |
 | Alcance que crece hacia ML y LLM antes de tener datos | M2/M3 | Dataset etiquetado como condición de entrada |
 | Salida del equipo antes del handover | F0 | Handover como requisito de salida; mantenedor técnico estable (ver `governance/continuity.md`) |
 | Sondas desde una sola red | M1 | Al menos dos puntos de origen |

@@ -67,7 +67,7 @@ make test-cov # Tests con cobertura
 | Experimentos (24 total) | ✅ `openspec/specs/research/experiments.md` |
 | Onboarding Fase 1 + Fase 2 | ✅ `onboarding/{cavallero,monfroglio,montanari}.md` |
 | Plan de trabajo con tareas concretas | ✅ `governance/plan-trabajo.md` |
-| Arquitectura C4 (13 contenedores) | ✅ `openspec/specs/architecture/containers.md` |
+| Arquitectura C4 (4 contenedores del MVP) | ✅ `openspec/specs/architecture/containers.md` |
 | Brief v2 con visión UX-céntrica | ✅ `docs/brief-v2.md` |
 | Frontend observability state of the art | ✅ `docs/research/frontend-observability.md` |
 | Tools industry analysis (12 herramientas) | ✅ `docs/research/observability-tools-analysis.md` |

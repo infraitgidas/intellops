@@ -2,12 +2,19 @@
 
 **Documento**: `04-especificaciones.md`
 **Parte del marco**: Marco Conceptual e Ingenieril de IntellOps
-**Versión**: 1.0
+**Versión**: 1.1
 **Fecha**: 2026-09-11
+**Última revisión**: 2026-10-20 (alineación a la arquitectura de 4 contenedores)
 **Autor**: Coordinación InfraIT — Emanuel Rodríguez
 **Estado**: Borrador para revisión del equipo
 **Nota**: este documento es el **nivel de sistema** (qué debe cumplir IntellOps). Las specs detalladas por cambio
 viven en `openspec/specs/**` y `openspec/changes/**` (SDD). Ninguna implementación procede sin spec validada.
+
+**Arquitectura vigente del MVP:** 4 contenedores (`intellops-core`, `intellops-db`,
+`intellops-ai-engine`, `intellops-comms`); ver `03-diseno.md` §2 y
+`openspec/specs/architecture/containers.md`. Los requisitos que mencionan OTel Collector, Tempo,
+Prometheus, Alertmanager o Netdata corresponden a fases post-MVP. El pipeline GLP de seguridad
+(Promtail/Loki/Grafana, módulo M-SEG) es infraestructura separada del compose del producto.
 
 ---
 
@@ -31,20 +38,20 @@ ID global: `INT-OBS-REQ` · Estándar de referencia: ISO/IEC/IEEE 29148 (estruct
 |---|---|---|---|
 | RF-CAP-01 | El sistema debe capturar métricas de experiencia de usuario (Core Web Vitals: LCP, INP, CLS) desde el navegador mediante agente RUM | MUST | Bundle < 30KB gzip; overhead Lighthouse < 3% |
 | RF-CAP-02 | El agente debe capturar TTFB, errores de frontend, navegación y metadata de sesión | MUST | Evento de error visible en dashboard < 60s |
-| RF-CAP-03 | El agente debe exportar en OTLP hacia el OTel Collector | MUST | Trazas RUM visibles en Tempo |
-| RF-CAP-04 | El sistema debe capturar métricas de infraestructura (CPU, memoria, red, disco) por scraping Prometheus | MUST | Scrape interval ≤ 15s |
-| RF-CAP-05 | El sistema debe capturar logs de sistema y eventos de seguridad (Linux) | MUST | Auditbeat/Promtail envía a Loki |
-| RF-CAP-06 | La instrumentación del backend (FastAPI) debe emitir trazas distribuidas OTel | MUST | Trace completa frontend→backend en Tempo |
+| RF-CAP-03 | Post-MVP: el agente exporta en OTLP hacia el OTel Collector | MUST | Trazas RUM visibles en Tempo |
+| RF-CAP-04 | Post-MVP: capturar métricas de infraestructura (CPU, memoria, red, disco) por scraping Prometheus | MUST | Scrape interval ≤ 15s |
+| RF-CAP-05 | Capturar logs de sistema y eventos de seguridad (Linux) en el pipeline GLP del módulo M-SEG, fuera del compose del producto | MUST | Auditbeat/Promtail envía a Loki |
+| RF-CAP-06 | Post-MVP: la instrumentación del backend (FastAPI) emite trazas distribuidas OTel | MUST | Trace completa frontend→backend en Tempo |
 | RF-CAP-07 | El envío de telemetría debe ser tolerante a fallos de red (buffer + retry) | SHOULD | Pérdida 0 en cortes < 60s |
 
 ### 2.2. RF-ING · Ingesta y Almacenamiento
 
 | ID | Requisito | Prioridad | Criterio de aceptación |
 |---|---|---|---|
-| RF-ING-01 | API de ingesta `POST /metrics/ingest` validada contra OpenAPI 3.1 | MUST | Rechaza payloads inválidos con 400 + detalle |
+| RF-ING-01 | API de ingesta `POST /telemetry/metrics` y `POST /telemetry/exceptions` validada contra OpenAPI 3.1 | MUST | Rechaza payloads inválidos con 400 + detalle |
 | RF-ING-02 | Ingesta por batching (batch 30s, sampling 10% configurable) | MUST | Throughput ≥ 1K métricas/s |
 | RF-ING-03 | Almacenamiento en PostgreSQL con SQLModel + índice temporal | MUST | Consulta ventana 1h < 500ms |
-| RF-ING-04 | Trazas almacenadas en Tempo, logs en Loki, métricas en Prometheus | MUST | Correlación trace→log→metric operativa |
+| RF-ING-04 | Post-MVP: trazas en Tempo y métricas en Prometheus; los logs de seguridad van al pipeline GLP (Loki) | MUST | Correlación trace→log→metric operativa |
 | RF-ING-05 | CORS con echo de origin (nunca `*`) + `Vary: Origin` (sendBeacon y credentials) | MUST | Envíos desde navegador sin bloqueo (ver memoria rum-observability) |
 | RF-ING-06 | TimescaleDB como extensión activable de PostgreSQL sin reescribir la capa de consulta | SHOULD | Repositorios abstraídos tras interfaz; `CREATE EXTENSION timescaledb` documentado |
 
@@ -65,7 +72,7 @@ ID global: `INT-OBS-REQ` · Estándar de referencia: ISO/IEC/IEEE 29148 (estruct
 | ID | Requisito | Prioridad | Criterio de aceptación |
 |---|---|---|---|
 | RF-GEN-01 | Asistente conversacional con LLM local cuantizado (sin APIs externas) | MUST | Inferencia 5-10 tok/s en CPU |
-| RF-GEN-02 | RCA asistido: consumir trazas Tempo + logs Loki + métricas para explicar causa raíz | MUST | Precisión factual ≥ 80% (revisión coordinador) |
+| RF-GEN-02 | Post-MVP: RCA asistido consumiendo trazas Tempo + logs Loki + métricas | MUST | Precisión factual ≥ 80% (revisión coordinador) |
 | RF-GEN-03 | RAG sobre runbooks y documentación GIDAS | MUST | Consulta contextual responde con fuentes |
 | RF-GEN-04 | Respuesta a consultas de forecasting/anomalías en lenguaje natural | SHOULD | "¿Por qué subió la latencia?" → explicación accionable |
 | RF-GEN-05 | Generación de borradores de runbooks desde incidentes resueltos | SHOULD | Runbook editable post-incidente |
@@ -74,7 +81,7 @@ ID global: `INT-OBS-REQ` · Estándar de referencia: ISO/IEC/IEEE 29148 (estruct
 
 | ID | Requisito | Prioridad | Criterio de aceptación |
 |---|---|---|---|
-| RF-ACT-01 | Alertas con routing por severidad: alta→WhatsApp, media→Telegram, baja→Mail | MUST | Entrega < 30s canal configurado |
+| RF-ACT-01 | Alertas con routing por severidad: alta→WhatsApp, media→Telegram, baja→Mail (WhatsApp post-MVP) | MUST | Entrega < 30s canal configurado |
 | RF-ACT-02 | Reglas de alerta combinando umbrales y score ML | MUST | Alerta si health score < 60 o anomalía score > 0.8 |
 | RF-ACT-03 | Dashboard con 3 vistas: latencias tiempo real, heatmap UX, predicciones | MUST | Carga < 2s; las 3 vistas funcionales |
 | RF-ACT-04 | Vista de seguridad: eventos de autenticación, accesos no autorizados, cambios críticos | MUST (módulo SEG) | 4 dashboards de seguridad |
@@ -109,7 +116,7 @@ ID global: `INT-OBS-REQ` · Estándar de referencia: ISO/IEC/IEEE 29148 (estruct
 |---|---|---|---|
 | RF-OPS-01 | Despliegue con Docker Compose, rebuild < 30 min | MUST | `docker compose up` en máquina limpia |
 | RF-OPS-02 | Backup automático diario a S3 free-tier (Rclone) | MUST | Restore probado 1×/mes |
-| RF-OPS-03 | Self-monitoring del stack (Netdata) | MUST | Dashboard de salud del propio IntellOps |
+| RF-OPS-03 | Post-MVP: self-monitoring del stack (Netdata); en el MVP, healthchecks de Compose | MUST | Dashboard de salud del propio IntellOps |
 | RF-OPS-04 | Costo operativo $0/mes con recursos existentes | MUST | Tracking mensual |
 | RF-OPS-05 | SBOM + tag semántico + release notes por release | SHOULD | Release reproducible |
 
@@ -122,7 +129,7 @@ ID global: `INT-OBS-REQ` · Estándar de referencia: ISO/IEC/IEEE 29148 (estruct
 | Rendimiento | API p95 | < 200ms | k6 (CI) |
 | Rendimiento | Ingesta p99 | ≤ 500ms | k6 (CI) |
 | Escalabilidad | Throughput | ≥ 1K métricas/s | k6 benchmark |
-| Disponibilidad | Uptime del stack | > 99.5% | Netdata |
+| Disponibilidad | Uptime del stack | > 99.5% | Healthchecks + Netdata (post-MVP) |
 | Seguridad | Lynis compliance | ≥ 70% | Lynis en CI/semanal |
 | Seguridad | OWASP | Sin críticos | ZAP scan |
 | Usabilidad | SUS 4 personas | > 75 | Cuestionario |
@@ -138,15 +145,18 @@ ID global: `INT-OBS-REQ` · Estándar de referencia: ISO/IEC/IEEE 29148 (estruct
 ### 4.1. OpenAPI 3.1 (endpoints núcleo)
 
 ```
-POST /metrics/ingest        → 202, valida MetricBatch (OTLP/Prometheus)
-POST /logs/ingest           → 202, valida LogBatch
+POST /telemetry/metrics      → 202, valida RumEventBatch (batch ≤ 500)
+POST /telemetry/exceptions   → 202, valida JsExceptionBatch (batch ≤ 500)
 GET  /metrics/query?metric=&from=&to= → MetricSeries
-POST /ml/detect             → AnomalyList (score, contexto, capa)
+GET  /metrics/list           → catálogo de métricas
+GET  /alerts                 → lista + estado; POST /alerts/config; PUT /alerts/{id}/ack
+GET  /health | /ready        → liveness / readiness (incluye DB)
+
+Post-MVP:
+POST /ml/detect              → AnomalyList (score, contexto, capa)
 GET  /ml/health-score/:userId → 0-100 + factores
-POST /assistant/query       → RCA/Explanación en lenguaje natural
-POST /rca                   → IncidentID → RCA estructurado
-GET  /alerts                → lista + estado; POST /alerts/config; PUT /alerts/{id}/ack
-GET  /health | /ready       → liveness / readiness (incluye DB)
+POST /assistant/query        → RCA/explicación en lenguaje natural
+POST /rca                    → IncidentID → RCA estructurado
 ```
 
 ### 4.2. AsyncAPI 3.0 (eventos)
@@ -157,7 +167,7 @@ alert/triggered       { alerta_id, severidad, canal, timestamp }
 user/health-degraded  { userId, score, factores_contribuyentes }
 ```
 
-### 4.3. Métricas núcleo (Prometheus exposition + RUM)
+### 4.3. Métricas núcleo (contadores internos en el MVP; Prometheus post-MVP)
 
 | Nombre | Tipo | Fuente | Target |
 |---|---|---|---|
@@ -165,9 +175,9 @@ user/health-degraded  { userId, score, factores_contribuyentes }
 | rum_inp_milliseconds | gauge | RUM | < 200 |
 | rum_cls | gauge | RUM | < 0.1 |
 | rum_ttfb_milliseconds | gauge | RUM | < 800 |
-| http_latency_p95/p99 | histogram | FastAPI/OTel | < 200/500ms |
-| http_error_rate | counter | FastAPI/OTel | < 0.1% |
-| infra_cpu/mem/net | gauge | Prometheus | por servicio |
+| http_latency_p95/p99 | histogram | FastAPI/OTel (post-MVP) | < 200/500ms |
+| http_error_rate | counter | FastAPI/OTel (post-MVP) | < 0.1% |
+| infra_cpu/mem/net | gauge | Prometheus (post-MVP) | por servicio |
 | user_health_score | gauge | ML Engine | 0-100 |
 | anomaly_score | gauge | ML Engine | alarma > 0.8 |
 

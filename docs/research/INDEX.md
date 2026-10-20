@@ -109,7 +109,7 @@ openspec/specs/architecture/            │ governance/
 | Documento | Líneas | Propósito | Última actualización |
 |-----------|--------|-----------|---------------------|
 | **`openspec/specs/architecture/spec.md`** | 83 | Visión arquitectónica: principios, C4 Context, 4 personas, decisiones clave | 2026-05-27 |
-| **`openspec/specs/architecture/containers.md`** | 226 | **ACTUALIZADO**. C4 Containers con 13 contenedores: OTel Collector, Tempo, Alertmanager agregados. Footprint total ~2.3GB RAM | 2026-06-11 |
+| **`openspec/specs/architecture/containers.md`** | 126 | **ACTUALIZADO**. C4 Containers de la arquitectura vigente: 4 contenedores (`intellops-core`, `intellops-db`, `intellops-ai-engine`, `intellops-comms`). Footprint ~1.4GB RAM + PostgreSQL; LGTM queda como roadmap | 2026-09-01 |
 | **`openspec/specs/architecture/components.md`** | 186 | Componentes internos + flujos Mermaid de secuencia | 2026-05-27 |
 | **`openspec/specs/architecture/interfaces.md`** | 248 | Interfaces: 20 endpoints REST, schemas, AsyncAPI events, puertos | 2026-05-27 |
 | **`openspec/specs/architecture/constraints.md`** | 110 | Restricciones técnicas, de proceso, de negocio, principios de diseño | 2026-05-27 |
@@ -184,7 +184,7 @@ Identificados a partir del análisis cruzado de todos los documentos:
 | `onboarding/cavallero.md` | `frontend-observability.md` (secciones 3, 4, 7, 8) | `rum-agent-deep-dive.md` |
 | `governance/plan-trabajo.md` (tareas Federico) | `rum-agent-deep-dive.md` (secciones 2, 3, 8, 9) | `hypotheses.md` (H5) |
 | `hypotheses.md` (H3 + H5) | `observability-tools-analysis.md` (sección 3.11 Sentry, 3.2 Grafana Faro) | `experiments.md` (EXP-OTel-*) |
-| `containers.md` (OTel, Tempo, Alertmanager) | — | `containers.md` |
+| `containers.md` (4 contenedores del MVP; LGTM en roadmap) | — | `containers.md` |
 
 ### Romeo Monfroglio
 
