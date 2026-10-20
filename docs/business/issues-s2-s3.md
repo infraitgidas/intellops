@@ -4,6 +4,12 @@ Registro de las issues publicadas en GitHub el **07/09/2026** en el repositorio 
 
 Este archivo reemplaza el catálogo `issues-sprints-2-8.md` para los sprints 2 y 3, que ya fueron publicados.
 
+> **Reconciliación con el plan integral (Oct 2026):** las issues A/B/C de la v1 se prepararon en
+> [`issues-fases-abc.md`](./issues-fases-abc.md). `ISS-S2-05` (#39), `ISS-S3-03` (#42) e
+> `ISS-S3-06` (#45) pasan a **Fase A** (19/10–13/11/2026). El plan integral marca `ISS-S3-01`
+> como Hecho (PR #57) y `ISS-S3-02`/`ISS-S3-04` como En curso (PRs #59/#60); las issues #40, #41
+> y #43 siguen abiertas y deben cerrarse o actualizarse cuando corresponda.
+
 ## Estado de publicación
 
 - **Total publicadas**: 11 (S2: 5, S3: 6)
