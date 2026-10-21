@@ -96,8 +96,6 @@ def test_mock_data_json_has_no_metric_id():
 
 
 def test_generator_output_validates_without_metric_id():
-    # numpy no es dependencia del proyecto: solo la usan los scripts de ml/.
-    pytest.importorskip("numpy")
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "ml", "data"))
     try:
         from generate_mock_dataset import generate_dataset
