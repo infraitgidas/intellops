@@ -112,6 +112,17 @@ def test_align_window_accepts_exactly_seven_days():
     assert e - s == timedelta(days=7)
 
 
+@pytest.mark.parametrize("bucket", [500, 7000])
+@pytest.mark.parametrize("offset", [0, 1, 37, 499, 501, 3499, 6999, 86399, 123457])
+def test_align_window_seven_days_with_non_dividing_bucket(bucket, offset):
+    now = datetime(2026, 8, 28, 0, 0, tzinfo=UTC) + timedelta(seconds=offset)
+    start, end = align_window(now - timedelta(minutes=10080), now, bucket)
+    assert end - start <= timedelta(days=7)
+    assert int(start.timestamp()) % bucket == 0
+    assert int(end.timestamp()) % bucket == 0
+    assert start < end
+
+
 def test_align_window_rejects_more_than_seven_days_after_aligning():
     end = datetime(2026, 8, 28, 0, 0, tzinfo=UTC)
     start = end - timedelta(days=7, seconds=1)  # el floor suma 1 bucket

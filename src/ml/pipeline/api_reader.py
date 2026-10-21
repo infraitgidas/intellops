@@ -19,12 +19,17 @@ def align_window(
     """Alinea [start, end) a múltiplos de bucket_seconds desde el epoch UTC."""
     if start.tzinfo is None or end.tzinfo is None:
         raise DatasetReadError("window datetimes must be timezone-aware")
+    max_seconds = _MAX_WINDOW.total_seconds()
+    if (end - start).total_seconds() > max_seconds:
+        raise DatasetReadError("window exceeds the 7 day read path limit")
     aligned_start = math.floor(start.timestamp() / bucket_seconds) * bucket_seconds
     aligned_end = math.floor(end.timestamp() / bucket_seconds) * bucket_seconds
+    # El floor de ambos extremos puede pasar los 7 días por hasta un bucket.
+    aligned_start = max(
+        aligned_start, aligned_end - (max_seconds // bucket_seconds) * bucket_seconds
+    )
     if aligned_start >= aligned_end:
         raise DatasetReadError("window is empty after aligning to buckets")
-    if aligned_end - aligned_start > _MAX_WINDOW.total_seconds():
-        raise DatasetReadError("window exceeds the 7 day read path limit")
     return (
         datetime.fromtimestamp(aligned_start, tz=timezone.utc),
         datetime.fromtimestamp(aligned_end, tz=timezone.utc),
