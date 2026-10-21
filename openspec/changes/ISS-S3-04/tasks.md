@@ -99,15 +99,15 @@ pylint src/ --fail-under=9.0
 Replicar CI (`.github/workflows/ci.yml`) en este orden, desde un venv Python 3.11:
 
 - [ ] V1 `pip install -e ".[dev]"`
-- [ ] V2 Lint: `flake8 src/ tests/` (0 warnings) y `pylint src/ --fail-under=9.0`
-- [ ] V3 Unit (sin DB): `PYTHONPATH=. pytest -m unit`
-- [ ] V4 DB limpia (Postgres 16, `DATABASE_URL=postgresql+asyncpg://intellops:intellops@localhost:5432/intellops`): `alembic upgrade head` -> `alembic downgrade 0003` -> `alembic upgrade head`
-- [ ] V5 Suite completa + cobertura: `PYTHONPATH=. pytest --cov --cov-report=term-missing --cov-report=xml --cov-report=html --junitxml=reports/junit.xml` (gate `fail_under = 70`)
-- [ ] V6 Contract: `PYTHONPATH=. pytest tests/test_contract.py -q` (esperado sin cambios: `openapi.yaml` y read path intactos)
+- [x] V2 Lint: `flake8 src/ tests/` (0 warnings) y `pylint src/ --fail-under=9.0`
+- [x] V3 Unit (sin DB): `PYTHONPATH=. pytest -m unit`
+- [x] V4 DB limpia (Postgres 16, `DATABASE_URL=postgresql+asyncpg://intellops:intellops@localhost:5432/intellops`): `alembic upgrade head` -> `alembic downgrade 0003` -> `alembic upgrade head`
+- [x] V5 Suite completa + cobertura: `PYTHONPATH=. pytest --cov --cov-report=term-missing --cov-report=xml --cov-report=html --junitxml=reports/junit.xml` (gate `fail_under = 70`)
+- [x] V6 Contract: `PYTHONPATH=. pytest tests/test_contract.py -q` (esperado sin cambios: `openapi.yaml` y read path intactos)
 - [ ] V7 Licencias: `pip install pip-licenses && pip-licenses --fail-on="SSPL;AGPL"`; confirmar que `httpx` (BSD-3) es la única dependencia movida a runtime
 - [ ] V8 Docker: `docker compose build` (Dockerfile sin cambios; solo cambió `pyproject.toml`)
-- [ ] V9 Diff acotado: `src/api` solo contiene `0004_anomaly_series_anchor.py`; sin cambios en `CHANGELOG.md`, `openapi.yaml`, `queue.py`, ADR 0004-0007 (DB-SCOPE-1.1)
-- [ ] V10 `rg "metric_id" src/ml ml/data/generate_mock_dataset.py docs/architecture/IsolationForest/ContratoEntradaSalida.md` sin resultados salvo notas históricas
+- [x] V9 Diff acotado: `src/api` solo contiene `0004_anomaly_series_anchor.py`; sin cambios en `CHANGELOG.md`, `openapi.yaml`, `queue.py`, ADR 0004-0007 (DB-SCOPE-1.1)
+- [x] V10 `rg "metric_id" src/ml ml/data/generate_mock_dataset.py docs/architecture/IsolationForest/ContratoEntradaSalida.md` sin resultados salvo notas históricas
 
 ## Checklist del PR
 
