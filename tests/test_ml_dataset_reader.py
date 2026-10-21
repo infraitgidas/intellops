@@ -283,8 +283,10 @@ def test_reader_returns_empty_list(monkeypatch):
 def test_reader_auth_errors(monkeypatch, status):
     body = {"error": {"code": "invalid_api_key", "message": "x"}}
     s = _settings(monkeypatch)
-    with pytest.raises(DatasetReadError, match=str(status)):
+    with pytest.raises(DatasetReadError, match=str(status)) as exc:
         read_dataset(s, client=_client(lambda r: httpx.Response(status, json=body)), now=NOW)
+    assert exc.value.status == status
+    assert exc.value.code == "invalid_api_key"
 
 
 def test_reader_422_includes_status_and_code(monkeypatch):
@@ -333,10 +335,18 @@ def test_reader_malformed_row_returns_no_partial_data(monkeypatch):
 
 
 def test_reader_does_not_fall_back_to_mock_and_does_not_log_key(monkeypatch, caplog):
+    calls = []
+    monkeypatch.setattr(
+        "src.ml.pipeline.mock_reader.load_mock_data", lambda: calls.append(1)
+    )
     s = _settings(monkeypatch)
     with caplog.at_level(logging.DEBUG):
-        with pytest.raises(DatasetReadError):
+        with pytest.raises(DatasetReadError) as exc:
             read_dataset(s, client=_client(lambda r: httpx.Response(503)), now=NOW)
+    assert type(exc.value) is DatasetReadError
+    assert str(exc.value) == "read path unavailable (status 503)"
+    assert exc.value.status == 503
+    assert calls == []
     assert API_KEY not in caplog.text
 
 
