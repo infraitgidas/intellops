@@ -211,6 +211,18 @@ def test_settings_missing_required_names_variable(monkeypatch, name):
         _settings(monkeypatch, **{name: None})
 
 
+@pytest.mark.parametrize("name", ["INTELLOPS_ML_API_KEY", "INTELLOPS_API_BASE_URL"])
+def test_settings_empty_required_fails(monkeypatch, name):
+    with pytest.raises(ValidationError, match=name):
+        _settings(monkeypatch, **{name: ""})
+
+
+@pytest.mark.parametrize("value", ["inf", "nan"])
+def test_settings_non_finite_timeout_fails(monkeypatch, value):
+    with pytest.raises(ValidationError):
+        _settings(monkeypatch, INTELLOPS_ML_HTTP_TIMEOUT_SECONDS=value)
+
+
 @pytest.mark.parametrize("minutes", ["0", "10081"])
 def test_settings_window_out_of_range_fails(monkeypatch, minutes):
     with pytest.raises(ValidationError):
