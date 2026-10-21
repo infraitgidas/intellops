@@ -22,7 +22,7 @@ Reparto: commit 1 ~120, commit 2 ~250, commit 3 ~380.
 - Python 3.11 compatible (CI usa 3.11): sin sintaxis 3.12+ (`type` statements, f-strings anidadas con comillas iguales, `typing.override`).
 - Vedados (PR #59): `CHANGELOG.md`, `openapi.yaml`, `src/api/.../queue.py`, ADR 0004-0007. Único archivo nuevo bajo `src/api`: la migración `0004` (DB-SCOPE-1).
 - Sin cross-imports `src/ml` <-> `src/api` (MLD-3.2, ARCH-AI-3.2).
-- No regenerar `ml/data/rum_mock.json` (dataset de ISS-S3-05, #44, ya cerrado).
+- `ml/data/rum_mock.json` y el notebook EDA se regeneran/ajustan por feedback de review (solo se quita `metric_id` y se agrega `bucket_seconds`; los valores no cambian).
 
 ---
 
@@ -115,7 +115,7 @@ Replicar CI (`.github/workflows/ci.yml`) en este orden, desde un venv Python 3.1
 - [ ] Label `size:exception` con justificación: ~750 líneas; tres commits atómicos (contrato, migración, reader) revisables por separado; contrato y migración son acoplados por el breaking change M4; sin chained PRs por decisión explícita del usuario.
 - [ ] Descripción: enlazar `Closes #43`; listar los 3 commits y su verificación.
 - [ ] Notificar a Santiago (owner DB) sobre la migración `0004` antes del merge (criterio de aceptación de database spec).
-- [ ] Dejar constancia en el PR (ISS-S3-05, #44, ya cerrado): `ml/data/rum_mock.json` y el notebook EDA siguen con `metric_id` y quedan rotos hasta regenerarse; el generador ya emite M4.
+- [x] `ml/data/rum_mock.json` regenerado con el generador M4 y celdas del notebook EDA con `metric_id` ajustadas (ISS-S3-05, #44, ya cerrado); outputs de las celdas afectadas limpiados para no dejar resultados obsoletos.
 - [ ] Notar: coordinar con PR #59 (no tocamos `CHANGELOG.md`/`openapi.yaml`/`queue.py`; ADR >= 0008; CHANGELOG como follow-up post-merge).
 - [ ] Breaking change documentado: `MetricBatchInput` sin `metric_id`; downgrade `0004` solo con `anomaly` vacía.
 

@@ -102,7 +102,7 @@ CREATE UNIQUE INDEX idx_anomaly_series_bucket_model
 |---|---|
 | `src/ml/schemas.py` | Modify — contrato M4 |
 | `src/ml/mock_data.json` | Modify — sin `metric_id`, `bucket_seconds: 60`, 2.º registro a `21:15:00Z` |
-| `ml/data/generate_mock_dataset.py` | Modify — `metric_id` → `bucket_seconds: 60`; docstring; quitar `import uuid` si queda sin uso. **No** se regenera `rum_mock.json` (dataset de ISS-S3-05, #44, cerrado) |
+| `ml/data/generate_mock_dataset.py` | Modify — `metric_id` → `bucket_seconds: 60`; docstring; quitar `import uuid` si queda sin uso. `rum_mock.json` se regenera después por feedback de review (valores idénticos, sin `metric_id`) |
 | `docs/architecture/IsolationForest/ContratoEntradaSalida.md` | Modify — entrada/salida M4 |
 | `src/api/infrastructure/db/migrations/versions/0004_anomaly_series_anchor.py` | Create |
 | `openspec/specs/database/ddl_v1.0.sql` | Modify — §9 |
