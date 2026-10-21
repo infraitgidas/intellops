@@ -1,7 +1,7 @@
 # SPEC — ml-operational-dataset (Nueva) — ISS-S3-04
 
 **Tipo**: Delta spec (capability nueva). **Cambio**: ISS-S3-04 (GitHub #43). **Base**: `proposal.md` (decisión D2 = M4, D4 = (a), ronda de preguntas 2026-10-14), `decisiones-metric-id-y-frontera.md` §6, read path de ISS-S3-01 (`GET /metrics/query`, TQ-1/TQ-2, OAS-14).
-**Alcance**: reader HTTP en `src/ml`, mapeo `MetricAggregate` → `MetricBatchInput` sin `metric_id`, configuración, límites de ventana/bucket, alineación de buckets y manejo de errores. Sin entrenamiento (#44), sin cambios en `src/api` salvo la migración `0004` (ver capability `database`).
+**Alcance**: reader HTTP en `src/ml`, mapeo `MetricAggregate` → `MetricBatchInput` sin `metric_id`, configuración, límites de ventana/bucket, alineación de buckets y manejo de errores. Sin entrenamiento ni cableado del reader en el motor (cambio posterior), sin cambios en `src/api` salvo la migración `0004` (ver capability `database`).
 
 ## Purpose
 
@@ -175,7 +175,7 @@ La configuración DEBE leerse de variables de entorno: `INTELLOPS_API_BASE_URL`,
 
 ## Fuera de alcance
 
-- Entrenamiento / EDA (#44, ISS-S3-05).
+- Entrenamiento y cableado del reader en el motor (cambio posterior). El EDA ya está cerrado en #44 (ISS-S3-05).
 - User Health Score por sesión.
 - Cambios en ingesta o en el read path (`src/api`).
 - Scheduler (el pull es bajo demanda) y store de histórico propio.

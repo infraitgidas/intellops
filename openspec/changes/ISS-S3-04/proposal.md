@@ -20,7 +20,7 @@ El motor ML lee hoy un mock estático (`src/ml/mock_data.json`) y su contrato ex
 7. Tests (strict TDD): adaptador puro, reader con `httpx.MockTransport`, migración up/down.
 
 ### Out of Scope
-- Entrenamiento / EDA (#44, ISS-S3-05); User Health Score por sesión; alertas.
+- Entrenamiento y cableado del reader en el motor (cambio posterior); el EDA ya está cerrado en #44 (ISS-S3-05); User Health Score por sesión; alertas.
 - Cualquier cambio en `src/api` (ingesta o read path). `bucket_seconds` ya es parámetro del request: el reader lo elige y lo persiste; no hace falta que la respuesta lo exponga (corrige la observación de §6 del brief).
 - Scheduler (pull bajo demanda); store de histórico propio.
 - Archivos de PR #59: `queue.py`, policy/service de ingesta, `openapi.yaml` (`RumMetric.unit`), ADR 0004–0007, ARCH-5/6, `CHANGELOG.md` (follow-up post-merge de #59).
@@ -64,7 +64,7 @@ El motor ML lee hoy un mock estático (`src/ml/mock_data.json`) y su contrato ex
 | Downgrade no reversible con datos (`metric_id NOT NULL`) | Low | Hoy nadie escribe `ANOMALY`; downgrade documentado como válido solo con tabla vacía |
 | Colisión con PR #59 | Med | Lista de archivos vedados; ADR ≥ 0008; CHANGELOG diferido |
 | Key app-scoped limita dataset multi-app | Med | Una key por app en config; multi-app = N pulls |
-| `ml/` es dominio de #44 (generador) | Low | Cambio mínimo (quitar campo); avisar en PR |
+| `ml/` es dominio de ISS-S3-05 (#44, cerrado; generador y notebook EDA) | Low | Cambio mínimo (quitar campo); dejar constancia en el PR |
 
 ## Rollback Plan
 

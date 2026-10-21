@@ -16,7 +16,7 @@
 | Malformed rows | skip-and-count / fail-fast | Saltear filas sesga el dataset en silencio | **fail-fast** del batch, con índice de fila en el error |
 | Reintentos | loop con backoff / transporte | Pull bajo demanda: el caller re-ejecuta | **`HTTPTransport(retries=N)`** (solo errores de conexión); sin reintento por status |
 | Alineación | ancla del read path (`start`) / epoch UTC | Ancla a `start` ⇒ identidad inestable entre pulls | **epoch UTC** alineando `start`/`end` antes de pedir (question round #2) |
-| Contenedor | instalar deps en `src/ml/Dockerfile` ahora / después | Nadie invoca el reader en el contenedor todavía (sin scheduler) | **sin cambios** en `Dockerfile`/`docker-compose.yml`; se cablea con #44 |
+| Contenedor | instalar deps en `src/ml/Dockerfile` ahora / después | Nadie invoca el reader en el contenedor todavía (sin scheduler) | **sin cambios** en `Dockerfile`/`docker-compose.yml`; se cablea en el cambio que integre el reader al motor |
 
 ## Data Flow
 
@@ -102,7 +102,7 @@ CREATE UNIQUE INDEX idx_anomaly_series_bucket_model
 |---|---|
 | `src/ml/schemas.py` | Modify — contrato M4 |
 | `src/ml/mock_data.json` | Modify — sin `metric_id`, `bucket_seconds: 60`, 2.º registro a `21:15:00Z` |
-| `ml/data/generate_mock_dataset.py` | Modify — `metric_id` → `bucket_seconds: 60`; docstring; quitar `import uuid` si queda sin uso. **No** se regenera `rum_mock.json` (#44) |
+| `ml/data/generate_mock_dataset.py` | Modify — `metric_id` → `bucket_seconds: 60`; docstring; quitar `import uuid` si queda sin uso. **No** se regenera `rum_mock.json` (dataset de ISS-S3-05, #44, cerrado) |
 | `docs/architecture/IsolationForest/ContratoEntradaSalida.md` | Modify — entrada/salida M4 |
 | `src/api/infrastructure/db/migrations/versions/0004_anomaly_series_anchor.py` | Create |
 | `openspec/specs/database/ddl_v1.0.sql` | Modify — §9 |

@@ -22,7 +22,7 @@ Reparto: commit 1 ~120, commit 2 ~250, commit 3 ~380.
 - Python 3.11 compatible (CI usa 3.11): sin sintaxis 3.12+ (`type` statements, f-strings anidadas con comillas iguales, `typing.override`).
 - Vedados (PR #59): `CHANGELOG.md`, `openapi.yaml`, `src/api/.../queue.py`, ADR 0004-0007. Único archivo nuevo bajo `src/api`: la migración `0004` (DB-SCOPE-1).
 - Sin cross-imports `src/ml` <-> `src/api` (MLD-3.2, ARCH-AI-3.2).
-- No regenerar `ml/data/rum_mock.json` (dominio #44).
+- No regenerar `ml/data/rum_mock.json` (dataset de ISS-S3-05, #44, ya cerrado).
 
 ---
 
@@ -115,7 +115,7 @@ Replicar CI (`.github/workflows/ci.yml`) en este orden, desde un venv Python 3.1
 - [ ] Label `size:exception` con justificación: ~750 líneas; tres commits atómicos (contrato, migración, reader) revisables por separado; contrato y migración son acoplados por el breaking change M4; sin chained PRs por decisión explícita del usuario.
 - [ ] Descripción: enlazar `Closes #43`; listar los 3 commits y su verificación.
 - [ ] Notificar a Santiago (owner DB) sobre la migración `0004` antes del merge (criterio de aceptación de database spec).
-- [ ] Flaggear para #44: `ml/data/rum_mock.json` y el notebook EDA siguen con `metric_id` y quedan rotos hasta regenerarse; el generador ya emite M4.
+- [ ] Dejar constancia en el PR (ISS-S3-05, #44, ya cerrado): `ml/data/rum_mock.json` y el notebook EDA siguen con `metric_id` y quedan rotos hasta regenerarse; el generador ya emite M4.
 - [ ] Notar: coordinar con PR #59 (no tocamos `CHANGELOG.md`/`openapi.yaml`/`queue.py`; ADR >= 0008; CHANGELOG como follow-up post-merge).
 - [ ] Breaking change documentado: `MetricBatchInput` sin `metric_id`; downgrade `0004` solo con `anomaly` vacía.
 
@@ -124,4 +124,4 @@ Replicar CI (`.github/workflows/ci.yml`) en este orden, desde un venv Python 3.1
 - **ADR-0008 + `containers.md` §2.3/C4 + `interfaces.md` §2.1** (ARCH-AI-1, ARCH-AI-3): el design lo deja como outline sin archivo (KISS), pero `architecture/spec.md` ARCH-AI-3.1 exige `docs/adr/0008-*.md`. No está en los 3 commits pedidos; decidir antes del PR si se agrega como commit 4 docs (~100-200 líneas, sin impacto en CI) o se mueve a follow-up. Hasta decidir, la spec de architecture queda sin cubrir.
 - **Discrepancia MLD-8 vs design**: la spec dice omitir fila malformada y contarla; el design decidió fail-fast del batch. Las tareas 3.1/3.4 siguen el design (fail-fast). Reconciliar la spec (o el design) antes de `sdd-verify`.
 - `application_id: UUID4` rechaza UUID no-v4: confirmar que `app_id` siempre se genera v4 (open question del design).
-- Wiring en `Dockerfile`/`docker-compose.yml` y scheduler: se cablean con #44.
+- Wiring en `Dockerfile`/`docker-compose.yml` y scheduler: se cablean en el cambio que integre el reader al motor.
