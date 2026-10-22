@@ -14,18 +14,25 @@ El objetivo central de IntellOps es correlacionar dos fuentes de información qu
 
 ## Mapeo C4 → Carpeta
 
-Estructura completa del proyecto con `src/api/` (el backend) organizado en Clean Architecture. El resto de los módulos (ML, notificaciones, dashboard, agente) quedan como servicios separados, tal cual el diagrama los dibuja.
+> **Nota de vigencia:** este documento es una propuesta inicial de estructura (V1.1.2). La
+> arquitectura vigente del MVP es de **4 contenedores** (`intellops-core`, `intellops-db`,
+> `intellops-ai-engine`, `intellops-comms`); ver `openspec/specs/architecture/containers.md`
+> y `docs/infrastructure/Diagrama-C4-V2.puml`. El árbol de abajo se conserva como referencia
+> histórica y debe ajustarse a medida que avance la implementación.
+
+Estructura completa del proyecto con `src/api/` (el backend) organizado en Clean Architecture. El resto de los módulos (ML, comunicaciones, dashboard, agente) quedan como servicios o artefactos separados, tal cual el diagrama los dibuja.
 
 | Elemento del C4 | Carpeta | Estado |
 |---|---|---|
-| Backend Python | `src/api/` (Clean Architecture) | ya existe |
-| Algoritmo detección (IA) | `src/ml/` | nueva |
-| Api Telegram/mail | `src/api/infrastructure/notification` | nueva |
-| Interfaz WEB (React/Next) | `src/frontend` | nueva |
-| DB | `src/api/infrastructure/db/` | nueva |
+| intellops-core (backend/ingesta) | `src/api/` (Clean Architecture) | ya existe |
+| intellops-ai-engine (IA) | `src/ml/` | ya existe |
+| intellops-comms (Telegram/mail) | `src/comms/` | ya existe |
+| intellops-db (esquema y migraciones) | `src/api/infrastructure/db/` + `alembic.ini` | ya existe |
+| Interfaz WEB (React/Next) — no es contenedor | `src/frontend` | nueva |
+| Agente RUM — no es contenedor (cliente) | `src/agent/` | nueva |
 | Pipeline CI/CD | `.github/workflows/` | ya existe |
 | Módulo QA | `tests/` | ya existe |
-| Informes de seguridad (CIS, LGTM) | `governance/compliance` + `docs/security` | nueva |
+| Informes de seguridad (CIS, GLP) | `governance/compliance` + `docs/security` | nueva |
 
 ---
 

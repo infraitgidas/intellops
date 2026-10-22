@@ -94,10 +94,10 @@ El estado del arte en 2026 muestra las siguientes líneas de investigación acti
 | Aspecto | Versión 1.0 | Versión 2.0 (Redefinido) |
 |---------|-------------|--------------------------|
 | **Hardware objetivo** | Servidores dedicados con GPU | Hardware on-premise existente + Pi + free-tier cloud |
-| **Base de datos** | TimescaleDB (requiere PostgreSQL) | SQLite con time-index (migrable a TimescaleDB) |
+| **Base de datos** | TimescaleDB (requiere PostgreSQL) | PostgreSQL 16 con índice temporal (TimescaleDB como extensión) |
 | **ML models** | LSTM + Isolation Forest + Prophet | Isolation Forest + estadísticos (LSTM como extensión futura) |
 | **GenIA** | Llama 3.1 8B (requiere ~8GB RAM) | Llama 3.2 1B GGUF 4-bit (~600MB RAM, CPU-only) |
-| **Backend** | FastAPI + Redis + Kafka | FastAPI + SQLite buffer (sin Redis/Kafka inicialmente) |
+| **Backend** | FastAPI + Redis + Kafka | FastAPI + PostgreSQL 16 (sin Redis/Kafka inicialmente) |
 | **Dashboard** | React + WebSocket real-time | React static build + polling (sin SSR, sin WebSocket server) |
 | **Costo operativo** | ~$500/mes (self-hosted) | **$0/mes** (existente + free-tier) |
 | **Setup time** | Horas | **< 30 min** (`docker compose up`) |
@@ -111,12 +111,13 @@ El estado del arte en 2026 muestra las siguientes líneas de investigación acti
 | Módulo | Descripción | MVP |
 |--------|-------------|-----|
 | **Agente de Captura** | JS/Node OpenTelemetry, 50KB bundle, sampling 10%, batch 30s | MVP-0 |
-| **Ingesta** | FastAPI async, SQLite buffer, batch insert, < 100MB RAM | MVP-0 |
-| **Storage** | SQLite con índice temporal, WAL mode, ~500MB/año datos, migrable a TSDB | MVP-0 |
-| **Agente RUM OTel** | JS OpenTelemetry SDK, bundle < 30KB, captura Core Web Vitals + trazas + errores de frontend | MVP-1 |
+| **Ingesta** | FastAPI async, PostgreSQL 16, batch insert, < 100MB RAM | MVP-0 |
+| **Storage** | PostgreSQL 16 con índice temporal, ~500MB/año datos, TimescaleDB como extensión | MVP-0 |
+| **Agente RUM OTel** | JS OpenTelemetry SDK, bundle < 30KB, captura Core Web Vitals + trazas + errores de frontend | MVP-0 |
+| **Sondas sintéticas** | Chequeos HTTP/TLS/DNS desde 2 redes, disponibilidad medida activamente | MVP-0 |
 | **OTel Collector** | Recepción y enrutamiento de señales OTel (trazas, métricas, logs) desde agentes RUM y servicios instrumentados | MVP-1 |
 | **Tracing (Tempo)** | Almacenamiento y consulta de trazas distribuidas con integración nativa OTel, correlación trace→log→metric | MVP-1 |
-| **ML Detection** | Isolation Forest (scikit-learn) + Z-score dinámico + seasonal decomposition, < 50MB RAM | MVP-1 |
+| **ML Detection** | Isolation Forest (scikit-learn) + Z-score dinámico + seasonal decomposition, < 50MB RAM | MVP-0 |
 | **Dashboard** | React static build, 3 vistas (latencias, heatmap, predicciones), D3.js lightweight, < 1MB bundle | MVP-1 |
 | **GenIA Assistant** | Llama 3.2 1B (llama.cpp), RAG con documentación GIDAS, chat en dashboard, 5-10 tok/s en CPU | MVP-1 |
 | **Alertas Multicanal** | Grafana Alertmanager con routing a Mail, Telegram y WhatsApp según severidad | MVP-1 |
@@ -127,13 +128,17 @@ El estado del arte en 2026 muestra las siguientes líneas de investigación acti
 | **Documentación** | Markdown + auto-generated (Redocly), notebooks Jupyter exportables | MVP-2 |
 | **Paper Científico** | IEEE/ACM format, reproducible experiments | MVP-2 |
 
+> **Definición de MVP-0:** RUM + sondas + **modelos de IA (incluidos)**. El primer entregable operativo
+> incorpora el agente RUM, las sondas sintéticas y el motor de detección (Isolation Forest + z-score) con
+> health score sobre PostgreSQL.
+
 ### 4.2 Fuera del Alcance (Out-of-Scope)
 
 | Ítem | Razón |
 |------|-------|
 | LSTM/Prophet (inicial) | Requieren GPU o RAM > 4GB; se implementan como extensión futura cuando recursos lo permitan |
-| Redis/Kafka | Añaden complejidad operativa y RAM; SQLite buffer es suficiente para < 1K métricas/seg |
-| TimescaleDB (inicial) | Requiere PostgreSQL dedicado; SQLite es suficiente para datasets < 10GB |
+| Redis/Kafka | Añaden complejidad operativa y RAM; PostgreSQL 16 cubre el buffer para < 1K métricas/seg |
+| TimescaleDB (inicial) | Requiere PostgreSQL dedicado; PostgreSQL 16 es suficiente para datasets < 10GB |
 | GPU para ML/GenIA | Costo prohibitivo; todo en CPU con modelos cuantizados |
 | APM en producción real | Foco en tracing de apps del laboratorio GIDAS, no en APM de terceros |
 | Mobile app nativa | Dashboard responsive web es suficiente; PWA como mejora futura |
@@ -145,7 +150,7 @@ El estado del arte en 2026 muestra las siguientes líneas de investigación acti
 | Extensión | Requisito de Recursos | Timeline estimado |
 |-----------|----------------------|-------------------|
 | LSTM para series temporales | GPU o RAM > 8GB | Sem 25-36 |
-| TimescaleDB migration | Servidor dedicado PostgreSQL | Sem 25-30 |
+| TimescaleDB migration | Extensión de PostgreSQL 16 (sin migración de plataforma) | Sem 25-30 |
 | Redis para caching | RAM adicional 2GB | Sem 20-25 |
 | Kafka para streaming | Infraestructura adicional | Sem 30-40 |
 | Tracing multi-cluster | Tempo federado entre laboratorios GIDAS | Sem 25-30 |
@@ -161,7 +166,7 @@ El estado del arte en 2026 muestra las siguientes líneas de investigación acti
 - **OpenTelemetry como columna vertebral**: Instrumentación vendor-neutral de métricas, logs y trazas desde frontend hasta backend
 - **Agente RUM ultra-liviano**: JS OTel SDK < 30KB que captura Core Web Vitals (LCP, INP, CLS), trazas distribuidas y errores de frontend
 - **Tracing distribuido con Tempo**: Correlación traza→log→métrica para entender el viaje completo de cada request de usuario
-- **Storage SQLite optimizado**: Índice temporal, WAL mode, migración transparente a TimescaleDB
+- **Storage PostgreSQL 16 optimizado**: Índice temporal, migración transparente a TimescaleDB como extensión
 - **Detección ML liviana**: Isolation Forest + estadísticos (Z-score, seasonal decomposition) en < 50MB RAM
 - **Alertas inteligentes multicanal**: Threshold + ML score con routing dinámico a Mail, Telegram y WhatsApp según severidad
 - **3 vistas esenciales**: Latencias en tiempo real, mapa de calor de usuarios, predicciones con forecasting
@@ -354,8 +359,8 @@ channels:
 | **Métricas** | Prometheus / Mimir | InfluxDB, TimescaleDB | Estándar de facto CNCF para métricas de infra |
 | **Dashboard** | Grafana + React static | Datadog, New Relic | Single pane of glass para logs, trazas y métricas |
 | **Alertas** | Grafana Alertmanager | PagerDuty, OpsGenie | Routing multicanal (Mail, Telegram, WhatsApp) |
-| **Buffer** | SQLite (WAL mode) | Redis, Kafka | Zero config, zero RAM adicional, suficiente para MVP |
-| **Storage** | SQLite + time-index | TimescaleDB (inicial) | Migrable transparente, sin PostgreSQL dedicado |
+| **Buffer** | PostgreSQL 16 | Redis, Kafka | Ya provisto por el stack, sin broker externo |
+| **Storage** | PostgreSQL 16 + índice temporal | TimescaleDB (inicial) | TimescaleDB como extensión, sin migración de plataforma |
 | **ML** | scikit-learn (Isolation Forest) | PyTorch LSTM (inicial) | < 50MB RAM, CPU-only, suficiente para detección básica |
 | **GenIA** | Llama 3.2 1B (llama.cpp) | Llama 3.1 8B, GPT-4 API | 600MB RAM, 5-10 tok/s CPU, sin costo de API |
 | **RAG** | sentence-transformers + Chroma | OpenAI embeddings | Local, sin llamadas externas, privacidad garantizada |
@@ -384,7 +389,7 @@ channels:
 | Fase | Semanas | Metodología | Entregables | SDD | DevOps |
 |------|---------|-------------|-------------|-----|--------|
 | **FASE 0: Discovery** | 1-2 | Design Sprint | PRD, 4 personas, OpenAPI draft, AsyncAPI draft | Spec-First | — |
-| **FASE 1: Anchor** | 3-6 | Scrum (2-sem sprints) | MVP-0: Agente + ingesta + SQLite + FastAPI stubs | Spec-Anchored | CI/CD básico |
+| **FASE 1: Anchor** | 3-6 | Scrum (2-sem sprints) | MVP-0: Agente RUM + sondas + ingesta PostgreSQL + modelos de IA + FastAPI stubs | Spec-Anchored | CI/CD básico |
 | **FASE 2: Build** | 7-14 | Kanban + CI/CD | MVP-1: ML + Dashboard 3 vistas + GenIA + Alertas | Spec-Anchored | Tests + Deploy auto |
 | **FASE 3: Validate** | 15-18 | Lean UX + TDD | MVP-2: SUS testing, A/B, benchmarks, security audit | Spec-Anchored | Contract testing |
 | **FASE 4: Publish** | 19-24 | Academic Writing | Paper IEEE/ACM, extensión UTN, comunidad | Spec-as-Source | Release semántico |
@@ -408,7 +413,7 @@ channels:
 
 | Riesgo | Prob. | Impacto | Mitigación |
 |--------|-------|---------|------------|
-| SQLite no escala para > 10K métricas/seg | Media | Alto | Diseño migrable a TimescaleDB; threshold de 1K/seg en MVP |
+| El volumen supera la capacidad tuneada de PostgreSQL 16 | Media | Alto | TimescaleDB como extensión de PostgreSQL; threshold de 1K/seg en MVP |
 | LLM 1B no suficiente para RCA complejo | Media | Medio | Fallback a templates pre-definidos; mejora con fine-tuning futuro |
 | Hardware legacy falla durante desarrollo | Baja | Alto | Backup diario a S3 free-tier; Docker Compose para rebuild rápido |
 | Baja adopción por falta de GPU/ML "sexy" | Baja | Medio | Comunicar valor de "funciona en cualquier hardware"; demos en vivo |

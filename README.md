@@ -320,7 +320,7 @@ Idea → Issue (Change Proposal) → Review → Rama → Spec → Código → Te
 - Una rama por cambio
 - Tests antes del código
 - PR a `develop`, no a `main`
-- Sin merge propio (mínimo 1 approval)
+- Sin merge propio (2 approvals en `develop`, 1 mantenedor en `main`)
 - Commits en inglés con [Conventional Commits](https://www.conventionalcommits.org/)
 
 ---

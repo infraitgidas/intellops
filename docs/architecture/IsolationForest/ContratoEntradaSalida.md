@@ -2,13 +2,13 @@ Contratos de Entrada y Salida
 
 Para garantizar el trabajo en paralelo (Contract-First), el intellops-ai-engine consumirá y generará estrictamente los siguientes esquemas JSON.
 
-Contrato de Entrada (Lectura de Batch)El pipeline leerá lotes de métricas procesadas, requiriendo el metric_type_id y el value como insumos primarios.  
+Contrato de Entrada (Lectura de Batch)El pipeline leerá lotes de métricas procesadas, requiriendo el metric_type_id y el value como insumos primarios. Desde ISS-S3-04 (M4) el registro ya no lleva metric_id: la identidad es la serie (application_id, metric_type_id) + bucket (timestamp = bucket_start alineado a epoch UTC, bucket_seconds >= 60). Los campos extra se rechazan.
 
 JSON{
   "application_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-  "metric_id": "8bb38d38-9cb5-4521-8207-6cb5622a450a",
-  "metric_type_id": 1, 
+  "metric_type_id": 1,
   "timestamp": "2026-08-28T21:15:00Z",
+  "bucket_seconds": 60,
   "value": 1850.5,
   "session_count": 25
 }
@@ -20,7 +20,10 @@ Registro en ANOMALY (Fase Matemática):
 
 JSON{
   "anomaly_id": "a1b2c3d4-58cc-4372-a567-0e02b2c3d479",
-  "metric_id": "8bb38d38-9cb5-4521-8207-6cb5622a450a",
+  "application_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "metric_type_id": 1,
+  "bucket_start": "2026-08-28T21:15:00Z",
+  "bucket_seconds": 60,
   "model_id": "m9999999-58cc-4372-a567-0e02b2c3d479",
   "expected_value": 300.0,
   "actual_value": 1850.5,

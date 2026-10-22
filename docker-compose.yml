@@ -2,8 +2,8 @@
 # PI+D+i | Grupo GIDAS | UTN FrLP | Equipo InfraIT
 #
 # Recursos totales: < 2GB RAM target | CPU-only | $0/mes
-# Arquitectura: 4 contenedores — ver openspec/specs/architecture/containers.md
-# y docs/der/Trazabilidad DER a Contenedores.md
+# Arquitectura: 4 contenedores — ver docs/adr/0010-arquitectura-de-4-contenedores.md,
+# openspec/specs/architecture/containers.md y docs/der/Trazabilidad DER a Contenedores.md
 
 name: intellops
 

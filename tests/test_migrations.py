@@ -10,11 +10,13 @@ Autocontenido: corre Alembic contra Postgres real vía la API de Alembic
 """
 
 import os
+from uuid import uuid4
 
 import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.engine import Connection
 
 from api.config import get_settings
@@ -25,6 +27,7 @@ SEED_EMAIL = "admin@intellops.local"
 REV_0001 = "0001"
 REV_0002 = "0002"
 REV_0003 = "0003"
+REV_0004 = "0004"
 
 DDL_PATH = "openspec/specs/database/ddl_v1.0.sql"
 
@@ -133,7 +136,7 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0003
+    assert _current_revision(conn) == REV_0004
 
     lab_user_columns = _column_names(conn, "lab_user")
     assert "password_hash" in lab_user_columns
@@ -162,8 +165,8 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 def test_downgrade_0001_removes_credentials_and_seed(alembic_cfg, conn):
     """DATA-4: downgrade 0001 elimina columnas, índices y seed; 0001 intacto."""
     command.upgrade(alembic_cfg, "head")
-    # Precondición: 0003 aplicada (evita falso verde).
-    assert _current_revision(conn) == REV_0003
+    # Precondición: head (0004) aplicada (evita falso verde).
+    assert _current_revision(conn) == REV_0004
 
     command.downgrade(alembic_cfg, REV_0001)
 
@@ -187,7 +190,7 @@ def test_upgrade_restores_state_after_downgrade(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0003
+    assert _current_revision(conn) == REV_0004
     assert "password_hash" in _column_names(conn, "lab_user")
     application_columns = _column_names(conn, "application")
     assert "api_token_hash" in application_columns
@@ -226,7 +229,7 @@ def test_upgrade_head_adds_is_active_default_true_for_existing_rows(
     )
 
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0003
+    assert _current_revision(conn) == REV_0004
 
     application_columns = _column_names(conn, "application")
     assert "is_active" in application_columns
@@ -250,7 +253,7 @@ def test_downgrade_0002_removes_is_active_only(alembic_cfg, conn):
     """DATA-8: downgrade 0002 elimina solo is_active; api_token_hash y el
     índice único parcial quedan intactos (rollback plan)."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0003
+    assert _current_revision(conn) == REV_0004
     assert "is_active" in _column_names(conn, "application")
 
     command.downgrade(alembic_cfg, REV_0002)
@@ -263,7 +266,7 @@ def test_downgrade_0002_removes_is_active_only(alembic_cfg, conn):
 
     # Dejar la DB en head para no contaminar el resto de la suite.
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0003
+    assert _current_revision(conn) == REV_0004
 
 
 def test_ddl_v1_0_sql_synced_with_0003(alembic_cfg, conn):
@@ -287,3 +290,180 @@ def test_ddl_v1_0_sql_synced_with_0003(alembic_cfg, conn):
     assert "api_token_hash" in application_block
     # La columna sigue siendo dormida hasta S2-02: nullable en el DDL.
     assert "is_active BOOLEAN NOT NULL DEFAULT TRUE" in application_block
+
+
+# -- DB-ANOM / DB-MIG / DB-DDL: migración 0004 (ISS-S3-04) -------------------
+
+ANOMALY_INSERT = text(
+    "INSERT INTO anomaly (anomaly_id, application_id, metric_type_id, "
+    "bucket_start, bucket_seconds, model_id, expected_value, actual_value, "
+    "severity_score, confidence_score, timestamp) "
+    "VALUES (:anomaly_id, :app_id, :metric_type_id, :bucket_start, "
+    ":bucket_seconds, :model_id, 1, 2, 0.5, 0.5, :ts)"
+)
+
+
+def _constraint_exists(conn: Connection, name: str) -> bool:
+    row = conn.execute(
+        text("SELECT 1 FROM pg_constraint WHERE conname = :name"), {"name": name}
+    ).first()
+    return row is not None
+
+
+def _seed_app_and_models(conn: Connection) -> tuple[str, str, str]:
+    app_id, model_a, model_b = str(uuid4()), str(uuid4()), str(uuid4())
+    conn.execute(
+        text(
+            "INSERT INTO application (app_id, name, description) "
+            "VALUES (:id, :name, 'test 0004')"
+        ),
+        {"id": app_id, "name": f"app-{app_id}"},
+    )
+    for model_id in (model_a, model_b):
+        conn.execute(
+            text(
+                "INSERT INTO ml_model (model_id, name, target_metric_id, "
+                "version, status_id) VALUES (:id, 'iforest', 1, 'v1', 1)"
+            ),
+            {"id": model_id},
+        )
+    return app_id, model_a, model_b
+
+
+def _insert_anomaly(conn: Connection, app_id: str, model_id: str, **overrides):
+    params = {
+        "anomaly_id": str(uuid4()),
+        "app_id": app_id,
+        "metric_type_id": 1,
+        "bucket_start": "2026-08-28T21:15:00Z",
+        "bucket_seconds": 60,
+        "model_id": model_id,
+        "ts": "2026-08-28T21:16:05Z",
+    }
+    params.update(overrides)
+    conn.execute(ANOMALY_INSERT, params)
+
+
+@pytest.fixture
+def seeded(alembic_cfg, conn):
+    """DB en head con app + 2 modelos; limpia anomaly/ml_model/application."""
+    command.upgrade(alembic_cfg, "head")
+    app_id, model_a, model_b = _seed_app_and_models(conn)
+    yield app_id, model_a, model_b
+    conn.execute(text("DELETE FROM anomaly"))
+    conn.execute(
+        text("DELETE FROM ml_model WHERE model_id IN (:a, :b)"),
+        {"a": model_a, "b": model_b},
+    )
+    conn.execute(text("DELETE FROM application WHERE app_id = :id"), {"id": app_id})
+    command.upgrade(alembic_cfg, "head")
+
+
+def test_0004_replaces_metric_id_with_series_anchor(alembic_cfg, conn):
+    """DB-ANOM-2.1 / DB-MIG-1.1: columnas nuevas, sin metric_id ni su FK."""
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_0004
+    columns = _column_names(conn, "anomaly")
+    assert {
+        "application_id", "metric_type_id", "bucket_start",
+        "bucket_seconds", "timestamp",
+    } <= columns
+    assert "metric_id" not in columns
+    assert _constraint_exists(conn, "fk_anomaly_metric") is False
+    assert _constraint_exists(conn, "fk_anomaly_application") is True
+    assert _constraint_exists(conn, "fk_anomaly_metric_type") is True
+    assert _index_exists(conn, "idx_anomaly_series_bucket_model") is True
+
+
+def test_anomaly_rejects_bucket_seconds_below_60(seeded, conn):
+    """DB-ANOM-1.2."""
+    app_id, model_a, _ = seeded
+    with pytest.raises(IntegrityError, match="ck_anomaly_bucket_seconds"):
+        _insert_anomaly(conn, app_id, model_a, bucket_seconds=30)
+
+
+def test_anomaly_rejects_unaligned_bucket_start(seeded, conn):
+    """DB-ANOM-1: ck_anomaly_bucket_aligned."""
+    app_id, model_a, _ = seeded
+    with pytest.raises(IntegrityError, match="ck_anomaly_bucket_aligned"):
+        _insert_anomaly(conn, app_id, model_a, bucket_start="2026-08-28T21:15:05Z")
+
+
+def test_anomaly_rejects_unknown_application(seeded, conn):
+    """DB-ANOM-1.3."""
+    _, model_a, _ = seeded
+    with pytest.raises(IntegrityError, match="fk_anomaly_application"):
+        _insert_anomaly(conn, str(uuid4()), model_a)
+
+
+def test_anomaly_timestamp_is_independent_of_bucket_start(seeded, conn):
+    """DB-ANOM-1.4: timestamp (detección) != bucket_start."""
+    app_id, model_a, _ = seeded
+    _insert_anomaly(conn, app_id, model_a, ts="2026-08-29T10:00:00Z")
+    row = conn.execute(text("SELECT timestamp <> bucket_start FROM anomaly")).first()
+    assert row[0] is True
+
+
+def test_anomaly_unique_series_bucket_model(seeded, conn):
+    """DB-ANOM-3.1-3.3: rechaza duplicado; permite otro modelo o bucket_seconds."""
+    app_id, model_a, model_b = seeded
+    _insert_anomaly(conn, app_id, model_a)
+    with pytest.raises(IntegrityError, match="idx_anomaly_series_bucket_model"):
+        _insert_anomaly(conn, app_id, model_a)
+    _insert_anomaly(conn, app_id, model_b)  # otro model_id
+    _insert_anomaly(conn, app_id, model_a, bucket_seconds=300)  # otro bucket
+    count = conn.execute(text("SELECT count(*) FROM anomaly")).scalar()
+    assert count == 3
+
+
+def test_downgrade_0004_empty_table_restores_metric_id(alembic_cfg, conn):
+    """DB-MIG-1.2: downgrade con anomaly vacía restaura metric_id + FK."""
+    command.upgrade(alembic_cfg, "head")
+    conn.execute(text("DELETE FROM anomaly"))
+
+    command.downgrade(alembic_cfg, REV_0003)
+
+    assert _current_revision(conn) == REV_0003
+    columns = _column_names(conn, "anomaly")
+    assert "metric_id" in columns
+    assert not {
+        "application_id", "metric_type_id", "bucket_start", "bucket_seconds",
+    } & columns
+    assert _constraint_exists(conn, "fk_anomaly_metric") is True
+    assert _index_exists(conn, "idx_anomaly_series_bucket_model") is False
+
+    command.upgrade(alembic_cfg, "head")  # DB-MIG-1.4: upgrade sin datos
+    assert _current_revision(conn) == REV_0004
+
+
+def test_downgrade_0004_with_rows_fails_and_stays_at_0004(seeded, alembic_cfg, conn):
+    """DB-MIG-1.3: guard explícito; la DB queda en 0004."""
+    app_id, model_a, _ = seeded
+    _insert_anomaly(conn, app_id, model_a)
+
+    with pytest.raises((RuntimeError, DBAPIError)):
+        command.downgrade(alembic_cfg, REV_0003)
+
+    assert _current_revision(conn) == REV_0004
+    assert "application_id" in _column_names(conn, "anomaly")
+
+
+def test_ddl_v1_0_sql_synced_with_0004():
+    """DB-DDL-1.1: ddl_v1.0.sql §9 refleja el estado final de anomaly."""
+    with open(DDL_PATH, encoding="utf-8") as handle:
+        ddl = handle.read()
+    block = ddl.split("CREATE TABLE anomaly", 1)[1].split("-- 10. ALERT", 1)[0]
+    assert "0004" in block
+    for fragment in (
+        "application_id UUID NOT NULL",
+        "metric_type_id SMALLINT NOT NULL",
+        "bucket_start TIMESTAMPTZ NOT NULL",
+        "bucket_seconds INTEGER NOT NULL",
+        "ck_anomaly_bucket_seconds",
+        "ck_anomaly_bucket_aligned",
+        "fk_anomaly_application",
+        "fk_anomaly_metric_type",
+        "idx_anomaly_series_bucket_model",
+    ):
+        assert fragment in block
+    assert "fk_anomaly_metric\n" not in block
