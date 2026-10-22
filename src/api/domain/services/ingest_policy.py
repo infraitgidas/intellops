@@ -11,6 +11,7 @@ timestamp → size limits.
 """
 
 from datetime import datetime
+from math import isfinite
 from uuid import UUID
 
 # pylint: disable=too-many-return-statements  # cadena determinista de validación
@@ -38,6 +39,65 @@ UNIT_BY_TYPE = {
     "JS_EXCEPTION_RATE": "count",
     "RAGE_CLICK": "count",
 }
+
+# -- Registros compartidos con el normalizador (ISS-S3-02, R7) ----------------
+# Fuente única de verdad: `ingest_normalizer.py` los importa para evitar
+# derivas entre la conversión (normalización) y las reglas de validación.
+
+# Unidad DECLARADA -> (unidad canónica, factor). La conversión es escalar y
+# preserva la magnitud; indexada por la unidad de entrada (idempotente).
+UNIT_CONVERSIONS: dict[str, tuple[str, float]] = {
+    "ms": ("ms", 1.0),
+    "msec": ("ms", 1.0),
+    "millis": ("ms", 1.0),
+    "s": ("ms", 1000.0),
+    "sec": ("ms", 1000.0),
+    "secs": ("ms", 1000.0),
+    "count": ("count", 1.0),
+    "counts": ("count", 1.0),
+}
+
+# Alias de nombre de métrica (case-fold) -> canónico UPPER_SNAKE.
+METRIC_TYPE_ALIASES: dict[str, str] = {
+    "ttfb": "TTFB",
+    "time_to_first_byte": "TTFB",
+    "fcp": "FCP",
+    "first_contentful_paint": "FCP",
+    "xhr_latency": "XHR_LATENCY",
+    "xhrlatency": "XHR_LATENCY",
+    "js_exception_rate": "JS_EXCEPTION_RATE",
+    "jsexceptionrate": "JS_EXCEPTION_RATE",
+    "rage_click": "RAGE_CLICK",
+    "rageclick": "RAGE_CLICK",
+}
+
+# Catálogo de `error_type` canónico: built-ins de ECMAScript + ejemplos del
+# contrato + bucket de fallback `Other`. Sin DDL/migración (ADR-0006).
+ERROR_TYPE_CATALOG = frozenset(
+    {
+        "Error",
+        "EvalError",
+        "RangeError",
+        "ReferenceError",
+        "SyntaxError",
+        "TypeError",
+        "URIError",
+        "AggregateError",
+        "InternalError",
+        "UnhandledRejection",
+        "Other",
+    }
+)
+# Alias explícitos (case-fold) -> canónico, para sinónimos fuera del catálogo.
+ERROR_TYPE_ALIASES: dict[str, str] = {
+    "unhandled_rejection": "UnhandledRejection",
+    "unhandledrejectionerror": "UnhandledRejection",
+    "promise_rejection": "UnhandledRejection",
+    "unhandled promise rejection": "UnhandledRejection",
+}
+
+# Tipos de métrica cuyos valores DEBEN ser enteros (sin redondeo; NORM-6/f).
+COUNT_TYPES = frozenset({"JS_EXCEPTION_RATE", "RAGE_CLICK"})
 # (min, max|None) sanity bounds per metric type.
 RANGE_BY_TYPE = {
     "TTFB": (0, 60_000),
@@ -92,7 +152,9 @@ def _is_number(value: object) -> bool:
 
 
 def _in_range(type_: str, value: object) -> bool:
-    if not _is_number(value):
+    if not _is_number(value) or not isfinite(value):
+        # NaN/Infinity no son comparables: sin el guard, NaN pasaría todas las
+        # comparaciones (NORM-6) y Infinity pasaría las cotas sin máximo.
         return False
     low, high = RANGE_BY_TYPE[type_]
     if value < low:
@@ -125,6 +187,10 @@ def _validate_metric(metric: object) -> str | None:
     if unit not in VALID_UNITS or UNIT_BY_TYPE[type_] != unit:
         return "invalid_unit"
     if not _in_range(type_, metric["value"]):
+        return "invalid_range"
+    if type_ in COUNT_TYPES and not float(metric["value"]).is_integer():
+        # Conteos no enteros: sin redondeo (redondear cambia la magnitud,
+        # NORM-6/decisión f).
         return "invalid_range"
     metric_ts = metric.get("timestamp")
     if metric_ts is not None and not _is_timestamp(metric_ts):

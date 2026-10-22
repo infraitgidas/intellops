@@ -12,6 +12,10 @@ from uuid import UUID, uuid4
 
 # pylint: disable=too-few-public-methods  # caso de uso con un solo método público
 
+from api.domain.services.ingest_normalizer import (
+    normalize_js_exception,
+    normalize_rum_event,
+)
 from api.domain.services.ingest_policy import (
     validate_js_exception,
     validate_rum_event,
@@ -45,9 +49,11 @@ class IngestService:
         """
         if isinstance(batch, RumEventBatch):
             kind = "metric"
+            normalizer = normalize_rum_event
             validator = validate_rum_event
         else:
             kind = "exception"
+            normalizer = normalize_js_exception
             validator = validate_js_exception
 
         batch_id = uuid4()
@@ -57,7 +63,10 @@ class IngestService:
         accepted = 0
         rejected: list[RejectedEvent] = []
         for index, event in enumerate(batch.events):
-            payload = event.model_dump(mode="json")
+            # Normalize BEFORE validate (ARCH-5, ADR-0004): la normalización
+            # resuelve representaciones (unidad/nombre/timestamp) y la
+            # validación sigue siendo la autoridad única de rechazo.
+            payload = normalizer(event.model_dump(mode="json"))
             reason = validator(payload)
             if reason is not None:
                 rejected.append(RejectedEvent(index=index, reason=reason))

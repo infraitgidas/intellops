@@ -227,8 +227,51 @@ def test_oas13_metric_aggregate_shape_ml():
     }
 
 
-# -- OAS-7: paths api-key + ApiKeyResponse ----------------------------------
+# -- OAS-14 (ISS-S3-02/ARCH-6): enum unit ampliado + nota error_type ---------
 
+def test_oas14_metric_unit_accepts_alias_family():
+    """ISS-S3-02/ARCH-6: `RumMetric.unit` DEBE aceptar la familia de alias
+    (`s`, `sec`, `secs`, `msec`, `millis`, `counts`) junto con las canónicas
+    `ms`/`count`, y documentar la normalización a las canónicas."""
+    doc = _contract()
+    unit = doc["components"]["schemas"]["RumMetric"]["properties"]["unit"]
+    assert set(unit["enum"]) == {
+        "ms", "count", "s", "sec", "secs", "msec", "millis", "counts",
+    }
+    description = unit["description"].lower()
+    assert "ms" in description and "count" in description
+    assert "canonicaliz" in description
+
+
+def test_oas14_error_type_documents_canonicalization_without_enum():
+    """ISS-S3-02/NORM-4: `JsExceptionEvent.error_type` DEBE seguir siendo
+    `string` (sin enum, normalización flexible) y documentar que los valores
+    desconocidos se agrupan en `Other`."""
+    doc = _contract()
+    error_type = doc["components"]["schemas"]["JsExceptionEvent"]["properties"][
+        "error_type"
+    ]
+    assert error_type["type"] == "string"
+    assert "enum" not in error_type
+    assert "Other" in error_type["description"]
+    assert "canonicaliz" in error_type["description"].lower()
+
+
+def test_oas14_unknown_unit_still_rejected_by_policy():
+    """ISS-S3-02/ARCH-6: una unidad desconocida DEBE seguir rechazándose
+    (`invalid_unit`), aunque el contrato acepte la familia de alias."""
+    from api.domain.services.ingest_policy import validate_rum_event
+
+    event = {
+        "schema_version": "1.0",
+        "timestamp": "2026-10-13T12:00:00+00:00",
+        "session_id": "9f8c5a2e-1b2c-4d5e-8f9a-0b1c2d3e4f5a",
+        "metrics": [{"type": "TTFB", "value": 1, "unit": "furlongs"}],
+    }
+    assert validate_rum_event(event) == "invalid_unit"
+
+
+# -- OAS-7: paths api-key + ApiKeyResponse ----------------------------------
 def test_oas7_api_key_paths_declared_with_expected_statuses():
     """POST/DELETE /applications/{id}/api-key DEBEN declarar los paths con
     bearerAuth y los status codes 201/204/401/403/404/409/422 (OAS-7)."""

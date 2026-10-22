@@ -57,6 +57,25 @@ def _js(**overrides) -> dict:
     return event
 
 
+def _canonical_rum(**overrides) -> dict:
+    """Payload métrico CANÓNICO (normalizado) para encolar directo al worker.
+
+    ISS-S3-02: el worker consume payloads canónicos; los tests que encolan
+    directo al worker (saltando `IngestService`) normalizan igual que la ruta
+    de request.
+    """
+    from api.domain.services.ingest_normalizer import normalize_rum_event
+
+    return normalize_rum_event(_rum(**overrides))
+
+
+def _canonical_js(**overrides) -> dict:
+    """Payload de excepción CANÓNICO (normalizado) para el worker (ISS-S3-02)."""
+    from api.domain.services.ingest_normalizer import normalize_js_exception
+
+    return normalize_js_exception(_js(**overrides))
+
+
 # -- RUM-4: política por evento — 7 códigos, sin unknown_application ----------
 
 def test_policy_accepts_valid_rum_event():
@@ -93,8 +112,9 @@ def test_policy_rejects_incoherent_unit():
 
 
 def test_policy_rejects_unknown_unit():
-    """unit fuera de ms/count DEBE rechazarse con invalid_unit."""
-    event = _rum(metrics=[{"type": "TTFB", "value": 100, "unit": "s"}])
+    """unit fuera de ms/count DEBE rechazarse con invalid_unit (la política
+    opera sobre el evento canónico; los alias los resuelve el normalizador)."""
+    event = _rum(metrics=[{"type": "TTFB", "value": 100, "unit": "furlongs"}])
     assert validate_rum_event(event) == "invalid_unit"
 
 
@@ -196,6 +216,43 @@ def test_policy_rejects_invalid_metric_value_type():
     """value no numérico DEBE rechazarse con invalid_range."""
     event = _rum(metrics=[{"type": "TTFB", "value": "abc", "unit": "ms"}])
     assert validate_rum_event(event) == "invalid_range"
+
+
+# -- NORM-6 (ISS-S3-02): conteos no enteros y valores no finitos --------------
+
+def test_policy_rejects_fractional_count_value():
+    """Un conteo no entero DEBE rechazarse con invalid_range, sin redondear
+    (NORM-6, decisión f)."""
+    event = _rum(
+        metrics=[{"type": "JS_EXCEPTION_RATE", "value": 1.5, "unit": "count"}]
+    )
+    assert validate_rum_event(event) == "invalid_range"
+    rage = _rum(metrics=[{"type": "RAGE_CLICK", "value": 0.5, "unit": "count"}])
+    assert validate_rum_event(rage) == "invalid_range"
+
+
+def test_policy_accepts_integer_valued_count_float():
+    """Un conteo con valor entero (2.0) DEBE aceptarse (NORM-6)."""
+    event = _rum(metrics=[{"type": "RAGE_CLICK", "value": 2.0, "unit": "count"}])
+    assert validate_rum_event(event) is None
+
+
+def test_policy_rejects_non_finite_values():
+    """`NaN`/`Infinity` DEBEN rechazarse con invalid_range en métricas de
+    duración y de conteo (NORM-6; guard `math.isfinite`)."""
+    inf, nan = float("inf"), float("nan")
+    assert validate_rum_event(
+        _rum(metrics=[{"type": "JS_EXCEPTION_RATE", "value": inf, "unit": "count"}])
+    ) == "invalid_range"
+    assert validate_rum_event(
+        _rum(metrics=[{"type": "JS_EXCEPTION_RATE", "value": nan, "unit": "count"}])
+    ) == "invalid_range"
+    assert validate_rum_event(
+        _rum(metrics=[{"type": "TTFB", "value": nan, "unit": "ms"}])
+    ) == "invalid_range"
+    assert validate_rum_event(
+        _rum(metrics=[{"type": "TTFB", "value": inf, "unit": "ms"}])
+    ) == "invalid_range"
 
 
 def _metric(type_: str = "TTFB", value: float = 120.5) -> dict:
@@ -638,7 +695,7 @@ def _queued_event(**overrides):
         "index": 0,
         "tenant_app_id": uuid4(),
         "kind": "metric",
-        "payload": _rum(),
+        "payload": _canonical_rum(),
     }
     base.update(overrides)
     return QueuedEvent(**base)
@@ -1102,7 +1159,7 @@ async def test_queue_drains_pending_events_on_shutdown(db_session):
     await queue.enqueue(
         _queued_event(
             tenant_app_id=tenant,
-            payload=_rum(session_id=session_id),
+            payload=_canonical_rum(session_id=session_id),
         )
     )
     # Evento de shutdown: close() → no acepta más → join() drena.
@@ -1160,8 +1217,54 @@ async def test_queue_shutdown_timeout_logs_unpersisted_events(caplog):
     )
 
 
-# -- RUM-6: persistencia del worker (Postgres real, D1) ------------------------
+# -- ISS-S3-02 / NORM-2: limpieza del worker (sin now(), sin float()) ----------
 
+def test_build_rows_has_no_now_fallback_nor_value_recoercion():
+    """`_build_rows` NO DEBE reescribir timestamps con `now()` ni reconvertir
+    el valor con `float()`: consume el payload canónico (NORM-2/6, ARCH-5)."""
+    import inspect
+
+    from api.infrastructure.ingest import queue as queue_module
+
+    source = inspect.getsource(queue_module._build_rows)
+    assert "datetime.now" not in source
+    assert "float(" not in source
+
+
+def test_build_rows_persists_canonical_timestamp_exactly():
+    """El worker DEBE persistir el timestamp canónico del payload tal cual,
+    sin sustituirlo por el tiempo de ingesta (NORM-2)."""
+    from datetime import datetime as _datetime
+
+    from api.infrastructure.ingest.queue import _build_rows
+
+    past = "2020-01-02T03:04:05+00:00"
+    event = _queued_event(payload=_canonical_rum(timestamp=past))
+    sessions, metrics, _ = _build_rows([event])
+    expected = _datetime.fromisoformat(past)
+    assert sessions[0].start_timestamp == expected
+    assert metrics[0].timestamp == expected
+
+
+def test_build_rows_metric_timestamp_comes_from_canonical_payload():
+    """El ts de la métrica DEBE tomarse del payload canónico (ya heredado del
+    envelope por el normalizador), no de una precedencia local (NORM-2)."""
+    from datetime import datetime as _datetime
+
+    from api.infrastructure.ingest.queue import _build_rows
+
+    metric_ts = "2021-06-07T08:09:10+00:00"
+    event = _queued_event(
+        payload=_canonical_rum(
+            timestamp="2020-01-01T00:00:00+00:00",
+            metrics=[{"type": "TTFB", "value": 9000, "unit": "ms", "timestamp": metric_ts}],
+        )
+    )
+    _, metrics, _ = _build_rows([event])
+    assert metrics[0].timestamp == _datetime.fromisoformat(metric_ts)
+
+
+# -- RUM-6: persistencia del worker (Postgres real, D1) ------------------------
 async def test_worker_persists_batch_to_postgres(db_session):
     """Un batch encolado con 2 métricas y 1 excepción de una sesión nueva DEBE
     persistir filas en rum_metric/js_exception y crear user_session con el
@@ -1196,7 +1299,7 @@ async def test_worker_persists_batch_to_postgres(db_session):
             index=0,
             tenant_app_id=tenant,
             kind="metric",
-            payload=_rum(session_id=session_id),
+            payload=_canonical_rum(session_id=session_id),
         )
     )
     await queue.enqueue(
@@ -1205,7 +1308,7 @@ async def test_worker_persists_batch_to_postgres(db_session):
             index=1,
             tenant_app_id=tenant,
             kind="metric",
-            payload=_rum(
+            payload=_canonical_rum(
                 session_id=session_id,
                 metrics=[{"type": "FCP", "value": 900.0, "unit": "ms"}],
             ),
@@ -1217,7 +1320,7 @@ async def test_worker_persists_batch_to_postgres(db_session):
             index=2,
             tenant_app_id=tenant,
             kind="exception",
-            payload=_js(session_id=session_id),
+            payload=_canonical_js(session_id=session_id),
         )
     )
     await queue.close()
@@ -1396,7 +1499,7 @@ async def test_worker_drops_foreign_session_rows_cross_tenant(db_session):
     await queue_a.enqueue(
         QueuedEvent(
             batch_id=uuid4(), index=0, tenant_app_id=app_a, kind="metric",
-            payload=_rum(session_id=session_id),
+            payload=_canonical_rum(session_id=session_id),
         )
     )
     await queue_a.close()
@@ -1414,13 +1517,13 @@ async def test_worker_drops_foreign_session_rows_cross_tenant(db_session):
     await queue_b.enqueue(
         QueuedEvent(
             batch_id=uuid4(), index=0, tenant_app_id=app_b, kind="metric",
-            payload=_rum(session_id=session_id),
+            payload=_canonical_rum(session_id=session_id),
         )
     )
     await queue_b.enqueue(
         QueuedEvent(
             batch_id=uuid4(), index=1, tenant_app_id=app_b, kind="exception",
-            payload=_js(session_id=session_id),
+            payload=_canonical_js(session_id=session_id),
         )
     )
     await queue_b.close()
@@ -1476,7 +1579,7 @@ async def test_worker_same_tenant_resend_is_noop_without_foreign_counter(db_sess
     await queue.enqueue(
         QueuedEvent(
             batch_id=uuid4(), index=0, tenant_app_id=tenant, kind="metric",
-            payload=_rum(session_id=session_id),
+            payload=_canonical_rum(session_id=session_id),
         )
     )
     await queue.close()
@@ -1494,7 +1597,7 @@ async def test_worker_same_tenant_resend_is_noop_without_foreign_counter(db_sess
     await queue2.enqueue(
         QueuedEvent(
             batch_id=uuid4(), index=0, tenant_app_id=tenant, kind="metric",
-            payload=_rum(session_id=session_id),
+            payload=_canonical_rum(session_id=session_id),
         )
     )
     await queue2.close()
@@ -1557,7 +1660,7 @@ async def test_worker_correlation_cross_app_metric_id_is_null_and_counted(
     await queue.enqueue(
         QueuedEvent(
             batch_id=uuid4(), index=0, tenant_app_id=app_b, kind="exception",
-            payload=_js(session_id=str(session_b), metric_id=str(metric_id)),
+            payload=_canonical_js(session_id=str(session_b), metric_id=str(metric_id)),
         )
     )
     await queue.close()
@@ -1603,7 +1706,7 @@ async def test_worker_correlation_legitimate_keeps_metric_id(db_session):
     await queue.enqueue(
         QueuedEvent(
             batch_id=uuid4(), index=0, tenant_app_id=tenant, kind="exception",
-            payload=_js(session_id=str(session_id), metric_id=str(metric_id)),
+            payload=_canonical_js(session_id=str(session_id), metric_id=str(metric_id)),
         )
     )
     await queue.close()
@@ -1651,7 +1754,7 @@ async def test_worker_correlation_unknown_metric_id_is_null_and_counted(
     await queue.enqueue(
         QueuedEvent(
             batch_id=uuid4(), index=0, tenant_app_id=tenant, kind="exception",
-            payload=_js(session_id=str(session_id), metric_id=str(uuid4())),
+            payload=_canonical_js(session_id=str(session_id), metric_id=str(uuid4())),
         )
     )
     await queue.close()
@@ -1664,6 +1767,80 @@ async def test_worker_correlation_unknown_metric_id_is_null_and_counted(
     assert stored_metric_id is None  # inexistente → NULL (RUM-6)
     assert snapshot["ingest.metric_id_unknown_total"] == 1
     assert snapshot["ingest.metric_id_foreign_total"] == 0
+
+
+# -- ISS-S3-02 / NORM-1..3, ARCH-5: normalización en /telemetry/* ------------
+
+async def test_telemetry_normalizes_alias_and_persists_canonical(
+    db_session, client, make_admin
+):
+    """Un alias de unidad vía HTTP DEBE aceptarse, encolarse canónico (ms ×1000)
+    y persistirse con el ts del envelope (sin now()) por el worker
+    (NORM-1/2/3, ARCH-5)."""
+    from sqlalchemy import text
+
+    from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
+        SQLAlchemyIngestRepository,
+    )
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.infrastructure.ingest.queue import AsyncioIngestQueue
+
+    counters = IngestCounters()
+    queue = AsyncioIngestQueue(
+        maxsize=100,
+        worker_count=1,
+        repository_factory=SQLAlchemyIngestRepository,
+        counters=counters,
+    )
+    env = await _setup_ingest(client, make_admin, queue=queue, counters=counters)
+    await queue.start()
+    try:
+        payload = _rum_batch_payload()
+        payload["events"][0] = _rum(
+            timestamp="2026-10-13T12:00:00-03:00",
+            metrics=[{"type": "TTFB", "value": 2, "unit": "s"}],
+        )
+        resp = await client.post(
+            "/telemetry/metrics",
+            headers=_api_key_header(env["key"]),
+            json=payload,
+        )
+        assert resp.status_code == 202
+        assert resp.json()["accepted"] == 1
+    finally:
+        await queue.close()
+        await queue.join(timeout=5.0)
+
+    row = (
+        await db_session.execute(
+            text("SELECT value, unit, timestamp FROM rum_metric")
+        )
+    ).one()
+    assert row.unit == "ms"  # alias s -> ms (canónico persistido)
+    assert row.value == 2000  # magnitud preservada (×1000 una sola vez)
+    assert row.timestamp == datetime(2026, 10, 13, 15, 0, tzinfo=timezone.utc)
+
+
+async def test_telemetry_rejects_naive_timestamp_without_persisting(
+    client, make_admin
+):
+    """Un timestamp naïve DEBE seguir rechazándose (invalid_timestamp), sin
+    reemplazo por now() ni encolado (NORM-2, ARCH-5)."""
+    env = await _setup_ingest(client, make_admin)
+    payload = _rum_batch_payload()
+    payload["events"][0] = _rum(timestamp="2026-10-13T12:00:00")
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["accepted"] == 0
+    assert body["rejected"] == [{"index": 0, "reason": "invalid_timestamp"}]
+    assert env["queue"].enqueued == []
 
 
 def _rum_event_model(**overrides):
