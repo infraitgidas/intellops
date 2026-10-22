@@ -2,6 +2,12 @@
 
 Issues concretos derivados del [EDT intellops.md](./EDT%20intellops.md), **redefinidos contra el estado real del repositorio** (revisión 14/08/2026): código existente, specs OpenSpec, DER v1.2, minutas 20-07/23-07/12-08 y arquitectura de 4 contenedores decidida en agosto.
 
+> **Nota de vigencia (Oct 2026):** la sección de S1 se conserva como registro histórico. La
+> sección de S2 fue reemplazada por [`issues-s2-s3.md`](./issues-s2-s3.md), con las 5 issues
+> publicadas (#35–#39). Las issues `ISS-S2-06` a `ISS-S2-09` de este catálogo **no se publicaron**:
+> su alcance quedó absorbido por `ISS-S3-01`, `ISS-S3-02`, `ISS-S3-05`, `A.4` y `B.6` del plan
+> integral. Las issues nuevas de la v1 están en [`issues-fases-abc.md`](./issues-fases-abc.md).
+
 **Convenciones:**
 
 - **ID**: `ISS-<Sprint>-<N>` (secuencial por sprint).

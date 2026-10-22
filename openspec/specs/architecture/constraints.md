@@ -88,7 +88,7 @@ Estos principios guían todas las decisiones arquitectónicas:
 1. **Principio de Menor Sorpresa**: Las APIs y componentes se comportan de la manera más esperada posible. Una consulta GET no modifica estado. Un POST devuelve 201/202.
 2. **Principio de Falla Rápida (Fail Fast)**: Si algo está mal configurado, el sistema falla en startup con un mensaje claro, no en producción con un error críptico.
 3. **Principio de Default Seguro (Secure by Default)**: Por defecto, todo acceso es denegado. La configuración define explícitamente qué está permitido.
-4. **Principio de Migración Transparente**: Las decisiones de almacenamiento (SQLite), LLM (1B → 8B), y despliegue (Compose → K8s) tienen capas de abstracción que permiten migrar sin reescribir.
+4. **Principio de Migración Transparente**: Las decisiones de almacenamiento (PostgreSQL 16 → TimescaleDB como extensión), LLM (1B → 8B), y despliegue (Compose → K8s) tienen capas de abstracción que permiten migrar sin reescribir.
 5. **Principio de Costo Marginal Cero**: Cada feature nueva debe poder ejecutarse sin aumentar el costo operativo. Si requiere cloud pago, es extensión futura.
 
 ### 4.2. Principios de Proceso
@@ -103,7 +103,7 @@ Estos principios guían todas las decisiones arquitectónicas:
 
 | Supuesto | Riesgo si es falso | Mitigación |
 |----------|-------------------|------------|
-| El volumen de métricas no excede 1K/seg | SQLite puede saturarse | Diseño migrable a TimescaleDB |
+| El volumen de métricas no excede 1K/seg | PostgreSQL 16 puede saturarse sin tuning | TimescaleDB como extensión de PostgreSQL |
 | Los usuarios tienen conexión a internet intermitente | Dashboard offline puede perder datos | Polling con backoff, cola local |
 | El equipo aprende Python/FastAPI rápido | Curva de aprendizaje retrasa entregas | Onboarding estructurado, pair programming |
 | Los modelos ML funcionan con datos sintéticos | Falla en datos reales (distribution shift) | Validación cruzada, Evidently drift monitor |

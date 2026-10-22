@@ -1,9 +1,12 @@
 @startuml IntellOps-C4-Container
+' HISTÓRICO — superseded por docs/infrastructure/Diagrama-C4-V2.puml
+' (arquitectura vigente de 4 contenedores, decisión de agosto 2026).
+' Se conserva solo para trazabilidad; no usar como arquitectura actual.
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
 LAYOUT_WITH_LEGEND()
 
-title IntellOps - Diagrama de Contenedores (C4)
+title IntellOps - Diagrama de Contenedores (C4) — v1 histórico (superseded)
 
 Person(admin, "Administrador GIDAS")
 
