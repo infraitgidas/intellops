@@ -16,8 +16,8 @@ IntellOps es un sistema de **observabilidad predictiva** diseñado bajo el parad
 | **Monolito Modular** | Código organizado en módulos con boundaries claros, deployado como una sola unidad | Menor complejidad operativa, sin latencia de red entre módulos, fácil de entender |
 | **API-First** | Las APIs se diseñan antes que la implementación, con contratos versionados | Permite desarrollo paralelo, testing temprano, y documentación automática |
 | **Contract-Driven** | OpenAPI 3.1 + AsyncAPI 3.0 como fuente de verdad para integraciones | Validación automática en CI, evita breaking changes no detectados |
-| **Recursos Escasos First** | Cada decisión técnica prioriza el mínimo consumo de recursos | SQLite > TimescaleDB, Llama 1B > 8B, React static > SSR |
-| **Evolucionabilidad** | Diseño que permite migrar a stacks más potentes sin reescribir | SQLite migrable a TimescaleDB, Static React migrable a SSR |
+| **Recursos Escasos First** | Cada decisión técnica prioriza el mínimo consumo de recursos | PostgreSQL 16 > TimescaleDB, Llama 1B > 8B, React static > SSR |
+| **Evolucionabilidad** | Diseño que permite migrar a stacks más potentes sin reescribir | PostgreSQL migrable a TimescaleDB, Static React migrable a SSR |
 | **Observable por Diseño** | El sistema se auto-monitorea con Netdata | Métricas de salud del propio IntellOps |
 
 ### 1.2. Diagrama C4 — Contexto (Nivel 1)
@@ -62,7 +62,7 @@ C4Context
 | Decisión | Opción Elegida | Alternativa Descartada | Fundamento |
 |----------|---------------|----------------------|------------|
 | Estilo arquitectónico | Monolito modular | Microservicios | < 2GB RAM, equipo pequeño, sin necesidad de escalado independiente |
-| Base de datos | SQLite con time-index | TimescaleDB, MongoDB | Zero config, zero RAM adicional, migrable |
+| Base de datos | PostgreSQL 16 con índice temporal (ADR-0009) | TimescaleDB, MongoDB | Stack de 4 contenedores; sin servicio adicional y dentro del límite de RAM (ADR-0009) |
 | Framework backend | FastAPI | Django, Flask, Go | Async nativo, auto-docs OpenAPI, familiaridad del equipo |
 | LLM | Llama 3.2 1B GGUF 4-bit | GPT-4 API, Llama 8B | Costo $0, privacidad, funciona en CPU |
 | Dashboard | React static build | Next.js, Angular | Sin SSR, < 1MB bundle, hosting estático |
