@@ -177,6 +177,19 @@ def test_oas12_application_id_not_required_and_no_unknown_application():
     assert "unknown_application" not in str(rejected_reason)
 
 
+def test_oas12_js_exception_event_declares_schema_version():
+    """D-01: el schema del evento de excepción DEBE declarar `schema_version`.
+
+    El servidor lo exige (Pydantic `required`), así que omitirlo del OpenAPI
+    produce clientes generados que envían un payload inválido. La validación
+    del *valor* en el servidor queda fuera de alcance (OD-04).
+    """
+    event = _contract()["components"]["schemas"]["JsExceptionEvent"]
+
+    assert "schema_version" in event["required"]
+    assert event["properties"]["schema_version"]["enum"] == ["1.0"]
+
+
 # -- OAS-13: contrato de consulta completado (/metrics/query, /metrics/list) --
 
 def test_oas13_metrics_paths_complete_contract():
