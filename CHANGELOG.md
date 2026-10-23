@@ -43,6 +43,13 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   completa; reporte de cobertura publicado en el Job Summary y como artefacto
   `coverage-report` (xml, html, junit); targets `make test-unit` y
   `make test-integration`.
+- Entorno reproducible de testing (ISS-S2-05, #39): `requirements/dev.lock`
+  (dependencias runtime + dev fijadas con hashes, generado con `make lock`),
+  imagen `Dockerfile.test` y `docker-compose.test.yml` con Postgres efímero
+  aislado del stack de dev; `scripts/ci-tests.sh` reproduce el pipeline del CI
+  (`make ci`); `make test-contract` y `make test-down`; job de CI
+  `Reproducible Test Env (Docker)` que corre `make ci` y verifica que el lock
+  esté al día con `pyproject.toml`.
 - Hardening de aislamiento multi-tenant + read path (ISS-S3-01, #40):
   ownership de sesión en el upsert (`_upsert_sessions` resuelve por PK antes
   del insert; sesión de OTRA app → filas del lote descartadas +
@@ -74,6 +81,10 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - CI (ISS-S2-04, #38): pylint `--fail-under` sube de 7.0 a 9.0; gate de
   cobertura único (70%) en `pyproject.toml` con `source = ["src"]`; cache de
   pip, `concurrency` con cancelación, timeouts y `workflow_dispatch`.
+- Tests (ISS-S2-05, #39): `make test`, `make test-unit`, `make test-integration`,
+  `make test-cov` y `make lint` corren en el entorno de testing en vez del
+  contenedor de dev (antes truncaban la DB de desarrollo y fallaban por falta
+  de `schemathesis` en la imagen); los jobs del CI instalan desde el lock.
 - CI (ISS-S2-04, #38): se quita el envío a Codecov (no había `CODECOV_TOKEN`
   configurado y fallaba en silencio); se reincorporará en una issue aparte.
 - Migración de GitLab a GitHub como plataforma principal de control de versiones (#1)
