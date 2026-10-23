@@ -3,6 +3,8 @@ name: IntellOps CI
 # Pipeline de QA (ISS-S2-04): lint → unit tests (sin DB) → suite completa con
 # Postgres + reporte de cobertura. Contract, license-scan y docker corren en
 # paralelo/después; la evolución (integration/build/staging/E2E) se suma acá.
+# Dependencias fijadas en requirements/dev.lock; el job `reproducible-env`
+# corre el mismo pipeline en el entorno Docker de testing (ISS-S2-05).
 
 on:
   push:
@@ -34,8 +36,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: pyproject.toml
-      - run: pip install -e ".[dev]"
+          cache-dependency-path: requirements/dev.lock
+      - name: Instalar dependencias (lock)
+        run: |
+          pip install --require-hashes -r requirements/dev.lock
+          pip install --no-deps -e .
       - name: flake8 (PEP 8, 0 warnings)
         run: flake8 src/ tests/
       - name: pylint (score mínimo 9.0)
@@ -52,8 +57,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: pyproject.toml
-      - run: pip install -e ".[dev]"
+          cache-dependency-path: requirements/dev.lock
+      - name: Instalar dependencias (lock)
+        run: |
+          pip install --require-hashes -r requirements/dev.lock
+          pip install --no-deps -e .
       # Sin Postgres: los tests `unit` no tocan DB (ver tests/conftest.py).
       - run: PYTHONPATH=. pytest -m unit
 
@@ -84,8 +92,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: pyproject.toml
-      - run: pip install -e ".[dev]"
+          cache-dependency-path: requirements/dev.lock
+      - name: Instalar dependencias (lock)
+        run: |
+          pip install --require-hashes -r requirements/dev.lock
+          pip install --no-deps -e .
       - run: alembic upgrade head
       # Gate de cobertura (fail_under) y rutas de salida en pyproject.toml.
       - name: pytest + cobertura
@@ -151,12 +162,40 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install -e ".[dev]"
+          cache: pip
+          cache-dependency-path: requirements/dev.lock
+      - name: Instalar dependencias (lock)
+        run: |
+          pip install --require-hashes -r requirements/dev.lock
+          pip install --no-deps -e .
       - run: alembic upgrade head
       # OAS-9/ADR-24: contract layer con OpenAPI 3.1 (experimental en
       # schemathesis <4.0, nativo desde 4.0); el xfail documentado degrada
       # sin romper el gate (tests/test_contract.py).
       - run: PYTHONPATH=. pytest tests/test_contract.py -q
+
+  reproducible-env:
+    name: Reproducible Test Env (Docker)
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.5"
+      # El lock debe reflejar pyproject.toml: si alguien agrega/cambia una
+      # dependencia sin correr `make lock`, falla acá.
+      - name: Lock al día con pyproject.toml
+        run: |
+          make lock
+          git diff --exit-code requirements/dev.lock
+      # Mismo comando que un dev o el servidor del laboratorio: `make ci`.
+      - name: Pipeline en el entorno de testing
+        run: make ci
+      - name: Limpiar entorno
+        if: always()
+        run: make test-down
 
   license-scan:
     name: License Scan & SBOM
