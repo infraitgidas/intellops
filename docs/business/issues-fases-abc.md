@@ -41,20 +41,26 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
    #36–#38 siguen abiertas. También marca `ISS-S3-01` como Hecho (PR #57) y `ISS-S3-02`/`ISS-S3-04`
    como En curso (PRs #59/#60), mientras #40, #41 y #43 siguen abiertas. Hay que cerrarlas o dejar
    el estado explícito.
+   _Actualizado (23/10/2026): #36, #37, #38, #40, #41 y #43 fueron cerradas con evidencia de PR y
+   verify-report. Quedan abiertas solo #39, #42 y #45, que son trabajo real de la fase A._
 6. **Sin labels ni milestones**: las issues #35–#45 se publicaron sin etiquetas. `A.1` existe
-   justamente para crear el tablero, los milestones M0–M2 y las etiquetas `hito:*`, `frente:*`,
+   justamente para crear el tablero, los milestones M0–M4 y las etiquetas `hito:*`, `frente:*`,
    `fase:*` y `owner:*`.
 7. **Inconsistencia de owner en S2-01**: el catálogo viejo asigna S2-01 a Santiago; el registro
    publicado y el plan lo asignan a Federico. Vale el registro publicado (`issues-s2-s3.md`).
 
 ### 1.2. Mapa de fases
 
-| Fase | Ventana | Issues nuevas | Issues existentes que se mueven |
-|---|---|---|---|
-| **A — Cerrar la base** | 19/10 – 13/11/2026 | A.1, A.2, A.3, A.4 | ISS-S2-05 (#39), ISS-S3-03 (#42), ISS-S3-06 (#45) |
-| **B — Construir la v1** | 02/11 – 04/12/2026 | B.1–B.12 | — |
-| **C — Cerrar la v1** | 07/12 – 18/12/2026 | C.1–C.6 | — |
-| **Post-v1** | 2027 | R.1–R.11 (backlog, no publicar) | — |
+| Fase | Ventana | Hito de cierre | Issues nuevas | Issues existentes que se mueven |
+|---|---|---|---|---|
+| **A — Cerrar la base** | 19/10 – 13/11/2026 | **M0** (13/11/2026) | A.1, A.2, A.3, A.4 | ISS-S2-05 (#39), ISS-S3-03 (#42), ISS-S3-06 (#45) |
+| **B — Construir la v1** | 02/11 – 04/12/2026 | **M1** (18/12/2026) | B.1–B.12 | — |
+| **C — Cerrar la v1** | 07/12 – 18/12/2026 | **M1** (18/12/2026) | C.1–C.6 | — |
+| **Post-v1** | 2027 | M2–M4 | R.1–R.11 (backlog, no publicar) | — |
+
+> **Fase ≠ hito.** Las fases son ventanas internas del equipo y se marcan con `fase:*`. Los hitos
+> son los cinco del plan raíz y miden resultados del producto. Por eso dos fases pueden cerrar en
+> el mismo hito, y el corte de alcance del 04/12 (fin de la fase B) **no** es un milestone.
 
 ---
 
@@ -62,10 +68,15 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 
 - **ID**: se usa el ID del plan integral (`A.1`, `B.12`, `C.5`, `R.8`) para trazabilidad directa.
 - **Título sugerido en GitHub**: `A.1 — Tablero, milestones v1 y etiquetas hito/frente`.
-- **Labels sugeridas**: `fase:a|b|c`, `hito:m0|m1|m2`, `frente:captura|plataforma|inteligencia|gestion`,
-  `owner:<nombre>`, `critico` cuando el plan lo marca CRÍTICO.
-- **Milestones**: `M0 — Base cerrada (13/11/2026)`, `M1 — Feature freeze v1 (04/12/2026)`,
-  `M2 — Entrega v1 (18/12/2026)`.
+- **Labels sugeridas**: `fase:a|b|c`, `hito:m0|m1|m2|m3|m4`,
+  `frente:captura|plataforma|inteligencia|gestion`, `owner:<nombre>`, `critico` cuando el plan lo
+  marca CRÍTICO.
+- **Milestones** (los cinco del plan raíz, `docs/business/plan-gestion-roadmap-edt.md` §3):
+  `M0 — Base cerrada (13/11/2026)`, `M1 — Piloto medido y v1 entregada (18/12/2026)`,
+  `M2 — Detección ML y dashboard (H1 2027)`, `M3 — LLM local RCA (2027)`,
+  `M4 — Prototipo y experimentación (2028)`.
+- **Hito por issue**: `hito:m0` para la fase A; `hito:m1` para las fases B y C; `hito:m2` en
+  adelante para el backlog post-v1. Una issue no se publica sin hito.
 - **Estimación**: días hábiles y horas del plan integral. Las horas son de planificación, no de
   imputación.
 - **Definición de terminado**: criterios de aceptación cumplidos + tests/evidencia + PR revisado
@@ -82,14 +93,16 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Depende de**: —
 - **Prioridad**: Alta
 - **Descripción**: Crear el tablero de GitHub con las columnas del flujo (Backlog, Listo,
-  En curso, En revisión, Hecho), los milestones M0–M2 y las etiquetas de hito, frente y owner.
+  En curso, En revisión, Hecho), los milestones M0–M4 y las etiquetas de hito, frente y owner.
   Es la issue que habilita a publicar el resto con trazabilidad.
 - **Criterios de aceptación**:
-  - [ ] Milestones `M0`, `M1` y `M2` creados con sus fechas.
-  - [ ] Etiquetas `hito:*`, `frente:*`, `fase:*`, `owner:*` y `critico` creadas.
+  - [x] Milestones `M0`–`M4` creados (M0 y M1 con fecha firme; M2–M4 con fecha tentativa).
+  - [x] Etiquetas `hito:*`, `frente:*`, `fase:*`, `owner:*` y `critico` creadas.
   - [ ] Tablero con las 5 columnas y las issues S1–S3 (#17–#25 y #35–#45) cargadas.
-  - [ ] Cada issue abierta tiene milestone, frente y owner.
-  - [ ] Flujo documentado en `docs/business/` o `CONTRIBUTING.md`.
+        _Pendiente: el token de `gh` necesita scope `project`. Las issues ya tienen milestone,
+        frente y owner; falta el Project V2._
+  - [x] Cada issue abierta tiene milestone, frente y owner.
+  - [x] Flujo documentado en `docs/business/flujo-github.md`.
 
 ### A.2 — Alcance de la v1 congelado (brief v1 y criterios por PPS)
 
@@ -453,11 +466,11 @@ perder la trazabilidad del plan integral.
 
 ### Checklist de publicación
 
-- [ ] A.1 crea milestones M0–M2 y etiquetas.
+- [ ] A.1 crea milestones M0–M4 y etiquetas.
 - [ ] Revisar títulos, owners y dependencias de cada issue.
 - [ ] Publicar A.1–A.4 y mover ISS-S2-05, ISS-S3-03 e ISS-S3-06 a Fase A/M0.
 - [ ] Publicar B.1–B.12 con milestone M1.
-- [ ] Publicar C.1–C.6 con milestone M2.
-- [ ] Cerrar/actualizar #40, #41 y #43 según el estado real de los PRs #57, #59 y #60.
+- [ ] Publicar C.1–C.6 con milestone M1.
+- [x] Cerrar/actualizar #40, #41 y #43 según el estado real de los PRs #57, #59 y #60.
 - [ ] Marcar S2-06 a S2-09 de `issues-s1-s2.md` como obsoletas/absorbidas.
 - [ ] No publicar R.1–R.11 todavía.
