@@ -1,4 +1,7 @@
 # 📘 BRIEF TÉCNICO-CIENTÍFICO: IntellOps v2.0
+
+> **Estado**: documento histórico. Superado por `docs/business/brief-v1.md` y `docs/brief-v2.md` (decisión D7 del 23/10/2026).
+
 **Observabilidad Predictiva UX-Centrica + AI/LLM Open-Source**  
 *Sub-proyecto PI+D+i | Equipo InfraIT – Grupo GIDAS | UTN FrLP*  
 **Marco Metodológico:** OpenSpect (Spec-Driven Development) + Dual-Track Agile + GitOps/DevOps  
