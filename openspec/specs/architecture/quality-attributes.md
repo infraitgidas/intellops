@@ -106,7 +106,7 @@ Cada atributo se especifica como un **escenario de calidad** siguiendo el format
 | **Entorno** | Servidor GIDAS (4GB RAM, 2 cores) |
 | **Respuesta** | Consumo dentro de límites |
 | **Medición** | **Target**: < 2GB RAM | **Mínimo**: < 3GB RAM |
-| **Estrategia** | Contenedores con resource limits, modelos cuantizados, SQLite |
+| **Estrategia** | Contenedores con resource limits, modelos cuantizados, PostgreSQL 16 (ADR-0009) |
 
 ### 2.8. Reproducibilidad (Reproducibility) — Atributo Específico PI+D+i
 
