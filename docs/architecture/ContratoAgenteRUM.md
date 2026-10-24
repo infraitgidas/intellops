@@ -4,7 +4,7 @@
 - **Fecha**: 2026-10-23
 - **Tarea**: A.3 — Contrato del agente RUM de navegador v0.1
 - **Owner**: Federico
-- **Alcance**: habilita B.1 (TTFB, FCP y errores JS). XHR y rage clicks quedan para B.7, diferible a v1.1 (`docs/business/issues-fases-abc.md:256-268`).
+- **Alcance**: habilita B.1 (TTFB, FCP y errores JS). XHR y rage clicks quedan para B.7, diferible a v1.1 (`docs/business/issues-fases-abc.md §4 B.7`).
 - **Estado**: pendiente de revisión de Santiago (QA).
 
 Este documento define qué envía el agente, cómo lo transporta y qué garantiza. El servidor es la autoridad: todo campo aquí listado existe en `openspec/specs/openapi.yaml` o en `src/api/presentation/schemas/ingest.py`. Cuando un dato no tiene destino en el servidor, se declara explícitamente y se registra en §13 o §14.
@@ -15,10 +15,10 @@ Este documento define qué envía el agente, cómo lo transporta y qué garantiz
 |---|---|---|
 | Endpoints | `POST /telemetry/metrics` y `POST /telemetry/exceptions` | `openspec/specs/openapi.yaml:24-123` |
 | Semántica | 202 al encolar, rechazo parcial por evento | `docs/architecture/PipelineIngestaRUM.md:37-58` |
-| Métricas v0.1 | TTFB y FCP, una vez por page view | `docs/business/issues-fases-abc.md:166-180` |
+| Métricas v0.1 | TTFB y FCP, una vez por page view | `docs/business/issues-fases-abc.md §4 B.1` |
 | Excepciones v0.1 | `window.onerror` y `unhandledrejection` | `docs/research/rum-agent-deep-dive.md:1119-1124` |
 | Transporte | `fetch` con `keepalive: true` y header `X-API-Key` | `src/api/presentation/dependencies.py:42` |
-| Bundle | tope 30 KB gzip; objetivo 20 KB | `docs/business/issues-fases-abc.md:136,178`; `docs/research/rum-agent-deep-dive.md:1131` |
+| Bundle | tope 30 KB gzip; objetivo 20 KB | `docs/business/issues-fases-abc.md §3 A.3`; `docs/research/rum-agent-deep-dive.md:1131` |
 
 Fuera de alcance v0.1: LCP, CLS, INP, XHR latency, rage clicks, user ID, geolocalización, persistencia local de eventos y transporte `sendBeacon` (ver §4).
 
@@ -194,7 +194,7 @@ La retención del lado del servidor (`< 90 días` en la investigación, `rum-age
 
 | Regla | Valor |
 |---|---|
-| Tope duro | 30 KB gzip (`docs/business/issues-fases-abc.md:136,178`) |
+| Tope duro | 30 KB gzip (`docs/business/issues-fases-abc.md §3 A.3`) |
 | Objetivo de ingeniería | 20 KB gzip (`docs/research/rum-agent-deep-dive.md:1131`) |
 | Dependencias de runtime | Ninguna; sin `web-vitals` ni SDK de OTel |
 | Polyfills / transpilación | Ninguno; baseline de navegadores modernos |

@@ -22,7 +22,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 | `docs/business/EDT intellops.md` | Plan de 8 sprints (S1–S8) | Origen de S1–S3; no tiene issues A/B/C/R |
 | GitHub #17–#25 | Issues S1 publicadas | S1: 9/9, todas cerradas |
 | GitHub #35–#45 | Issues S2/S3 publicadas | S2: 5/5. S3: 6/6. Sin labels ni milestones |
-| Plan integral (PDF) | 57 tareas: P0, ISS-S1/S2/S3, A, B, C, R | **A/B/C: 0/18 issues de la v1.** De las 22 originales, seis salen por D1/D3 y se suman B.13 (D2) y B.14 (D1). **R: 0/11 issues** |
+| Plan integral (PDF) | 57 tareas: P0, ISS-S1/S2/S3, A, B, C, R | **A/B/C: 0/18 issues de la v1.** De las 22 originales, seis salen por D1/D3 y se suman B.13 (D2), B.14 (D1) y C.7 (D12). **R: 0/11 issues** |
 
 ### 1.1. Brechas detectadas
 
@@ -55,18 +55,19 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 | Fase | Ventana | Hito de cierre | Issues nuevas | Issues existentes que se mueven |
 |---|---|---|---|---|
 | **A — Cerrar la base** | 19/10 – 13/11/2026 | **M0** (13/11/2026) | A.1, A.2, A.3, A.4 | ISS-S2-05 (#39), ISS-S3-03 (#42), ISS-S3-06 (#45) |
-| **B — Construir la v1** | 02/11 – 04/12/2026 | **M1** (18/12/2026) | B.1, B.3, B.5, B.7 (v1.1), B.9, B.10, B.13, B.14 | — |
-| **C — Cerrar la v1** | 07/12 – 18/12/2026 | **M1** (18/12/2026) | C.1–C.6 | — |
-| **Post-v1** | 2027 | M2–M4 | R.1–R.11 (backlog, no publicar) | — |
+| **B — Construir la v1** | 02/11 – 04/12/2026 | **M1 — Feature freeze v1** (04/12/2026) | B.1, B.3, B.5, B.7 (M3), B.9, B.10, B.13, B.14 | — |
+| **C — Cerrar la v1** | 07/12 – 18/12/2026 | **M2 — Entrega MVP v1** (18/12/2026) | C.1–C.7 | — |
+| **Post-v1** | 2027 | M3–M4 (+ extensión post-v2.0) | R.1–R.11 (backlog, no publicar) | — |
 
 > **Fase ≠ hito.** Las fases son ventanas internas del equipo y se marcan con `fase:*`. Los hitos
-> son los cinco del plan raíz y miden resultados del producto. Por eso dos fases pueden cerrar en
-> el mismo hito, y el corte de alcance del 04/12 (fin de la fase B) **no** es un milestone.
+> miden resultados del producto. Desde el 24/10/2026 (D11) cada fase cierra en un hito propio:
+> A → M0, B → M1 (feature freeze) y C → M2 (entrega).
 >
-> **Nota (23/10/2026).** B.2, B.4, B.6, B.8, B.11 y B.12 quedan fuera de la v1: B.4, B.6 y B.11
-> pasan a M2 por D1; B.2, B.8 y B.12 pasan al backlog de extensión 2027 por D3. B.13 (sonda HTTP
-> mínima) se suma a la fase B por D2. Las issues movidas conservan su ID y su trazabilidad, pero
-> no se publican con milestone M1.
+> **Nota (23/10/2026, revisada el 24/10/2026).** B.2, B.4, B.6, B.8, B.11 y B.12 quedan fuera de
+> la v1: B.4, B.6 y B.11 pasan a **M3 (v1.1)** por D1; B.2, B.8 y B.12 pasan al backlog de
+> extensión 2027 por D3 y no reciben milestone en M0–M2. B.13 (sonda HTTP mínima) se suma a la
+> fase B por D2 y B.14 reemplaza a B.11 en la v1. Las issues movidas conservan su ID y su
+> trazabilidad.
 
 ---
 
@@ -77,12 +78,12 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Labels sugeridas**: `fase:a|b|c`, `hito:m0|m1|m2|m3|m4`,
   `frente:captura|plataforma|inteligencia|gestion`, `owner:<nombre>`, `critico` cuando el plan lo
   marca CRÍTICO.
-- **Milestones** (los cinco del plan raíz, `docs/business/plan-gestion-roadmap-edt.md` §3):
-  `M0 — Base cerrada (13/11/2026)`, `M1 — Piloto medido y v1 entregada (18/12/2026)`,
-  `M2 — Detección ML y dashboard (H1 2027)`, `M3 — LLM local RCA (2027)`,
-  `M4 — Prototipo y experimentación (2028)`.
-- **Hito por issue**: `hito:m0` para la fase A; `hito:m1` para las fases B y C; `hito:m2` en
-  adelante para el backlog post-v1. Una issue no se publica sin hito.
+- **Milestones** (esquema del Gantt v1.0, D11):
+  `M0 — Base cerrada (13/11/2026)`, `M1 — Feature freeze v1 (04/12/2026)`,
+  `M2 — Entrega MVP v1 (18/12/2026)`, `M3 — v1.1 (16/04/2027)`,
+  `M4 — v2.0 (11/06/2027)`. El prototipo 2027–2028 queda como extensión post-v2.0, sin hito.
+- **Hito por issue**: `hito:m0` para la fase A; `hito:m1` para la fase B; `hito:m2` para la
+  fase C; `hito:m3` para R.2–R.7 y B.4/B.6/B.11; `hito:m4` para R.1 y R.8–R.11.
 - **Estimación**: días hábiles y horas del plan integral. Las horas son de planificación, no de
   imputación.
 - **Definición de terminado**: criterios de aceptación cumplidos + tests/evidencia + PR revisado
@@ -102,7 +103,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
   En curso, En revisión, Hecho), los milestones M0–M4 y las etiquetas de hito, frente y owner.
   Es la issue que habilita a publicar el resto con trazabilidad.
 - **Criterios de aceptación**:
-  - [x] Milestones `M0`–`M4` creados (M0 y M1 con fecha firme; M2–M4 con fecha tentativa).
+  - [x] Milestones `M0`–`M4` creados. Fechas firmes: M0 13/11/2026, M1 04/12/2026 y M2 18/12/2026; M3 16/04/2027 y M4 11/06/2027 (D11).
   - [x] Etiquetas `hito:*`, `frente:*`, `fase:*`, `owner:*` y `critico` creadas.
   - [ ] Tablero con las 5 columnas y las issues S1–S3 (#17–#25 y #35–#45) cargadas.
         _Pendiente: el token de `gh` necesita scope `project`. Las issues ya tienen milestone,
@@ -124,11 +125,12 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
   - [x] Criterios de aprobación por PPS (F1, F2, F3) y por frente.
         _Entregado como §5.2 por PPS/persona y §5.3 por frente: PPS y frente son ejes distintos._
   - [x] Lista de recortes permitidos (B.7, B.5, etc.) y su impacto.
-  - [x] Aprobado por el equipo y enlazado desde el plan integral.
-        _D1–D10 resueltas el 23/10/2026; el detalle queda en `brief-v1.md` §8.3._
+  - [ ] Aprobado por el equipo y enlazado desde el plan integral.
+        _Pendiente: las propuestas D1–D13 se ratifican en la revisión del PR #65._
+        _D1–D10 propuestas el 23/10/2026 y D11–D13 el 24/10/2026; siguen pendientes de acuerdo del equipo. El detalle queda en `brief-v1.md` §8.3 y §8.4._
   - [x] Issues A/B/C alineadas con ese alcance.
-        _Catálogo alineado: B.2, B.4, B.6, B.8, B.11 y B.12 salen de la v1; se suman B.13 (D2) y
-        B.14 (D1). La publicación en GitHub sigue pendiente (§7)._
+        _Catálogo alineado: B.2, B.4, B.6, B.8, B.11 y B.12 salen de la v1; se suman B.13 (D2),
+        B.14 (D1) y C.7 (D12). La publicación en GitHub sigue pendiente (§7)._
 
 ### A.3 — Contrato del agente RUM de navegador v0.1
 
@@ -198,7 +200,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Owner**: Federico
 - **Depende de**: ISS-S1-03
 - **Prioridad**: Alta
-- **Estado**: Fuera de la v1: movida al backlog de extensión 2027 por D3 (23/10/2026).
+- **Estado**: Fuera de la v1: movida al backlog de extensión 2027 por D3; sin milestone en M0–M2 (D11).
 - **Descripción**: Ejecutar la auditoría Lynis sobre el servidor/VM del laboratorio, registrar
   el baseline y priorizar hallazgos para el hardening B.8.
 - **Criterios de aceptación**:
@@ -228,7 +230,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Owner**: Romeo
 - **Depende de**: ISS-S3-04
 - **Prioridad**: **CRÍTICA**
-- **Estado**: Fuera de la v1: movida a M2 por D1 (23/10/2026).
+- **Estado**: Fuera de la v1: movida a M3 (v1.1) por D1; numeración revisada por D11 (24/10/2026).
 - **Descripción**: Implementar el feature engineering y el worker asíncrono del AI engine, con
   lectura batch, reintentos y escritura de anomalías.
 - **Criterios de aceptación**:
@@ -244,10 +246,10 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Owner**: Romeo
 - **Depende de**: B.3 (contrato)
 - **Prioridad**: Alta
-- **Estado**: Ajustada por D1 (23/10/2026): el panel de predicciones se difiere a M2 junto con B.6,
+- **Estado**: Ajustada por D1 (23/10/2026): el panel de predicciones se difiere a M3 junto con B.6,
   porque la v1 no incluye detección ML.
 - **Descripción**: Implementar la SPA React con las dos vistas de la v1: latencias RUM y heatmap UX.
-  El panel de predicciones se difiere a M2 con B.6. Es un build estático, no un contenedor del
+  El panel de predicciones se difiere a M3 con B.6. Es un build estático, no un contenedor del
   compose.
 - **Criterios de aceptación**:
   - [ ] Dos vistas funcionales contra la API de B.3.
@@ -262,7 +264,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Owner**: Romeo
 - **Depende de**: A.4, B.4
 - **Prioridad**: **CRÍTICA**
-- **Estado**: Fuera de la v1: movida a M2 por D1 (23/10/2026).
+- **Estado**: Fuera de la v1: movida a M3 (v1.1) por D1; numeración revisada por D11 (24/10/2026).
 - **Descripción**: Comparar el baseline estadístico (Z-score/umbrales) con Isolation Forest
   sobre el dataset etiquetado, elegir el modelo de la v1 y persistir su ciclo de vida.
 - **Criterios de aceptación**:
@@ -278,7 +280,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Owner**: Federico
 - **Depende de**: B.1
 - **Prioridad**: Media · **Diferible a v1.1**
-- **Estado**: Recorte confirmado de la v1 por D10 (23/10/2026); queda en v1.1.
+- **Estado**: Recorte confirmado de la v1 por D10 (23/10/2026); queda en v1.1, que es M3.
 - **Descripción**: Extender el agente RUM para capturar latencia XHR y rage clicks. Es la
   primera tarea que se recorta si un sprint se atrasa.
 - **Criterios de aceptación**:
@@ -293,7 +295,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Owner**: Federico
 - **Depende de**: B.2
 - **Prioridad**: **CRÍTICA**
-- **Estado**: Fuera de la v1: movida al backlog de extensión 2027 por D3 (23/10/2026).
+- **Estado**: Fuera de la v1: movida al backlog de extensión 2027 por D3; sin milestone en M0–M2 (D11).
 - **Descripción**: Aplicar hardening CIS Level 1 sobre el servidor, con playbooks Ansible
   idempotentes y evidencia de antes/después.
 - **Criterios de aceptación**:
@@ -336,7 +338,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Owner**: Romeo
 - **Depende de**: B.6
 - **Prioridad**: **CRÍTICA**
-- **Estado**: Fuera de la v1: movida a M2 por D1 (23/10/2026).
+- **Estado**: Fuera de la v1: movida a M3 (v1.1) por D1; numeración revisada por D11 (24/10/2026).
 - **Descripción**: Implementar el motor de reglas que combina umbrales y score del modelo para
   asignar severidad y confidence, y crear la alerta en estado Pending.
 - **Criterios de aceptación**:
@@ -351,7 +353,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Owner**: Federico
 - **Depende de**: B.1, B.2
 - **Prioridad**: Alta
-- **Estado**: Fuera de la v1: movida al backlog de extensión 2027 por D3 (23/10/2026).
+- **Estado**: Fuera de la v1: movida al backlog de extensión 2027 por D3; sin milestone en M0–M2 (D11).
 - **Descripción**: Pipeline GLP de seguridad (Promtail/Loki) y dashboards Grafana para las vistas
   de seguridad y RUM. Es infraestructura de seguridad del módulo M-SEG, **fuera del compose del
   producto**; no agrega contenedores al compose de 4 sin un ADR nuevo.
@@ -384,11 +386,11 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Owner**: Romeo
 - **Depende de**: B.3, B.13
 - **Prioridad**: **CRÍTICA**
-- **Estado**: Creada por D1 (23/10/2026). La detección ML (B.11) pasa a M2, pero M1 exige una alerta
+- **Estado**: Creada por D1 (23/10/2026). La detección ML (B.11) pasa a M3, pero M2 exige una alerta
   por Telegram, así que la v1 necesita un motor determinístico que la produzca.
 - **Descripción**: Implementar el motor de reglas determinísticas que evalúa umbrales sobre las
   métricas RUM y la disponibilidad de la sonda, y crea `ALERT` en estado Pending con severidad y
-  mensaje. Sustituye en la v1 al motor de reglas basado en score ML (B.11), que pasa a M2 con la
+  mensaje. Sustituye en la v1 al motor de reglas basado en score ML (B.11), que pasa a M3 con la
   detección.
 - **Criterios de aceptación**:
   - [ ] Umbrales configurables por métrica y por aplicación (latencia, tasa de errores,
@@ -458,7 +460,7 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
   - [ ] Tasa de falsos positivos medida sobre datos reales.
   - [ ] Ajustes de umbrales/reglas documentados.
   - [ ] Comparación antes/después.
-  - [ ] Informe de ajuste de reglas para el cierre de la v1 (D5).
+  - [ ] Informe de ajuste de reglas para el cierre de la v1 (C.7).
 
 ### C.5 — Release v1.0: tag, docker compose y guía de despliegue
 
@@ -475,38 +477,56 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
   - [ ] Smoke test post-deploy.
   - [ ] Release notes.
 
-### C.6 — Informe de cierre de la v1
+### C.6 — Informes finales de PPS
 
 - **Fase**: C · **Fechas**: 07/12 – 18/12/2026 · **Días hábiles**: 10 · **Horas**: 24 (8 h por persona)
 - **Owner**: Equipo
 - **Depende de**: C.1
 - **Prioridad**: Alta
+- **Estado**: Restituida por D12 (24/10/2026). La revisión anterior (D5) la había convertido en
+  informe de cierre de la v1; ese entregable pasa a C.7.
+- **Descripción**: Producir el informe final de cada PPS —Romeo A7, Federico F5, Santiago F5— con
+  la evidencia de sus actividades A1–A7 y su DoD, y entregarlo junto con la v1 el 18/12/2026
+  (D13). Incluye la divergencia entre los planes PPS2 y el repo (D8), sin reescribir los planes
+  aprobados.
+- **Criterios de aceptación**:
+  - [ ] Un informe final por PPS, con evidencia A1–A7 y DoD.
+  - [ ] Sección de divergencias entre los planes PPS2 y el repo (D8).
+  - [ ] Informe entregado junto con el release el 18/12/2026.
+
+### C.7 — Informe de cierre de la v1
+
+- **Fase**: C · **Fechas**: 14/12 – 18/12/2026 · **Días hábiles**: 5 · **Horas**: sin horas de practicante (PO)
+- **Owner**: PO (Emanuel) con apoyo del equipo
+- **Depende de**: C.1, C.3, C.5
+- **Prioridad**: Alta
+- **Estado**: Creada por D12 (24/10/2026).
 - **Descripción**: Producir el informe de cierre de la v1 con la evidencia del release, los
-  resultados del piloto y la trazabilidad de las decisiones de alcance. Incluye la divergencia
-  entre los planes PPS2 y el repo (D8), sin reescribir los planes aprobados.
+  resultados del piloto y la trazabilidad de las decisiones de alcance. No consume capacidad de
+  los tres practicantes, que están en 90/90 h hasta el 18/12.
 - **Criterios de aceptación**:
   - [ ] Informe único de cierre de la v1.
   - [ ] Evidencia de alcance, métricas de §7 del brief y release `v1.0.0`.
-  - [ ] Sección de divergencias entre los planes PPS2 y el repo (D8).
+  - [ ] Trazabilidad de D1–D13 y de los recortes aplicados.
   - [ ] Informe entregado junto con el release el 18/12/2026.
 
 ---
 
 ## 6. Backlog post-v1 (R.1 – R.11) — no publicar todavía
 
-| ID | Tarea | Owner | Ventana | Depende de |
-|---|---|---|---|---|
-| R.1 | Sitio piloto en operación (sensores activos) | F1 | 14/12/2026 – 11/06/2027 | C.2 |
-| R.2 | Dataset real del piloto: acumulación y etiquetado | F3 | 14/12/2026 – 12/03/2027 | C.4 |
-| R.3 | Convocatoria y onboarding de la nueva cohorte | PO + equipo | 01/02 – 12/03/2027 | M2 |
-| R.4 | Sondas sintéticas HTTP, TLS y DNS | F1 | 01/03 – 26/03/2027 | R.3 |
-| R.5 | Contexto de red: ISP y hosting | F1 | 29/03 – 16/04/2027 | R.4 · ADR de licencia |
-| R.6 | Alertas por sensibilidad | F2 | 15/03 – 16/04/2027 | C.5 |
-| R.7 | Reentrenamiento con dataset real y User Health Score | F3 | 01/03 – 16/04/2027 | R.2 |
-| R.8 | LLM local que explica anomalías (Llama 3.2 1B + RAG) | F3 | 19/04 – 11/06/2027 | R.7 |
-| R.9 | Escenarios multipaso y 3 sitios piloto | F1 | 19/04 – 28/05/2027 | R.4 |
-| R.10 | Release v2.0 y prueba SUS | F2 + F3 | 17/05 – 11/06/2027 | R.6, R.8 |
-| R.11 | Paper, oferta de extensión y handover al mantenedor | PO + equipo | 19/04 – 30/06/2027 | M4 |
+| ID | Tarea | Owner | Ventana | Depende de | Hito |
+|---|---|---|---|---|---|
+| R.1 | Sitio piloto en operación (sensores activos) | F1 | 14/12/2026 – 11/06/2027 | C.2 | M4 |
+| R.2 | Dataset real del piloto: acumulación y etiquetado | F3 | 14/12/2026 – 12/03/2027 | C.4 | M3 |
+| R.3 | Convocatoria y onboarding de la nueva cohorte | PO + equipo | 01/02 – 12/03/2027 | M2 | M3 |
+| R.4 | Sondas sintéticas HTTP, TLS y DNS | F1 | 01/03 – 26/03/2027 | R.3 | M3 |
+| R.5 | Contexto de red: ISP y hosting | F1 | 29/03 – 16/04/2027 | R.4 · ADR de licencia | M3 |
+| R.6 | Alertas por sensibilidad | F2 | 15/03 – 16/04/2027 | C.5 | M3 |
+| R.7 | Reentrenamiento con dataset real y User Health Score | F3 | 01/03 – 16/04/2027 | R.2 | M3 |
+| R.8 | LLM local que explica anomalías (Llama 3.2 1B + RAG) | F3 | 19/04 – 11/06/2027 | R.7 | M4 |
+| R.9 | Escenarios multipaso y 3 sitios piloto | F1 | 19/04 – 28/05/2027 | R.4 | M4 |
+| R.10 | Release v2.0 y prueba SUS | F2 + F3 | 17/05 – 11/06/2027 | R.6, R.8 | M4 |
+| R.11 | Paper, oferta de extensión y handover al mantenedor | PO + equipo | 19/04 – 30/06/2027 | M4 | M4 |
 
 **Nota**: R.1–R.11 quedan fuera de la ventana de las PPS y de la entrega v1. No se publican en
 GitHub hasta que el equipo confirme continuidad y la nueva cohorte (R.3). Se dejan acá para no
@@ -518,12 +538,12 @@ perder la trazabilidad del plan integral.
 
 | Grupo | Issues nuevas | Estado sugerido |
 |---|---|---|
-| Fase A | A.1, A.2, A.3, A.4 | Publicar primero (A.1 habilita labels/milestones) |
-| Fase B | B.1, B.3, B.5, B.7, B.9, B.10, B.13 | Publicar después de A.2 (alcance congelado) |
-| Fase C | C.1–C.6 | Publicar después de B (o al inicio de Fase B para visibilidad) |
+| Fase A | A.1, A.2, A.3, A.4 | Publicar primero con milestone M0 (A.1 habilita labels/milestones) |
+| Fase B | B.1, B.3, B.5, B.7, B.9, B.10, B.13, B.14 | Publicar después de A.2 con milestone M1 |
+| Fase C | C.1–C.7 | Publicar con milestone M2 (o al inicio de Fase B para visibilidad) |
 | Post-v1 | R.1–R.11 | No publicar; backlog en este archivo |
 
-**Total nuevas**: 18 issues de la v1 (A/B/C) + 11 de backlog post-v1. Las issues B.2, B.4, B.6, B.8, B.11 y B.12 conservan su ID pero no cuentan para la v1 (D1 y D3); B.13 se suma por D2 y B.14 por D1. B.7 se mantiene en el catálogo, aunque su entrega queda en v1.1 (D10).
+**Total nuevas**: 19 issues de la v1 (A/B/C) + 11 de backlog post-v1. Las issues B.2, B.4, B.6, B.8, B.11 y B.12 conservan su ID pero no cuentan para la v1 (D1 y D3): B.4, B.6 y B.11 pasan a M3 y las de seguridad no llevan milestone. B.13 se suma por D2, B.14 por D1 y C.7 por D12. B.7 se mantiene en el catálogo, aunque su entrega queda en v1.1 (M3, D10).
 
 ### Checklist de publicación
 
@@ -531,7 +551,7 @@ perder la trazabilidad del plan integral.
 - [ ] Revisar títulos, owners y dependencias de cada issue.
 - [ ] Publicar A.1–A.4 y mover ISS-S2-05, ISS-S3-03 e ISS-S3-06 a Fase A/M0.
 - [ ] Publicar B.1, B.3, B.5, B.7, B.9, B.10, B.13 y B.14 con milestone M1.
-- [ ] Publicar C.1–C.6 con milestone M1.
+- [ ] Publicar C.1–C.7 con milestone M2.
 - [x] Cerrar/actualizar #40, #41 y #43 según el estado real de los PRs #57, #59 y #60.
 - [ ] Marcar S2-06 a S2-09 de `issues-s1-s2.md` como obsoletas/absorbidas.
 - [ ] No publicar R.1–R.11 todavía.

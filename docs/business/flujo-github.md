@@ -1,7 +1,7 @@
 # Flujo de trabajo en GitHub
 
 **Estado**: vigente desde el 23/10/2026 (issue A.1).
-**Fuente**: plan raíz "IntellOps — Plan de Gestión, Roadmap y EDT" §Modelo de trabajo;
+**Fuente**: plan raíz `docs/business/fuentes/plan-raiz-roadmap-edt.md` §Modelo de trabajo;
 `docs/business/plan-gestion-roadmap-edt.md` §3; `docs/business/issues-fases-abc.md` §2.
 
 Este documento define cómo se etiqueta y se mueve una issue en el repositorio. Si una issue no
@@ -11,15 +11,18 @@ cumple estas reglas, no entra al sprint.
 
 ## 1. Hitos (milestones)
 
-Los hitos son los cinco del plan raíz. Miden resultados del producto, no ventanas de trabajo.
+Los hitos son los cinco del plan integral v1.0 entregado a coordinación (D11). Miden resultados del
+producto, no ventanas de trabajo: cada fase interna cierra en uno de ellos.
 
 | Milestone | Fecha | Qué cierra |
 |---|---|---|
 | `M0 — Base cerrada` | 13/11/2026 | Contratos aprobados, ADRs, EDT cargado como issues y primer dato de punta a punta visible |
-| `M1 — Piloto medido y v1 entregada` | 18/12/2026 | Sitio piloto medido con RUM y sondas, demo ante GIDAS, alerta por Telegram, tests ≥ 70 % |
-| `M2 — Detección ML y dashboard` | H1 2027 (a fijar) | Detección ML sobre series, dashboard, dataset etiquetado como condición de entrada |
-| `M3 — LLM local RCA` | 2027 (a fijar) | LLM local que explica anomalías y líneas de extensión |
-| `M4 — Prototipo y experimentación` | 2028 (a fijar) | Prototipo inicial y experimentación integrada |
+| `M1 — Feature freeze v1` | 04/12/2026 | Todas las funciones de la v1 integradas en `develop`; el alcance queda cerrado |
+| `M2 — Entrega MVP v1` | 18/12/2026 | v1.0 desplegada y midiendo el piloto, E2E y carga en verde, demo ante GIDAS e informes finales de PPS |
+| `M3 — v1.1` | 16/04/2027 | Detección ML sobre datos reales, sondas TLS/DNS/multi-origen, ISP/ASN y User Health Score |
+| `M4 — v2.0` | 11/06/2027 | LLM local RCA, 3 sitios piloto, prueba SUS, paper y oferta de extensión |
+
+El prototipo 2027–2028 queda como extensión post-v2.0, fuera de la secuencia M0–M4.
 
 **Regla**: toda issue abierta tiene exactamente un milestone. Una issue sin hito no entra al sprint.
 
