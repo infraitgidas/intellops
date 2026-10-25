@@ -36,7 +36,7 @@ src/api/
 │   ├── alert_service.py       ← Evaluación de reglas, envío de notificaciones
 │   └── config_service.py      ← Gestión de configuración del sistema
 ├── db/
-│   ├── connection.py          ← Conexión SQLite, WAL mode, connection pool
+│   ├── connection.py          ← Conexión PostgreSQL 16, pool de conexiones (ADR-0009)
 │   ├── migrations.py          ← Migraciones de esquema
 │   ├── repositories/
 │   │   ├── metric_repo.py     ← CRUD de métricas
@@ -156,7 +156,7 @@ sequenceDiagram
     participant API as FastAPI
     participant LLM as LLM Server
     participant RAG as RAG Engine
-    participant DB as SQLite
+    participant DB as PostgreSQL
 
     User->>Dash: "¿Por qué subió la latencia?"
     Dash->>API: POST /assistant/query
@@ -175,7 +175,7 @@ sequenceDiagram
 | Módulo | Componentes | Backend/Frontend | Responsable |
 |--------|------------|------------------|-------------|
 | Captura | Agente RUM, ingest API | Backend + JS | Romeo / Ema |
-| Almacenamiento | SQLite, repositorios | Backend | Ema |
+| Almacenamiento | PostgreSQL 16, repositorios | Backend | Ema |
 | ML | Detectores, pipeline, serving | Backend ML | Romeo |
 | GenIA | LLM Server, RAG, chat | Backend ML + Frontend | TBD |
 | Dashboard | React views, charts, assistant chat | Frontend | Romeo / Ema |

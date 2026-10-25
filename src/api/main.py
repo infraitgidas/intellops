@@ -77,7 +77,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    # D-05: el wildcard de orígenes es incompatible con credenciales CORS
+    # (`Access-Control-Allow-Origin: *` junto a
+    # `Access-Control-Allow-Credentials: true` lo rechaza el navegador).
+    # La ingesta se autentica con el header X-API-Key, no con cookies, así
+    # que no necesita credenciales. El allowlist por aplicación es OD-02.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

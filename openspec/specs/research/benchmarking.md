@@ -68,7 +68,9 @@ Establecer la metodología, métricas y criterios para el benchmarking de compon
 | Prometheus | TSDB | ~256MB | ~1M samples/s | Nativo | Media | Apache-2.0 |
 | VictoriaMetrics | TSDB | ~256MB | ~1M samples/s | Nativo | Alta (x20) | Apache-2.0 |
 
-**Estrategia**: Comenzar con SQLite para MVP-0 (footprint mínimo). Migrar a TimescaleDB o Prometheus si el volumen lo requiere. Diseño migrable desde el inicio.
+**Estrategia (histórica)**: este análisis es anterior a ADR-0009 (11/09/2026). La decisión vigente es
+**PostgreSQL 16**; TimescaleDB queda como migración futura si el volumen lo requiere. Se conserva la
+comparación como registro de la evaluación, no como recomendación activa.
 
 ## 3. Metodología de Benchmarking
 

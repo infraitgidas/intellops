@@ -1,7 +1,7 @@
 # Comparación: Plan de Gestión, Roadmap y EDT vs `develop` + `gestionProyecto`
 
 Documento de contraste punto a punto entre el plan de gestión propuesto por la dirección
-(`IntellOps — Plan de Gestión, Roadmap y EDT.md`, Oct 16, 2026) y el estado real del repositorio
+(`docs/business/fuentes/plan-raiz-roadmap-edt.md`, Oct 16, 2026) y el estado real del repositorio
 en `develop` y en la rama `gestionProyecto`.
 
 **Alcance:** inventario comparativo. No emite decisiones ni propone acciones; solo registra la
@@ -59,7 +59,7 @@ diferencia entre lo que declara el doc raíz y lo que existe (o no) en el reposi
 
 ## Nota de fuentes
 
-- **Doc raíz:** `IntellOps — Plan de Gestión, Roadmap y EDT.md` (Oct 16, 2026), archivo actualmente
+- **Doc raíz:** `docs/business/fuentes/plan-raiz-roadmap-edt.md` (Oct 16, 2026), archivo actualmente
   *untracked*. Se usa solo como objeto de comparación, no como fuente de contenido.
 - **Rama `develop`:** artefactos `docs/business/EDT intellops.md`, `docs/business/issues-s1-s2.md`,
   `docs/business/issues-s2-s3.md`, `docs/adr/`, `docs/pr-007-review.md`, `openspec/config.yaml`,

@@ -982,8 +982,12 @@ components:
           description: "Excepciones JavaScript incluidas en el lote"
     JsExceptionEvent:
       type: object
-      required: [error_type, message, session_id, timestamp]
+      required: [schema_version, error_type, message, session_id, timestamp]
       properties:
+        schema_version:
+          type: string
+          enum: ["1.0"]
+          description: "Versión del contrato de ingesta de excepciones (mismo valor que el envelope)"
         error_type:
           type: string
           maxLength: 100

@@ -52,25 +52,31 @@ hasta **S6**. Issues del plan asociado: S1–S3 en `docs/business/issues-s1-s2.m
 
 ---
 
-## 3. Mapeo de los hitos M0–M4 del doc raíz al marco F0–F4 / EDT
+## 3. Mapeo de los hitos M0–M4 al marco F0–F4 / EDT
 
-Los hitos del plan de gestión de la dirección (M0–M4) se corresponden con fases del roadmap y con
-tramos del EDT:
+El plan raíz de la dirección usa una numeración anterior de los hitos. El plan integral v1.0
+(17/10/2026) y, desde D11 (24/10/2026), el repo adoptan la numeración del Gantt. La tabla mapea la
+numeración adoptada e indica su equivalente en el doc raíz.
 
-| Hito (doc raíz) | Qué cierra | Fecha | Fase roadmap | Tramo EDT |
-|-----------------|-----------|-------|--------------|-----------|
-| **M0** | Contratos aprobados, ADRs, EDT cargado como issues, primer dato de punta a punta visible | 13/11/2026 | F0 | S2–S6 |
-| **M1** | Sitio piloto medido con RUM + sondas; demo ante GIDAS; alerta por Telegram; tests ≥ 70 % | 18/12/2026 | F0 (salida de MVP-0) | S5–S8 |
-| **M2** | Detección ML sobre series + dashboard; **dataset etiquetado como condición de entrada**; ISP/ASN y escenarios multi-paso | H1 2027 *(no especificado en el doc)* | F1 | post-EDT |
-| **M3** | LLM local (RCA) que explica anomalías + líneas de extensión | 2027 *(no especificado en el doc)* | F1 | post-EDT |
-| **M4** | Prototipo inicial / experimentación integrada | 2028 *(no especificado en el doc)* | F2 | — |
+| Hito (D11) | Equivalente doc raíz | Qué cierra | Fecha | Fase roadmap | Tramo EDT |
+|-----------------|-----------|-------|--------------|-----------|-----------|
+| **M0** | M0 | Contratos aprobados, ADRs, EDT cargado como issues, primer dato de punta a punta visible | 13/11/2026 | F0 | S2–S6 |
+| **M1 — Feature freeze** | — (nuevo) | Todas las funciones de la v1 integradas en `develop`; alcance cerrado | 04/12/2026 | F0 | S5–S8 |
+| **M2 — Entrega MVP v1** | M1 | Sitio piloto medido con RUM + sondas; demo ante GIDAS; alerta por Telegram; tests ≥ 70 %; informes finales de PPS | 18/12/2026 | F0 (salida de MVP-0) | S5–S8 |
+| **M3 — v1.1** | M2 | Detección ML sobre series con datos reales + dashboard; **dataset etiquetado como condición de entrada**; sondas TLS/DNS/multi-origen; ISP/ASN; User Health Score | 16/04/2027 | F1 | post-EDT |
+| **M4 — v2.0** | M3 | LLM local (RCA), 3 sitios piloto, prueba SUS, paper y extensión | 11/06/2027 | F1 | post-EDT |
 
-> Las fechas de M2–M4 no están fijadas en el doc raíz y quedan como "no especificado"; se ubican por
-> su fase de roadmap. Las filas M0 y M1 sí tienen fecha explícita.
+> El prototipo 2027–2028 del roadmap F2 queda como extensión post-v2.0, fuera de la secuencia M0–M4.
+> La numeración anterior del doc raíz se conserva en la segunda columna para trazabilidad.
 
 ---
 
 ## 4. MVP-0 = RUM + sondas + modelos de IA
+
+> **Vigencia (24/10/2026).** Esta definición corresponde a la numeración anterior y a un MVP-0 con
+> modelos de IA. **D1 la revisó**: la v1/M2 usa reglas de umbral (B.14) y la detección ML pasa a
+> M3 (v1.1). La definición vigente de alcance es `docs/business/brief-v1.md` §3. El texto se
+> conserva como registro de la definición anterior.
 
 **Definición del MVP-0 (F0):** el primer entregable operativo en GIDAS incluye los **modelos de IA**,
 no solo la captura. Sus componentes:
@@ -124,14 +130,18 @@ del equipo. Toda ratificación de un ownership único queda como decisión pendi
 |------|-------|------------|
 | Arranque EDT (S1) | 24/08/2026 | `docs/business/EDT intellops.md` |
 | Corrección de SQLite → PostgreSQL | 11/09/2026 | ADR-0009 (§1) |
-| Cierre PPS Romeo | 18/09/2026 | plan PPS2 |
-| Cierre PPS Federico y Santiago | 19/10/2026 | plan PPS2 |
+| Cierre PPS Romeo (ventana original) | 18/09/2026 | plan PPS2 |
+| Cierre PPS Federico y Santiago (ventana original) | 19/10/2026 | plan PPS2 |
+| **Informes finales de PPS** | 18/12/2026 | Gantt v1.0 (D13) |
 | **M0** | 13/11/2026 | doc raíz |
-| **M1** | 18/12/2026 | doc raíz |
+| **M1 — Feature freeze** | 04/12/2026 | Gantt v1.0 (D11) |
+| **M2 — Entrega MVP v1** | 18/12/2026 | Gantt v1.0 (D11) |
+| **M3 — v1.1** | 16/04/2027 | Gantt v1.0 (D11) |
+| **M4 — v2.0** | 11/06/2027 | Gantt v1.0 (D11) |
 | Cierre EDT (S8) | 13/12/2026 | `docs/business/EDT intellops.md` |
 | **MVP-0** entregado | 06–12/2026 | roadmap F0 |
 | **MVP-1** (SUS > 75) | 01–06/2027 | roadmap F1 |
-| Prototipo inicial (F2) | 07/2027 – 12/2028 | roadmap F2 |
+| Prototipo inicial (F2, extensión post-v2.0) | 07/2027 – 12/2028 | roadmap F2 |
 | Cierre formal del PID | 31/03/2030 | roadmap F4 |
 
 ---
@@ -165,11 +175,11 @@ Base: riesgos del `roadmap-producto.md` §10 + riesgos y supuestos de `marco/04-
 | Riesgo | Fase | Mitigación |
 |--------|------|------------|
 | PPS terminan (oct 2026) sin entregables completos | F0 | Contratos publicados temprano; seguimiento semanal; DoD único |
-| El stack no entra en 2 GB de RAM (core + ai-engine + comms + PostgreSQL; el stack LGTM de producto es roadmap y el GLP de seguridad corre aparte) | F0/F1 | Medir con `docker stats` en M1; tuning conservador; presupuesto de recursos por contenedor |
-| Alcance que crece hacia ML y LLM antes de tener datos | M2/M3 | Dataset etiquetado como condición de entrada |
+| El stack no entra en 2 GB de RAM (core + ai-engine + comms + PostgreSQL; el stack LGTM de producto es roadmap y el GLP de seguridad corre aparte) | F0/F1 | Medir con `docker stats` en M2; tuning conservador; presupuesto de recursos por contenedor |
+| Alcance que crece hacia ML y LLM antes de tener datos | M3/M4 | Dataset etiquetado como condición de entrada |
 | Salida del equipo antes del handover | F0 | Handover como requisito de salida; mantenedor técnico estable (ver `governance/continuity.md`) |
 | Sondas desde una sola red | M1 | Al menos dos puntos de origen |
-| Licencia de la base de ASN y geolocalización | F1/M2 | Verificar antes de M2 y registrar la decisión en un ADR |
+| Licencia de la base de ASN y geolocalización | F1/M3 | Verificar antes de M3 y registrar la decisión en un ADR |
 | Resultados de experimentos no cumplen el objetivo F1 | F2 | Baselines livianos primero (IF/z-score); LSTM como extensión; datasets versionados |
 | Adopción externa lenta | F3 | Convenios por dirección GIDAS; demo pública read-only; deploy < 30 min |
 | Free-tier cloud expira (AWS 12 meses) | F1+ | GCP perpetuo + self-hosted completo en VM |
@@ -185,14 +195,14 @@ Base: riesgos del `roadmap-producto.md` §10 + riesgos y supuestos de `marco/04-
 2. **Ownership sin ratificar.** Los tres mapas de dueños (§5) siguen sin unificación. Falta ratificar
    un ownership único o la regla de precedencia entre ellos.
 3. **Calendarios desfasados.** PPS arrancan 01/06/2026 (Romeo 04/05); el EDT arranca 24/08/2026; los
-   sprints del doc raíz van del 19/10 al 18/12/2026 y M1 en 18/12. No hay un único eje temporal.
+   sprints del doc raíz van del 19/10 al 18/12/2026 y la entrega (M2 adoptado) en 18/12. No hay un único eje temporal.
 4. **Stack PPS vs repo.** Federico PPS2 v2 = ELK/Kibana vs cronograma v3 GRAFANA vs ADR-0001 GLP;
    Romeo PPS usa TimescaleDB + LSTM/Prophet vs repo PostgreSQL/SQLModel + IF+z-score y health score
    no planificado en PPS; Santiago PPS dice GitLab CI vs repo GitHub Actions. Falta actualizar los PPS2.
 5. **Actividades sin horas y/o dueño.** Tareas del EDT sin horas ni fecha; E05/E06/E10/E11/E12 y varios
    ítems con owner "X (transversal/coordinación)"; F0-7 "Romeo + Ema" y F0-8 "Coordinación" sin horas.
 6. **Fechas de fin discrepantes.** Romeo cierra 18/09/2026; Federico/Santiago 19/10/2026; MVP-0 roadmap
-   = oct 2026; M1 del doc raíz = 18/12/2026; MVP-1 = jun 2027. Falta fijar el fin de cada frente.
+   = oct 2026; M2 adoptado (M1 del doc raíz) = 18/12/2026; MVP-1 = jun 2027. Falta fijar el fin de cada frente.
 7. **"Embedded content" sin tablas.** Roadmap, EDT, cronograma y Gantt del doc raíz están descritos,
    no volcados como tablas: no se pueden extraer fechas y tareas exactas (este plan reconstruye desde
    las fuentes reales, no desde el doc).
