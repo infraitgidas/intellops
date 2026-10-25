@@ -65,6 +65,19 @@ Una issue puede tener más de un owner solo si el trabajo es genuinamente compar
 
 `critico` cuando el plan integral marca la tarea como CRÍTICA.
 
+### Estado (`estado:*`)
+
+Reemplaza a las columnas del tablero de Projects, que no se puede crear (§4.1). Cada issue abierta
+tiene como máximo una etiqueta de estado.
+
+| Etiqueta | Columna | Cuándo se aplica |
+|---|---|---|
+| `estado:listo` | Listo | Aprobada, con milestone/frente/owner y sin dependencias abiertas |
+| `estado:en-curso` | En curso | Alguien trabajando: hay rama o PR abierto |
+| `estado:en-revision` | En revisión | PR abierto esperando review, o acuerdo pendiente de otra persona |
+| *(sin etiqueta)* | Backlog | Abierta, todavía no lista (bloqueada o sin aprobar) |
+| *(issue cerrada)* | Hecho | Criterios cumplidos y evidencia registrada |
+
 ---
 
 ## 3. Flujo
@@ -88,6 +101,43 @@ Columnas del tablero: **Backlog → Listo → En curso → En revisión → Hech
 Los milestones y las etiquetas están creados y las issues #17–#25 y #35–#45 quedaron cargadas con
 milestone, frente y owner.
 
-El tablero (GitHub Projects con las cinco columnas) **queda pendiente**: el token de `gh` no tiene
-el scope `project`. Para crearlo hay que ejecutar `gh auth refresh -s project,read:project` y luego
-crear el Project V2 y cargar las issues.
+### 4.1. Por qué no se puede crear el tablero de Projects (25/10/2026)
+
+El tablero de GitHub Projects con las cinco columnas **no se puede crear** en este repositorio.
+
+- El repositorio pertenece a `infraitgidas`, que es una **cuenta de usuario** (`type: User`), no una
+  organización.
+- Los Projects V2 pertenecen a la cuenta dueña. La cuenta autenticada (`BlancoCavallero`) tiene
+  permisos `push` y `triage` sobre el repo, pero no `admin`, así que GitHub rechaza la creación:
+
+  ```
+  GraphQL: BlancoCavallero does not have permission to create projects on ownerId U_kgDOEEeTgw. (createProjectV2)
+  ```
+
+- El scope del token **ya está concedido** (`gh auth refresh -s project,read:project`); no era el
+  problema.
+
+### 4.2. Alternativa adoptada: etiquetas de estado
+
+**Decisión (25/10/2026):** el tablero se representa con las etiquetas `estado:*` de §2. No se crea
+un archivo de tablero ni se mantiene una copia en Markdown: la fuente de verdad son las issues y sus
+etiquetas.
+
+Las cinco columnas se leen así:
+
+- **Backlog** — abiertas sin `estado:*`
+- **Listo** — `estado:listo`
+- **En curso** — `estado:en-curso`
+- **En revisión** — `estado:en-revision`
+- **Hecho** — cerradas
+
+Consultas equivalentes: `is:issue is:open label:"estado:listo"`, etc. Cualquiera puede armar la
+vista con los filtros de GitHub Issues.
+
+Alternativas descartadas:
+
+1. **Project V2 creado por la cuenta `infraitgidas`** (o que esa cuenta sume `admin` a
+   `BlancoCavallero`). Es el tablero canónico, pero depende de quien administra la cuenta
+   institucional.
+2. **Project V2 bajo la cuenta personal `BlancoCavallero`**. Se puede crear, pero el tablero queda
+   en una cuenta personal y no en la institucional.

@@ -1,6 +1,7 @@
 # Issues de la v1 — Fases A, B y C
 
-**Estado**: Borrador para revisión. **No publicadas en GitHub todavía.**
+**Estado**: Publicadas en GitHub el 25/10/2026 (issues #66–#82). Las tareas `R.*` siguen como
+backlog y no se publican.
 
 **Fuente**: Plan integral del proyecto IntellOps v1.0 (17/10/2026), tabla de tareas
 `P0.1`–`R.11`; `docs/business/plan-gestion-roadmap-edt.md`; `docs/business/EDT intellops.md`;
@@ -105,9 +106,10 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
 - **Criterios de aceptación**:
   - [x] Milestones `M0`–`M4` creados. Fechas firmes: M0 13/11/2026, M1 04/12/2026 y M2 18/12/2026; M3 16/04/2027 y M4 11/06/2027 (D11).
   - [x] Etiquetas `hito:*`, `frente:*`, `fase:*`, `owner:*` y `critico` creadas.
-  - [ ] Tablero con las 5 columnas y las issues S1–S3 (#17–#25 y #35–#45) cargadas.
-        _Pendiente: el token de `gh` necesita scope `project`. Las issues ya tienen milestone,
-        frente y owner; falta el Project V2._
+  - [x] Tablero con las 5 columnas y las issues S1–S3 (#17–#25 y #35–#45) cargadas.
+        _Resuelto el 25/10/2026 sin Projects: `infraitgidas` es una cuenta de usuario, así que no
+        se puede crear un Project V2 (§4.1). El tablero se representa con las etiquetas `estado:*`
+        (`docs/business/flujo-github.md` §2 y §4.2)._
   - [x] Cada issue abierta tiene milestone, frente y owner.
   - [x] Flujo documentado en `docs/business/flujo-github.md`.
 
@@ -401,6 +403,23 @@ publican todavía**. Las issues `ISS-S1-*`, `ISS-S2-*` e `ISS-S3-*` ya existen e
         umbral.
   - [ ] Integración con B.10 verificada por un test de contrato.
 
+### B.15 — Seguimiento de contrato RUM: `sample_rate`, `schema_version` y limpieza de OpenAPI
+
+- **Fase**: B · **Fechas**: 02/11 – 13/11/2026 · **Horas**: por estimar
+- **Owner**: Federico
+- **Depende de**: A.3
+- **Prioridad**: Alta
+- **Estado**: Creada el 25/10/2026 al cerrar A.3: son las cuatro correcciones que el contrato
+  dejó como seguimiento de código.
+- **Descripción**: Ejecutar las correcciones pendientes de `docs/architecture/ContratoAgenteRUM.md`
+  §13–§14 para alinear la ingesta y el OpenAPI con el contrato v0.1.
+- **Criterios de aceptación**:
+  - [ ] OD-03: `sample_rate` en `JsExceptionEvent` (`page_url` y `agent_version` siguen diferidos).
+  - [ ] OD-04 / D-02: validar `schema_version` por evento con `^1\.0$` en la ingesta.
+  - [ ] D-03: quitar `viewport` y `connection` del OpenAPI porque el ingest no los persiste.
+  - [ ] D-04: quitar el `429` del contrato hasta implementar rate limit.
+  - [ ] Contract tests verdes y OpenAPI actualizado.
+
 ---
 
 ## 5. Fase C — Cerrar la v1 (07/12 – 18/12/2026)
@@ -536,22 +555,24 @@ perder la trazabilidad del plan integral.
 
 ## 7. Resumen para publicación
 
-| Grupo | Issues nuevas | Estado sugerido |
+| Grupo | Issues nuevas | Estado |
 |---|---|---|
-| Fase A | A.1, A.2, A.3, A.4 | Publicar primero con milestone M0 (A.1 habilita labels/milestones) |
-| Fase B | B.1, B.3, B.5, B.7, B.9, B.10, B.13, B.14 | Publicar después de A.2 con milestone M1 |
-| Fase C | C.1–C.7 | Publicar con milestone M2 (o al inicio de Fase B para visibilidad) |
+| Fase A | A.1, A.2, A.3, A.4 | Publicadas: #62–#64 (existentes) y #66 |
+| Fase B | B.1, B.3, B.5, B.7, B.9, B.10, B.13, B.14, B.15 | Publicadas: #67–#75; B.7 en M3 (D10) |
+| Fase C | C.1–C.7 | Publicadas: #76–#82, milestone M2 |
 | Post-v1 | R.1–R.11 | No publicar; backlog en este archivo |
 
-**Total nuevas**: 19 issues de la v1 (A/B/C) + 11 de backlog post-v1. Las issues B.2, B.4, B.6, B.8, B.11 y B.12 conservan su ID pero no cuentan para la v1 (D1 y D3): B.4, B.6 y B.11 pasan a M3 y las de seguridad no llevan milestone. B.13 se suma por D2, B.14 por D1 y C.7 por D12. B.7 se mantiene en el catálogo, aunque su entrega queda en v1.1 (M3, D10).
+**Total nuevas**: 20 issues de la v1 (A/B/C: 4 + 9 + 7) + 11 de backlog post-v1. Las issues B.2, B.4, B.6, B.8, B.11 y B.12 conservan su ID pero no cuentan para la v1 (D1 y D3): B.4, B.6 y B.11 pasan a M3 y las de seguridad no llevan milestone. B.13 se suma por D2, B.14 por D1, B.15 por el cierre de A.3 y C.7 por D12. B.7 se mantiene en el catálogo, aunque su entrega queda en v1.1 (M3, D10).
 
 ### Checklist de publicación
 
-- [ ] A.1 crea milestones M0–M4 y etiquetas.
-- [ ] Revisar títulos, owners y dependencias de cada issue.
-- [ ] Publicar A.1–A.4 y mover ISS-S2-05, ISS-S3-03 e ISS-S3-06 a Fase A/M0.
-- [ ] Publicar B.1, B.3, B.5, B.7, B.9, B.10, B.13 y B.14 con milestone M1.
-- [ ] Publicar C.1–C.7 con milestone M2.
+- [x] A.1 crea milestones M0–M4 y etiquetas.
+- [x] Revisar títulos, owners y dependencias de cada issue.
+- [x] Publicar A.1–A.4 y mover ISS-S2-05, ISS-S3-03 e ISS-S3-06 a Fase A/M0.
+      _A.1–A.3 ya existían (#62–#64); A.4 se publicó como #66._
+- [x] Publicar B.1, B.3, B.5, B.7, B.9, B.10, B.13 y B.14 con milestone M1.
+      _Publicadas como #67–#74; B.7 quedó en M3 (D10) y B.15 se sumó como #75._
+- [x] Publicar C.1–C.7 con milestone M2. _Publicadas como #76–#82._
 - [x] Cerrar/actualizar #40, #41 y #43 según el estado real de los PRs #57, #59 y #60.
 - [ ] Marcar S2-06 a S2-09 de `issues-s1-s2.md` como obsoletas/absorbidas.
-- [ ] No publicar R.1–R.11 todavía.
+- [x] No publicar R.1–R.11 todavía.
