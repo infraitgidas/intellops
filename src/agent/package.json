@@ -1,0 +1,15 @@
+{
+  "name": "@intellops/rum-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agente RUM de navegador — TTFB, FCP y errores JS (B.1, ISS-B-01)",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.js",
+    "check-size": "node build.mjs --check-only"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
