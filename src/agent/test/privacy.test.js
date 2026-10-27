@@ -49,7 +49,7 @@ describe("redacción de PII (§9, AC-09)", () => {
   });
 
   it("redacta API keys de ingesta", () => {
-    assert.equal(redact("key ilp_zN9I4abcd1234"), "key [REDACTED]");
+    assert.equal(redact("key ilp_fixture_de_prueba_1234"), "key [REDACTED]");
   });
 
   it("redacta parámetros sensibles en texto libre", () => {
