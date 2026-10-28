@@ -241,16 +241,31 @@ def test_severity_magnitude_within_band(small):
 
 # --- SYN-5 agenda ----------------------------------------------------------
 
-def test_events_do_not_overlap_and_keep_min_gap(small):
+def _windows(dataset, kinds):
     windows = defaultdict(list)
-    for event in small.events:
-        for metric_id in event["metric_type_ids"]:
-            windows[(event["app_id"], metric_id)].append(
-                (event["start_index"], event["start_index"] + event["length"]))
-    for spans in windows.values():
-        spans.sort()
-        for (_, end), (start, _) in zip(spans, spans[1:]):
-            assert start - end >= gen.MIN_GAP_MINUTES  # 60 s: un bucket por minuto
+    for event in dataset.events:
+        if event["kind"] in kinds:
+            for metric_id in event["metric_type_ids"]:
+                windows[(event["app_id"], metric_id)].append(
+                    (event["start_index"], event["start_index"] + event["length"]))
+    return [sorted(spans) for spans in windows.values()]
+
+
+def _gaps(spans):
+    return [start - end for (_, end), (start, _) in zip(spans, spans[1:])]
+
+
+def test_events_do_not_overlap_and_anomalies_keep_min_gap(small):
+    assert all(gap >= 0 for spans in _windows(small, {"anomaly", "hard_negative"})
+               for gap in _gaps(spans))
+    assert all(gap >= gen.MIN_GAP_MINUTES  # 60 s: un bucket por minuto
+               for spans in _windows(small, {"anomaly"}) for gap in _gaps(spans))
+
+
+def test_anomalies_can_sit_next_to_hard_negatives(small):
+    near = [gap for spans in _windows(small, {"anomaly", "hard_negative"})
+            for gap in _gaps(spans) if gap < gen.MIN_GAP_MINUTES]
+    assert near  # sin zona de exclusión alrededor de los benignos
 
 
 def test_events_never_cross_the_split_boundary(small):
@@ -300,16 +315,45 @@ def test_hard_negatives_are_benign_and_in_both_splits(small):
     assert {row["split"] for row in benign} == {"train", "validation"}
 
 
-def test_traffic_surge_raises_session_count(small):
+def _inside_and_before(dataset, event, metric_id):
+    rows = sorted((r for r in dataset.rows if r["application_id"] == event["app_id"]
+                   and r["metric_type_id"] == metric_id), key=lambda r: r["timestamp"])
+    inside = [r for r in rows if r["event_id"] == event["event_id"]]
+    before = [r for r in rows if r["timestamp"] < event["start"] and not r["event_id"]][-60:]
+    return inside, before
+
+
+def test_traffic_surge_raises_session_count_and_latency(small):
     surges = [e for e in small.events if e["type"] == "benign_traffic_surge"]
     assert surges
     for event in surges:
-        rows = sorted(
-            (r for r in small.rows if r["application_id"] == event["app_id"]
-             and r["metric_type_id"] == 1), key=lambda r: r["timestamp"])
-        inside = [r["session_count"] for r in rows if r["event_id"] == event["event_id"]]
-        before = [r["session_count"] for r in rows if r["timestamp"] < event["start"]][-60:]
-        assert np.mean(inside) > 1.3 * np.mean(before)
+        inside, before = _inside_and_before(small, event, 1)
+        sessions = [np.mean([r["session_count"] for r in part]) for part in (inside, before)]
+        assert sessions[0] > 1.3 * sessions[1]
+        values = [np.mean([r["value"] for r in part]) for part in (inside, before)]
+        assert values[0] > values[1]
+
+
+def test_maintenance_start_is_jittered(small):
+    starts = [e["start"][11:16] for e in small.events if e["type"] == "benign_maintenance"]
+    assert len(set(starts)) > len(starts) / 2
+
+
+def test_hard_negatives_move_value_like_low_medium_anomalies(small):
+    low, high = gen.SEVERITY_BANDS["low"][0], gen.SEVERITY_BANDS["medium"][1]
+    shifts = []
+    for event in small.events:
+        if event["kind"] != "hard_negative":
+            continue
+        assert event["effect"]["value_sigmas"]
+        for metric_id, k in event["effect"]["value_sigmas"].items():
+            assert low <= k < high
+            inside, before = _inside_and_before(small, event, int(metric_id))
+            if inside and len(before) >= 10:
+                values = [r["value"] for r in before]
+                shifts.append((np.mean([r["value"] for r in inside]) - np.mean(values))
+                              / np.std(values))
+    assert np.median(shifts) > 1.5
 
 
 # --- SYN-7 split temporal --------------------------------------------------

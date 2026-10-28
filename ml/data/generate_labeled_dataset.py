@@ -125,9 +125,12 @@ HARD_NEGATIVE_TYPES = ("benign_traffic_surge", "benign_maintenance")
 SURGE_DURATION = (30, 90)  # minutos
 SURGE_MULTIPLIER = (1.8, 2.6)
 SURGE_DAYS_PER_EVENT = 3  # ~1 surge por app cada 3 días de cada split
-MAINTENANCE_HOUR = 22
+MAINTENANCE_START = (19 * 3600, 23 * 3600 + 45 * 60)  # inicio sorteado por app y día (UTC)
 MAINTENANCE_SECONDS = 15 * 60
-MAINTENANCE_EFFECT = {"traffic": 0.6, "1": 1.25, "3": 1.35}  # multiplicadores
+MAINTENANCE_TRAFFIC = 0.6
+# Efecto en `value` (sigmas locales, banda low/medium) sobre estas métricas.
+BENIGN_SIGMAS = (3.0, 6.0)
+BENIGN_METRICS = {"benign_traffic_surge": LATENCY_IDS, "benign_maintenance": (1, 3)}
 
 
 class Dataset(NamedTuple):
@@ -192,12 +195,11 @@ def _expected_traffic(profile, tl):
     return profile["peak"] * daily * weekly * (1.0 + TRAFFIC_TREND * tl.frac)
 
 
-def _app_trace(profile, streams, tl, bucket_seconds, modifiers):
+def _app_trace(profile, streams, tl, bucket_seconds, traffic_mult):
     traffic_rng = np.random.default_rng(streams[0])
     expected = _expected_traffic(profile, tl)
     day_factor = traffic_rng.lognormal(0.0, DAY_FACTOR_SIGMA, size=int(tl.day.max()) + 1)
     noise = np.exp(TRAFFIC_NOISE * _ar1(traffic_rng, tl.n, PHI_TRAFFIC))
-    traffic_mult, base_mult = modifiers
     lam = expected * day_factor[tl.day] * noise * traffic_mult
     sessions = traffic_rng.poisson(lam * bucket_seconds / 60.0)
     load = lam / profile["peak"]
@@ -205,8 +207,8 @@ def _app_trace(profile, streams, tl, bucket_seconds, modifiers):
     series = {}
     for metric_id, cfg in METRICS.items():
         rng = np.random.default_rng(streams[1 + metric_id])
-        level = profile["level"][metric_id] * base_mult[metric_id]
-        series[metric_id] = _metric_trace(cfg, level, rng, sessions, load, common, tl)
+        series[metric_id] = _metric_trace(cfg, profile["level"][metric_id], rng, sessions, load,
+                                          common, tl)
     return {"expected": expected, "series": series}
 
 
@@ -265,8 +267,8 @@ class _Scheduler:
         low, high = self.duration_range(minutes)
         return int(self.rng.integers(low, high + 1))
 
-    def place(self, targets, length, split, threshold, want_peak):
-        """Reserva una ventana; devuelve (app, metrics, start)."""
+    def place(self, targets, length, split, threshold, want_peak, gap=True):
+        """Reserva una ventana (con gap si `gap`); devuelve (app, metrics, start)."""
         lo, hi = self.ranges[split]
         for peak_only in ((True, False) if want_peak else (False,)):
             for index in self.rng.permutation(len(targets)).tolist():
@@ -276,9 +278,7 @@ class _Scheduler:
                     starts = starts[self.peak[starts]]
                 if starts.size:
                     start = int(self.rng.choice(starts))
-                    for metric_id in metrics:
-                        self.busy[(app, metric_id)][
-                            max(0, start - self.gap):start + length + self.gap] = True
+                    self.reserve(app, metrics, start, length, self.gap if gap else 0)
                     return app, metrics, start
         raise RuntimeError(
             f"cannot place a {length}-bucket event in {split}: increase --days"
@@ -292,10 +292,10 @@ class _Scheduler:
         starts = np.arange(lo, hi - length + 1)
         return starts[(bad[starts + length] - bad[starts]) == 0]
 
-    def reserve(self, app, start, length):
-        """Reserva una ventana fija (mantenimiento) en todas las métricas de la app."""
-        for metric_id in METRICS:
-            self.busy[(app, metric_id)][max(0, start - self.gap):start + length + self.gap] = True
+    def reserve(self, app, metrics, start, length, gap):
+        """Marca la ventana (± gap) como ocupada en las series dadas."""
+        for metric_id in metrics:
+            self.busy[(app, metric_id)][max(0, start - gap):start + length + gap] = True
 
 
 def _hard_negative(kind, app, start, length, split, effect):
@@ -304,48 +304,60 @@ def _hard_negative(kind, app, start, length, split, effect):
             "split": split, "at_peak": False, "effect": effect}
 
 
+def _benign_effect(rng, kind, traffic):
+    sigmas = {str(m): round(float(rng.uniform(*BENIGN_SIGMAS)), 4) for m in BENIGN_METRICS[kind]}
+    return {"traffic": traffic, "value_sigmas": sigmas}
+
+
 def _schedule_hard_negatives(scheduler, n_apps, bucket_seconds):
+    """Mantenimiento diario (hora sorteada) y surges.
+
+    Se reservan sin gap: una anomalía puede caer justo al lado de un benigno.
+    """
     tl, rng = scheduler.tl, scheduler.rng
     events = []
     length = max(1, math.ceil(MAINTENANCE_SECONDS / bucket_seconds))
     for day in range(int(tl.day.max()) + 1):
-        start = (day * 86400 + MAINTENANCE_HOUR * 3600) // bucket_seconds
-        crosses = start < tl.boundary < start + length
-        if start + length > tl.n or crosses:
-            continue
-        split = "train" if start < tl.boundary else "validation"
         for app in range(n_apps):
-            scheduler.reserve(app, start, length)
+            offset = int(rng.integers(MAINTENANCE_START[0], MAINTENANCE_START[1] + 1))
+            start = (day * 86400 + offset) // bucket_seconds
+            if start + length > tl.n or start < tl.boundary < start + length:
+                continue
+            split = "train" if start < tl.boundary else "validation"
+            scheduler.reserve(app, METRICS, start, length, 0)
             events.append(_hard_negative("benign_maintenance", app, start, length, split,
-                                         dict(MAINTENANCE_EFFECT)))
+                                         _benign_effect(rng, "benign_maintenance",
+                                                        MAINTENANCE_TRAFFIC)))
     for split in SPLITS:
         lo, hi = scheduler.ranges[split]
         split_days = (hi - lo) * bucket_seconds / 86400.0
         for _ in range(max(1, round(n_apps * split_days / SURGE_DAYS_PER_EVENT))):
             length = scheduler.draw_length(SURGE_DURATION)
             targets = [(app, tuple(METRICS)) for app in range(n_apps)]
-            app, _, start = scheduler.place(targets, length, split, MIN_EXPECTED_SESSIONS, True)
+            app, _, start = scheduler.place(targets, length, split, MIN_EXPECTED_SESSIONS, True,
+                                            gap=False)
             multiplier = round(float(rng.uniform(*SURGE_MULTIPLIER)), 4)
             events.append(_hard_negative("benign_traffic_surge", app, start, length, split,
-                                         {"traffic": multiplier}))
+                                         _benign_effect(rng, "benign_traffic_surge",
+                                                        multiplier)))
     return events
 
 
-def _modifiers(events, tl):
-    """Multiplicadores de tráfico y de base que producen los hard negatives de una app."""
+def _benign_shape(event):
+    """Surge: campana; mantenimiento: escalón."""
+    if event["type"] == "benign_traffic_surge":
+        return np.sin(np.pi * (np.arange(event["length"]) + 0.5) / event["length"])
+    return np.ones(event["length"])
+
+
+def _traffic_multiplier(events, tl):
+    """Multiplicador de tráfico (sesiones) que producen los hard negatives de una app."""
     traffic = np.ones(tl.n)
-    base = {metric_id: np.ones(tl.n) for metric_id in METRICS}
     for event in events:
-        window = slice(event["start_index"], event["start_index"] + event["length"])
-        if event["type"] == "benign_traffic_surge":
-            bell = np.sin(np.pi * (np.arange(event["length"]) + 0.5) / event["length"])
-            traffic[window] *= 1.0 + (event["effect"]["traffic"] - 1.0) * bell
-        elif event["type"] == "benign_maintenance":
-            traffic[window] *= event["effect"]["traffic"]
-            for key, factor in event["effect"].items():
-                if key != "traffic":
-                    base[int(key)][window] *= factor
-    return traffic, base
+        if event["kind"] == "hard_negative":
+            window = slice(event["start_index"], event["start_index"] + event["length"])
+            traffic[window] *= 1.0 + (event["effect"]["traffic"] - 1.0) * _benign_shape(event)
+    return traffic
 
 
 def _magnitude(rng, anomaly_type, severity):
@@ -454,8 +466,14 @@ def _dropout(trace, cfg, window, fraction, rng):
     trace["n"][window] = new
 
 
-def _label_hard_negative(event, labels):
+def _apply_hard_negative(event, series, labels):
+    """Efecto benigno en `value` (k sigmas locales) + etiqueta; queda en la serie limpia."""
     window = slice(event["start_index"], event["start_index"] + event["length"])
+    for metric_id, k in event["effect"]["value_sigmas"].items():
+        trace = series[int(metric_id)]
+        sigma = _local_std(trace, event["start_index"], event["length"])
+        trace["value"][window] += k * sigma * _benign_shape(event)
+        trace["clean"][window] = trace["value"][window]
     for metric_id in event["metric_type_ids"]:
         labels[metric_id]["hard_negative"][window] = 1
         labels[metric_id]["anomaly_type"][window] = event["type"]
@@ -511,13 +529,14 @@ def _validate_params(days, bucket_seconds, apps):
 def _app_rows(profile, streams, events, inject_rng, tl, bucket_seconds):
     """Traza base de una app, eventos aplicados y filas emitidas."""
     own = [event for event in events if event["app_id"] == profile["app_id"]]
-    trace = _app_trace(profile, streams, tl, bucket_seconds, _modifiers(own, tl))
+    trace = _app_trace(profile, streams, tl, bucket_seconds, _traffic_multiplier(own, tl))
     labels = {metric_id: _empty_labels(tl.n) for metric_id in METRICS}
+    for event in own:  # primero los benignos: forman parte de la serie "limpia"
+        if event["kind"] == "hard_negative":
+            _apply_hard_negative(event, trace["series"], labels)
     for event in own:
         if event["kind"] == "anomaly":
             _inject(event, trace["series"], labels, inject_rng)
-        else:
-            _label_hard_negative(event, labels)
     rows = []
     for metric_id, series in trace["series"].items():
         rows.extend(_series_rows(profile["app_id"], metric_id, series, labels[metric_id],
