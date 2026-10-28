@@ -59,14 +59,16 @@ Magnitud `k` en sigmas del desvío **local** `σ_loc` = std del residuo (serie l
 | `level_shift` | 20-60 | escalón sostenido `v + k·σ_loc` |
 | `drift` | 30-90 | rampa lineal 0 → `k·σ_loc` (la etiqueta cubre toda la rampa) |
 | `variance_burst` | 15-45 | `v + σ_loc·√(k²−1)·w`, `w ~ N(0,1)`: desvío ≈ `k·σ_loc`, media igual |
-| `dropout` | 5-20 | `n' = max(1, n̄_loc − k·σ_n)`; el valor se re-agrega con `n'` (más ruidoso) |
+| `dropout` | 5-20 | `n' = max(1, round(n·(1 − f)))`; el valor se re-agrega con `n'` (más ruidoso) |
 | `correlated_incident` | 10-40 | escalón en TTFB+FCP+XHR (+ JS rate con prob. 0.5) de una app; un solo `event_id`; `k` por métrica |
 
-| Severidad | `k` (sigmas) |
-|---|---|
-| `low` | 3-4 (sutil: el ruido con cola pesada también llega ahí) |
-| `medium` | 4-6 |
-| `high` | 6-9 |
+| Severidad | `k` (sigmas) | `f` de `dropout` (fracción perdida) |
+|---|---|---|
+| `low` | 3-4 (sutil: el ruido con cola pesada también llega ahí) | 0.40-0.60 |
+| `medium` | 4-6 | 0.60-0.80 |
+| `high` | 6-9 | 0.80-0.95 |
+
+`dropout` usa fracción y no sigmas (decisión de apply): el desvío local de `session_count` lo domina Poisson + ruido de tráfico, y 6-9 σ solo era alcanzable en el pico de la app de más tráfico.
 
 ## 4. Hard negatives (`is_anomaly=0`, `hard_negative=1`)
 
@@ -80,7 +82,7 @@ Magnitud `k` en sigmas del desvío **local** `σ_loc` = std del residuo (serie l
 - Corte **global** `boundary = floor(0.8·n_buckets)`; `split` = `train` antes, `validation` desde el corte.
 - Eventos por `(tipo, severidad, split)`: `max(1, round(0.02·filas_split / (3·Σ largo_medio_tipo)))` → contaminación objetivo ~2 % (1-3 % con los defaults).
 - Orden: mantenimiento (fijo) → surges → anomalías (validation primero, más largas primero).
-- Restricciones por serie: sin solape, gap mínimo de 30 buckets, el evento no cruza el corte, tráfico esperado ≥ 5 sesiones/bucket en toda la ventana (en la ventana de la anomalía `n ≥ 1` se fuerza para que la fila exista).
+- Restricciones por serie: sin solape, gap mínimo de 30 buckets, el evento no cruza el corte, tráfico esperado ≥ 3 sesiones/bucket en toda la ventana (≥ 20 para `dropout`) (en la ventana de la anomalía `n ≥ 1` se fuerza para que la fila exista).
 - 1 de cada 3 anomalías se ubica en horario pico (lun-vie 10-17 UTC): casos difíciles.
 - Muestreo por rechazo; si no entra, `RuntimeError` explícito (ventana demasiado chica).
 

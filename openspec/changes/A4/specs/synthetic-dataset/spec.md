@@ -49,7 +49,7 @@ Las series DEBEN tener estacionalidad diaria, latencias con sesgo a derecha y la
 
 ### Requirement: SYN-4 (catálogo y etiquetas)
 
-El dataset DEBE contener los tipos `spike`, `level_shift`, `drift`, `variance_burst`, `dropout` y `correlated_incident`, cada uno en severidades `low`, `medium` y `high`, en **ambos** splits. Toda fila con `is_anomaly=1` DEBE tener tipo, severidad y `event_id`; toda fila normal DEBE tener `anomaly_type=none`, `severity=none` y `event_id` vacío. La magnitud efectiva DEBE caer en la banda de su severidad (3-4, 4-6, 6-9 sigmas locales).
+El dataset DEBE contener los tipos `spike`, `level_shift`, `drift`, `variance_burst`, `dropout` y `correlated_incident`, cada uno en severidades `low`, `medium` y `high`, en **ambos** splits. Toda fila con `is_anomaly=1` DEBE tener tipo, severidad y `event_id`; toda fila normal DEBE tener `anomaly_type=none`, `severity=none` y `event_id` vacío. La magnitud efectiva DEBE caer en la banda de su severidad (3-4, 4-6, 6-9 sigmas locales; en `dropout`, fracción de sesiones perdidas 0.40-0.60, 0.60-0.80, 0.80-0.95).
 
 #### Scenario: SYN-4.1 Cobertura estratificada
 - THEN cada combinación `(tipo, severidad)` aparece al menos una vez en `train` y en `validation`
