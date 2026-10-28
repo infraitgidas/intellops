@@ -49,3 +49,36 @@ Estrategia: `single-pr`, 4 commits atómicos. Modo: strict TDD (runner `pytest -
 | `ml/data/README.md` | Nuevo |
 | `.gitignore` | `ml/data/synthetic/` |
 | `openspec/changes/A4/*` | Nuevos |
+
+## Remediación (revisión independiente)
+
+Mismo modo (strict TDD) y estrategia (`single-pr`). Tests del generador: 29 → 42 (2 reemplazados, 3 reescritos).
+
+| Commit | Mensaje | Concern |
+|---|---|---|
+| `fd78755` | fix(ml): etiqueta solo filas existentes que la anomalía modificó de verdad (A.4) | W2 |
+| `4500f3c` | fix(ml): escala duraciones y gap al tamaño del bucket y valida --days con mensaje claro (A.4) | W3 |
+| `b9f8751` | fix(ml): garantiza 3 eventos por tipo y severidad en validation y amplía la ventana por defecto a 28 días (A.4) | W1 |
+| `0430c0d` | fix(ml): hard negatives con hora sorteada, sin zona de exclusión y efecto visible en value (A.4) | W4 |
+| `2794fab` | test(ml): endurece pico horario, cobertura con 3 seeds, lector fila a fila y splits sin eventos compartidos (A.4) | S3 |
+| `c6d57e8` | docs(ml): advierte qué columnas no usar como features y actualiza números, sha256 y tiempos de la corrida por defecto (A.4) | S2 + números |
+| (este commit) | docs(openspec/changes/A4): ... | artefactos |
+
+### TDD Cycle Evidence (remediación)
+
+| Tarea | RED (falla vista) | GREEN | Triangulación / notas | REFACTOR |
+|---|---|---|---|---|
+| 5.1 W2 | `test_labels_match_real_changes_against_clean_run`: filas que solo existían por la inyección (`session_count >= 1` forzado) | 30 passed | misma comprobación sobre la corrida por defecto (script): 0 filas extra, 0 filas mal etiquetadas | `_emitted()` compartido por inyección y export (mismo redondeo); línea larga de `_dropout` partida |
+| 5.2 W3 | 900/3600/7000 s: `RuntimeError cannot place`; `days=1` sin `ValueError` con mínimo; CLI con traceback; `MIN_GAP_MINUTES` inexistente | 34 passed | 3 tamaños de bucket; barrido seeds 0-19 × apps 1-3 × 5 buckets: con 2 días falla, con 3 no (MIN_DAYS = 3 en este commit) | gap = `round(30·60/b)` (puede ser 0) en lugar de mínimo 1: con 7000 s el gap de 1 bucket hacía inviable 1 app |
+| 5.3 W1 | `assert 1 >= 3` (eventos por celda en validation), en el fixture chico y en la corrida por defecto | 35 passed | 21 días: validation 2.43-3.15 % en seeds 0-9 (seed 5 > 3 %) → se eligió 28 días (1.80-2.29 %); MIN_DAYS re-medido = 8 (7 falla con 7000 s, 1 app) | SMALL pasa a 8 días |
+| 5.4 W4 | hora fija (`{'22:00'}`), ninguna anomalía a < 30 min de un benigno, `KeyError value_sigmas` | 38 passed | z-score ingenuo: mantenimiento marcado 37 % (> `low` 28 %), surge 12 %, normal 6.5 %; MIN_DAYS = 8 sigue valiendo (barrido de 20 seeds) | `_benign_shape`, `_traffic_multiplier`; se eliminó el multiplicador de base por métrica |
+| 5.5 S3 | — (tests de caracterización: pasaron al primer intento) | 42 passed | sensibilidad comprobada con una mutación temporal del lector (`is_anomaly` mal parseado): el test nuevo falla; mutación revertida | — |
+
+### Desviaciones
+
+1. `DEFAULT_DAYS = 28` (no 21): con 21 días la contaminación de validation llega a 3.15 % en una seed (fuera del 1-3 %). Costo: CSV de 51 MB y ≈ 3.5 s.
+2. `MIN_DAYS = 8` es empírico (seeds 0-19), no una cota analítica; para combinaciones raras queda el `RuntimeError` con mensaje claro (código 2 en el CLI).
+3. Gap entre anomalías en minutos sin mínimo de 1 bucket (con 7000 s es 0).
+4. `NEIGHBORHOOD` (σ local) sigue en buckets: es una ventana estadística, no una duración.
+5. Una ventana de anomalía puede tener filas sin etiquetar (sin cambio real, p. ej. tasa ya en 1); `events[].length` sigue siendo el largo de la ventana.
+6. `GENERATOR_VERSION` sigue en `1.0.0` aunque la salida cambió (no pedido; ver verify-report).

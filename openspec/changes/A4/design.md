@@ -51,15 +51,15 @@ Inicio fijo `2026-08-03T00:00:00Z` (lunes), alineado a `bucket_seconds`. Horas e
 
 ## 3. Catálogo de anomalías
 
-Magnitud `k` en sigmas del desvío **local** `σ_loc` = std del residuo (serie limpia − base estacional) en un vecindario de ±60 buckets alrededor del evento. Todas son degradaciones (hacia arriba) salvo `dropout`.
+Duraciones en **minutos de reloj**, convertidas a buckets con `max(1, round(min·60/bucket_seconds))` (con 60 s, 1 minuto = 1 bucket). Magnitud `k` en sigmas del desvío **local** `σ_loc` = std del residuo (serie limpia − base estacional) en un vecindario de ±60 buckets alrededor del evento. Todas son degradaciones (hacia arriba) salvo `dropout`.
 
-| Tipo | Duración (buckets) | Forma |
+| Tipo | Duración (minutos) | Forma |
 |---|---|---|
 | `spike` | 1-3 | `v + k·σ_loc` |
 | `level_shift` | 20-60 | escalón sostenido `v + k·σ_loc` |
 | `drift` | 30-90 | rampa lineal 0 → `k·σ_loc` (la etiqueta cubre toda la rampa) |
-| `variance_burst` | 15-45 | `v + σ_loc·√(k²−1)·w`, `w ~ N(0,1)`: desvío ≈ `k·σ_loc`, media igual |
-| `dropout` | 5-20 | `n' = max(1, round(n·(1 − f)))`; el valor se re-agrega con `n'` (más ruidoso) |
+| `variance_burst` | 15-45 | latencias: `v + σ_loc·√(k²−1)·w`, `w ~ N(0,1)` (desvío ≈ `k·σ_loc`, media igual); tasa y rage: `w` → `abs(w)` (el valor suele estar en 0 y el ruido negativo se perdía al recortar) |
+| `dropout` | 5-20 | `n' = max(1, round(n·(1 − f)))` si `n > 0` (un bucket vacío sigue vacío); el valor se re-agrega con `n'` (más ruidoso) |
 | `correlated_incident` | 10-40 | escalón en TTFB+FCP+XHR (+ JS rate con prob. 0.5) de una app; un solo `event_id`; `k` por métrica |
 
 | Severidad | `k` (sigmas) | `f` de `dropout` (fracción perdida) |
@@ -68,23 +68,27 @@ Magnitud `k` en sigmas del desvío **local** `σ_loc` = std del residuo (serie l
 | `medium` | 4-6 | 0.60-0.80 |
 | `high` | 6-9 | 0.80-0.95 |
 
+**Etiqueta = cambio real** (remediación W2): la inyección no crea ni borra filas; `is_anomaly=1` solo donde el `value` exportado (recortado y redondeado a 4 decimales) o `session_count` difiere de la serie limpia. Lo verifica un test contra la misma seed sin inyección.
+
 `dropout` usa fracción y no sigmas (decisión de apply): el desvío local de `session_count` lo domina Poisson + ruido de tráfico, y 6-9 σ solo era alcanzable en el pico de la app de más tráfico.
 
 ## 4. Hard negatives (`is_anomaly=0`, `hard_negative=1`)
 
 | Patrón (`anomaly_type`) | Forma | Por qué engaña |
 |---|---|---|
-| `benign_traffic_surge` | campaña: λ × 1.8-2.6 en campana, 30-90 buckets, horario diurno; todas las métricas de la app | sube `session_count` y, vía carga, las latencias ~1-2 σ |
-| `benign_maintenance` | todos los días 22:00 UTC, 15 min: sesiones × 0.6, TTFB × 1.25, XHR × 1.35 | recurrente (aprendible), parece `dropout` + `level_shift` |
+| `benign_traffic_surge` | campaña: λ × 1.8-2.6 en campana, 30-90 minutos, horario pico; TTFB, FCP y XHR `+k·σ_loc·campana` | sube `session_count` y las latencias con magnitud de anomalía `low`/`medium` |
+| `benign_maintenance` | todos los días, por app, inicio sorteado entre 19:00 y 23:45 UTC, 15 min: sesiones × 0.6, TTFB y XHR `+k·σ_loc` | recurrente pero sin hora fija; parece `dropout` + `level_shift` |
+
+`k ~ U(3, 6)` por métrica (banda `low`/`medium`), registrado en `events[].effect.value_sigmas`. El efecto en `value` se aplica antes de inyectar anomalías y pasa a ser parte de la serie limpia (remediación W4: antes vivía casi solo en `session_count` y el mantenimiento era a las 22:00 exactas).
 
 ## 5. Agenda estratificada
 
 - Corte **global** `boundary = floor(0.8·n_buckets)`; `split` = `train` antes, `validation` desde el corte.
-- Eventos por `(tipo, severidad, split)`: `max(1, round(0.02·filas_split / (3·Σ largo_medio_tipo)))` → contaminación objetivo ~2 % (1-3 % con los defaults).
-- Orden: mantenimiento (fijo) → surges → anomalías (validation primero, más largas primero).
-- Restricciones por serie: sin solape, gap mínimo de 30 buckets, el evento no cruza el corte, tráfico esperado ≥ 3 sesiones/bucket en toda la ventana (≥ 20 para `dropout`) (en la ventana de la anomalía `n ≥ 1` se fuerza para que la fila exista).
+- Eventos por `(tipo, severidad, split)`: `max(3, round(0.02·filas_split / (3·Σ largo_medio_tipo)))` → al menos 3 eventos por celda en cada split y contaminación objetivo ~2 %. Con los defaults (28 días): 3 por celda en validation, 12 en train; contaminación 1.93 % / 1.88 %.
+- Orden: mantenimiento (hora sorteada) → surges → anomalías (validation primero, más largas primero).
+- Restricciones por serie: sin solape; gap mínimo de 30 minutos solo entre anomalías (los benignos se reservan sin gap: una anomalía puede caer al lado); el evento no cruza el corte; tráfico esperado ≥ 3 sesiones/bucket en toda la ventana (≥ 20 para `dropout`).
 - 1 de cada 3 anomalías se ubica en horario pico (lun-vie 10-17 UTC): casos difíciles.
-- Muestreo por rechazo; si no entra, `RuntimeError` explícito (ventana demasiado chica).
+- Validación previa: `days ≥ 8` (medido: seeds 0-19 × apps 1-3 × buckets 60-7000 s); si no, `ValueError` con el mínimo. Si igual no entra, `RuntimeError` explícito. El CLI convierte ambos en `parser.error` (código 2, sin traceback).
 
 ## 6. Salida
 
@@ -120,3 +124,6 @@ Lector: `load_labeled_dataset(csv_path)` → `{split: LabeledSplit(rows: list[Me
 - Supuestos: ruido AR(1) gaussiano/lognormal, estacionalidad fija, sin eventos de calendario reales, sin deploys reales, sin interacción entre apps.
 - Revalidar con datos reales (R.2) cuando existan.
 - El sha256 es reproducible con la misma versión de numpy y plataforma; numpy no garantiza el stream de `Generator` entre versiones.
+- Validation tiene 3 eventos por combinación: el recall por celda es ruidoso.
+- Las columnas de análisis (`anomaly_type`, `severity`, `event_id`, `hard_negative`, `split`) nunca son features; la etiqueta es solo `is_anomaly`.
+- Con buckets ≥ 900 s, `σ_loc` (±60 buckets) cubre horas o días: la dificultad no es comparable con 60 s.
