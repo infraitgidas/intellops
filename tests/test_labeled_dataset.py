@@ -187,8 +187,11 @@ def _anomalies(dataset):
     return [e for e in dataset.events if e["kind"] == "anomaly"]
 
 
-def test_every_type_and_severity_in_both_splits(small):
-    seen = {(r["anomaly_type"], r["severity"], r["split"]) for r in small.rows if r["is_anomaly"]}
+@pytest.mark.parametrize("seed", [7, 8, 9])
+def test_every_type_and_severity_in_both_splits(seed):
+    dataset = gen.generate(**{**SMALL, "seed": seed})
+    seen = {(r["anomaly_type"], r["severity"], r["split"])
+            for r in dataset.rows if r["is_anomaly"]}
     for split in ("train", "validation"):
         for anomaly_type in gen.ANOMALY_TYPES:
             for severity in gen.SEVERITIES:
@@ -280,8 +283,9 @@ def test_events_never_cross_the_split_boundary(small):
         assert end <= boundary or event["start_index"] >= boundary
 
 
-def test_some_anomalies_are_placed_at_peak_hours(small):
-    assert any(event["at_peak"] for event in _anomalies(small))
+def test_about_a_third_of_anomalies_are_at_peak_hours(small):
+    events = _anomalies(small)
+    assert sum(event["at_peak"] for event in events) / len(events) >= 0.3
 
 
 def _events_per_cell(dataset, split):
@@ -358,6 +362,13 @@ def test_hard_negatives_move_value_like_low_medium_anomalies(small):
 
 # --- SYN-7 split temporal --------------------------------------------------
 
+def test_train_and_validation_share_no_event(small):
+    ids = {split: {r["event_id"] for r in small.rows if r["split"] == split and r["event_id"]}
+           for split in ("train", "validation")}
+    assert ids["train"] and ids["validation"]
+    assert not ids["train"] & ids["validation"]
+
+
 def test_split_is_temporal_with_global_boundary(small):
     boundary = small.params["boundary"]
     for rows in _series(small.rows).values():
@@ -423,6 +434,26 @@ def test_loader_returns_validated_rows_and_labels(small, exported):
         expected = sum(r["is_anomaly"] for r in small.rows if r["split"] == split)
         assert sum(label.is_anomaly for label in part.labels) == expected
     assert total == len(small.rows)
+
+
+def test_loader_parses_labels_and_values_row_by_row(small, exported):
+    data = gen.load_labeled_dataset(exported[0])
+    loaded = [pair for split in ("train", "validation")
+              for pair in zip(data[split].rows, data[split].labels)]
+    by_key = {(str(row.application_id), row.metric_type_id, row.timestamp): (row, label)
+              for row, label in loaded}
+    assert len(by_key) == len(small.rows)
+    for expected in small.rows:
+        stamp = datetime.fromisoformat(expected["timestamp"].replace("Z", "+00:00"))
+        row, label = by_key[(expected["application_id"], expected["metric_type_id"], stamp)]
+        assert (row.value, row.session_count) == (expected["value"], expected["session_count"])
+        assert label.is_anomaly is bool(expected["is_anomaly"])
+        assert label.hard_negative is bool(expected["hard_negative"])
+        assert (label.anomaly_type, label.severity, label.event_id) == (
+            expected["anomaly_type"], expected["severity"], expected["event_id"])
+    normal = [label for _, label in loaded if not label.is_anomaly and not label.hard_negative]
+    assert normal and all((label.anomaly_type, label.severity, label.event_id)
+                          == ("none", "none", "") for label in normal)
 
 
 def test_loader_rejects_tampered_csv(exported, tmp_path):
