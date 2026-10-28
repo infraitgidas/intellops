@@ -49,7 +49,7 @@ SCHEMA = (
     ("bucket_seconds", "int", ">= 60"),
     ("value", "float", "4 decimales; >= 0; tasa <= 1"),
     ("session_count", "int", ">= 1 (los buckets sin sesiones se omiten)"),
-    ("is_anomaly", "0|1", "1 = bucket dentro de una anomalía inyectada"),
+    ("is_anomaly", "0|1", "1 = fila que una anomalía inyectada modificó"),
     ("anomaly_type", "str", "tipo de anomalía, patrón benigno o none"),
     ("severity", "str", "low | medium | high | none"),
     ("event_id", "str", "A-NNNN (anomalía), H-NNNN (hard negative) o vacío"),
@@ -383,17 +383,20 @@ def _local_std(trace, start, length):
 
 
 def _inject(event, series, labels, rng):
+    """Aplica la anomalía y etiqueta solo las filas existentes que cambiaron de verdad."""
     start, length = event["start_index"], event["length"]
     window = slice(start, start + length)
     for metric_id in event["metric_type_ids"]:
         trace, cfg = series[metric_id], METRICS[metric_id]
         k = event["magnitude"][str(metric_id)]
-        trace["n"][window] = np.maximum(trace["n"][window], 1)  # la fila debe existir
         sigma = _local_std(trace, start, length)
         if event["type"] == "drift":
             trace["value"][window] += k * sigma * np.arange(1, length + 1) / length
         elif event["type"] == "variance_burst":
-            trace["value"][window] += sigma * math.sqrt(k * k - 1.0) * rng.standard_normal(length)
+            noise = rng.standard_normal(length)
+            if cfg["kind"] != "latency":  # tasa/conteo pegados a 0: el ruido negativo se perdería
+                noise = np.abs(noise)
+            trace["value"][window] += sigma * math.sqrt(k * k - 1.0) * noise
         elif event["type"] == "dropout":
             _dropout(trace, cfg, window, k, rng)
         else:  # spike, level_shift, correlated_incident: escalón
@@ -401,24 +404,37 @@ def _inject(event, series, labels, rng):
         if cfg["kind"] == "latency":
             floor = LATENCY_FLOOR * trace["base"][window]
             trace["value"][window] = np.maximum(trace["value"][window], floor)
+        kind = cfg["kind"]
+        changed = (trace["n"][window] != trace["n_clean"][window]) | (
+            _emitted(trace["value"][window], kind) != _emitted(trace["clean"][window], kind))
+        idx = start + np.flatnonzero(changed & (trace["n_clean"][window] > 0))
         lab = labels[metric_id]
-        lab["is_anomaly"][window] = 1
-        lab["anomaly_type"][window] = event["type"]
-        lab["severity"][window] = event["severity"]
-        lab["event_id"][window] = event["event_id"]
+        lab["is_anomaly"][idx] = 1
+        lab["anomaly_type"][idx] = event["type"]
+        lab["severity"][idx] = event["severity"]
+        lab["event_id"][idx] = event["event_id"]
+
+
+def _emitted(values, kind):
+    """Valor tal como se exporta: recortado a su rango y redondeado a 4 decimales."""
+    return np.round(np.clip(values, 0.0, 1.0 if kind == "rate" else math.inf), 4)
 
 
 def _dropout(trace, cfg, window, fraction, rng):
-    """Cae la cobertura de sesiones; el valor se re-agrega con menos sesiones."""
+    """Cae la cobertura de sesiones; el valor se re-agrega con menos sesiones.
+
+    Un bucket sin sesiones sigue vacío: la anomalía no crea filas.
+    """
     old = trace["n"][window]
-    new = np.maximum(1, np.round(old * (1.0 - fraction))).astype(old.dtype)
+    new = np.where(old > 0, np.maximum(1, np.round(old * (1.0 - fraction))), 0).astype(old.dtype)
+    safe_old, safe_new = np.maximum(old, 1), np.maximum(new, 1)
     if cfg["kind"] == "latency":
-        trace["value"][window] *= np.exp(
-            cfg["sample"] * trace["z"][window] * (1.0 / np.sqrt(new) - 1.0 / np.sqrt(old)))
+        shrink = 1.0 / np.sqrt(safe_new) - 1.0 / np.sqrt(safe_old)
+        trace["value"][window] *= np.exp(cfg["sample"] * trace["z"][window] * shrink)
     elif cfg["kind"] == "rate":
-        trace["value"][window] = rng.binomial(new, trace["level"][window]) / new
+        trace["value"][window] = rng.binomial(new, trace["level"][window]) / safe_new
     else:
-        trace["value"][window] = rng.poisson(new * trace["level"][window]) / new
+        trace["value"][window] = rng.poisson(new * trace["level"][window]) / safe_new
     trace["n"][window] = new
 
 
@@ -507,14 +523,13 @@ def _finalize_events(events, profiles, tl):
 
 
 def _series_rows(app_id, metric_id, series, labels, tl, bucket_seconds):
-    ceil = 1.0 if METRICS[metric_id]["kind"] == "rate" else math.inf
-    values = np.clip(series["value"], 0.0, ceil)
+    values = _emitted(series["value"], METRICS[metric_id]["kind"])
     rows = []
     for i in np.flatnonzero(series["n"] > 0).tolist():
         rows.append({
             "application_id": app_id, "metric_type_id": metric_id,
             "timestamp": tl.stamps[i], "bucket_seconds": bucket_seconds,
-            "value": round(float(values[i]), 4), "session_count": int(series["n"][i]),
+            "value": float(values[i]), "session_count": int(series["n"][i]),
             "is_anomaly": int(labels["is_anomaly"][i]),
             "anomaly_type": labels["anomaly_type"][i], "severity": labels["severity"][i],
             "event_id": labels["event_id"][i], "hard_negative": int(labels["hard_negative"][i]),

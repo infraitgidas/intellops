@@ -193,6 +193,20 @@ def test_correlated_incident_spans_metrics_of_one_app(small):
         assert len({metric for _, metric in series}) >= 2
 
 
+def _key(row):
+    return row["application_id"], row["metric_type_id"], row["timestamp"]
+
+
+def test_labels_match_real_changes_against_clean_run(small, monkeypatch):
+    # Misma seed sin inyección: las series base no dependen de la agenda de anomalías.
+    monkeypatch.setattr(gen, "_inject", lambda *args: None)
+    clean = {_key(r): (r["value"], r["session_count"]) for r in gen.generate(**SMALL).rows}
+    assert {_key(r) for r in small.rows} == set(clean)  # la inyección no crea ni borra filas
+    for row in small.rows:
+        unchanged = clean[_key(row)] == (row["value"], row["session_count"])
+        assert unchanged != bool(row["is_anomaly"]), row
+
+
 def test_severity_magnitude_within_band(small):
     for event in _anomalies(small):
         bands = gen.DROPOUT_BANDS if event["type"] == "dropout" else gen.SEVERITY_BANDS
