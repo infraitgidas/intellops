@@ -1,7 +1,7 @@
 """Tests del generador sintético etiquetado (A.4, spec synthetic-dataset).
 
-Rápidos y sin Postgres: usan parámetros chicos (3 días, 2 apps). La corrida
-por defecto (14 días, 3 apps) es manual y queda documentada en el README.
+Sin Postgres: usan parámetros chicos (8 días, 2 apps; el mínimo es MIN_DAYS) y
+una corrida por defecto (28 días, 3 apps) para la contaminación por split.
 """
 import ast
 import csv
@@ -9,7 +9,7 @@ import hashlib
 import importlib.util
 import json
 import pathlib
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 
 import numpy as np
@@ -22,7 +22,7 @@ pytestmark = pytest.mark.unit
 MODULE_PATH = (
     pathlib.Path(__file__).resolve().parents[1] / "ml" / "data" / "generate_labeled_dataset.py"
 )
-SMALL = {"seed": 7, "days": 3, "bucket_seconds": 60, "apps": 2}
+SMALL = {"seed": 7, "days": 8, "bucket_seconds": 60, "apps": 2}
 CONTRACT = (
     "application_id", "metric_type_id", "timestamp", "bucket_seconds", "value", "session_count",
 )
@@ -41,6 +41,11 @@ gen = _load_module()
 @pytest.fixture(scope="module", name="small")
 def _small():
     return gen.generate(**SMALL)
+
+
+@pytest.fixture(scope="module", name="default")
+def _default():
+    return gen.generate()
 
 
 @pytest.fixture(scope="module", name="exported")
@@ -264,10 +269,24 @@ def test_some_anomalies_are_placed_at_peak_hours(small):
     assert any(event["at_peak"] for event in _anomalies(small))
 
 
-def test_contamination_within_target_for_default_size():
-    dataset = gen.generate(seed=gen.DEFAULT_SEED, days=gen.DEFAULT_DAYS, apps=gen.DEFAULT_APPS)
-    anomalous = sum(row["is_anomaly"] for row in dataset.rows)
-    assert 0.01 <= anomalous / len(dataset.rows) <= 0.03
+def _events_per_cell(dataset, split):
+    events = {(r["event_id"], r["anomaly_type"], r["severity"]) for r in dataset.rows
+              if r["is_anomaly"] and r["split"] == split}
+    return Counter((anomaly_type, severity) for _, anomaly_type, severity in events)
+
+
+def test_every_cell_has_min_events_in_both_splits(small):
+    for split in ("train", "validation"):
+        cells = _events_per_cell(small, split)
+        assert len(cells) == len(gen.ANOMALY_TYPES) * len(gen.SEVERITIES)
+        assert min(cells.values()) >= gen.MIN_PER_COMBO >= 3
+
+
+def test_default_size_contamination_and_validation_depth(default):
+    for split in ("train", "validation"):
+        rows = [row for row in default.rows if row["split"] == split]
+        assert 0.01 <= sum(row["is_anomaly"] for row in rows) / len(rows) <= 0.03
+    assert min(_events_per_cell(default, "validation").values()) >= 3
 
 
 # --- SYN-6 hard negatives --------------------------------------------------
@@ -341,7 +360,7 @@ def test_manifest_matches_csv(small, exported):
 
 
 def test_cli_writes_the_same_files(exported, tmp_path):
-    gen.main(["--seed", "7", "--days", "3", "--apps", "2", "--out-dir", str(tmp_path)])
+    gen.main(["--seed", "7", "--days", "8", "--apps", "2", "--out-dir", str(tmp_path)])
     assert (tmp_path / gen.CSV_NAME).read_bytes() == exported[0].read_bytes()
     assert (tmp_path / gen.MANIFEST_NAME).read_bytes() == exported[1].read_bytes()
 

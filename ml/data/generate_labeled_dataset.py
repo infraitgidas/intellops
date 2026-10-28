@@ -9,7 +9,7 @@ Solo numpy + stdlib. No importa `src.api`, no usa DB ni HTTP.
 
 Uso:
     python ml/data/generate_labeled_dataset.py
-    python ml/data/generate_labeled_dataset.py --seed 7 --days 3 --apps 2
+    python ml/data/generate_labeled_dataset.py --seed 7 --days 8 --apps 2
 """
 import argparse
 import csv
@@ -26,7 +26,7 @@ import numpy as np
 
 GENERATOR_VERSION = "1.0.0"
 DEFAULT_SEED = 66
-DEFAULT_DAYS = 14
+DEFAULT_DAYS = 28  # validation (20 %) con 3 eventos por celda y contaminación ~2 %
 DEFAULT_BUCKET_SECONDS = 60
 DEFAULT_APPS = 3
 DEFAULT_OUT_DIR = "ml/data/synthetic"
@@ -35,9 +35,9 @@ MANIFEST_NAME = "manifest.json"
 MIN_BUCKET_SECONDS = 60
 START = datetime(2026, 8, 3, tzinfo=timezone.utc)  # lunes
 TRAIN_FRACTION = 0.8
-# Menos días no alcanzan para ubicar todas las combinaciones en ambos splits
-# (medido: seeds 0-19 x apps 1-3 x buckets 60/300/900/3600/7000 s).
-MIN_DAYS = 3
+# Menos días no alcanzan para ubicar MIN_PER_COMBO eventos de cada combinación en
+# ambos splits (medido: seeds 0-19 x apps 1-3 x buckets 60/300/900/3600/7000 s).
+MIN_DAYS = 8
 
 CONTRACT_COLUMNS = (
     "application_id", "metric_type_id", "timestamp", "bucket_seconds", "value", "session_count",
@@ -111,7 +111,7 @@ PLACEMENT_ORDER = (  # más largas primero: empaquetan mejor
 )
 CORRELATED_EXTRA_METRIC = 4  # JS_EXCEPTION_RATE se suma con prob. 0.5
 CONTAMINATION_TARGET = 0.02
-MIN_PER_COMBO = 1
+MIN_PER_COMBO = 3  # eventos mínimos por (tipo, severidad) y split
 MIN_GAP_MINUTES = 30
 NEIGHBORHOOD = 60  # buckets: ventana estadística del desvío local, no una duración
 MIN_EXPECTED_SESSIONS = 3.0
