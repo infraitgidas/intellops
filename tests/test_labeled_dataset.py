@@ -109,9 +109,28 @@ def test_bucket_seconds_parameter_is_honoured():
     assert all(_epoch(row["timestamp"]) % 300 == 0 for row in dataset.rows)
 
 
-def test_infeasible_window_fails_explicitly():
-    with pytest.raises(RuntimeError, match="increase --days"):
-        gen.generate(seed=1, days=3, bucket_seconds=3600, apps=1)
+@pytest.mark.parametrize("bucket_seconds", [900, 3600, 7000])
+def test_large_buckets_keep_wall_clock_durations(bucket_seconds):
+    dataset = gen.generate(seed=1, days=gen.DEFAULT_DAYS, bucket_seconds=bucket_seconds, apps=1)
+    events = _anomalies(dataset)
+    assert {e["type"] for e in events} == set(gen.ANOMALY_TYPES)
+    for event in events:
+        low, high = (minutes * 60 for minutes in gen.DURATIONS[event["type"]])
+        seconds, half = event["length"] * bucket_seconds, bucket_seconds / 2
+        assert low - half <= seconds <= max(high + half, bucket_seconds)
+
+
+def test_days_too_small_fails_with_clear_message():
+    with pytest.raises(ValueError, match=r"days must be >= \d+"):
+        gen.generate(seed=1, days=1, bucket_seconds=60, apps=1)
+
+
+def test_cli_reports_invalid_params_without_traceback(tmp_path, capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        gen.main(["--days", "1", "--out-dir", str(tmp_path)])
+    assert exit_info.value.code == 2
+    assert "days must be >=" in capsys.readouterr().err
+    assert not (tmp_path / gen.CSV_NAME).exists()
 
 
 def test_rejects_bucket_below_sixty():
@@ -226,7 +245,7 @@ def test_events_do_not_overlap_and_keep_min_gap(small):
     for spans in windows.values():
         spans.sort()
         for (_, end), (start, _) in zip(spans, spans[1:]):
-            assert start - end >= gen.MIN_GAP_BUCKETS
+            assert start - end >= gen.MIN_GAP_MINUTES  # 60 s: un bucket por minuto
 
 
 def test_events_never_cross_the_split_boundary(small):

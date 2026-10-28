@@ -35,6 +35,9 @@ MANIFEST_NAME = "manifest.json"
 MIN_BUCKET_SECONDS = 60
 START = datetime(2026, 8, 3, tzinfo=timezone.utc)  # lunes
 TRAIN_FRACTION = 0.8
+# Menos días no alcanzan para ubicar todas las combinaciones en ambos splits
+# (medido: seeds 0-19 x apps 1-3 x buckets 60/300/900/3600/7000 s).
+MIN_DAYS = 3
 
 CONTRACT_COLUMNS = (
     "application_id", "metric_type_id", "timestamp", "bucket_seconds", "value", "session_count",
@@ -99,7 +102,7 @@ ANOMALY_TYPES = (
 SEVERITIES = ("low", "medium", "high")
 SEVERITY_BANDS = {"low": (3.0, 4.0), "medium": (4.0, 6.0), "high": (6.0, 9.0)}  # sigmas
 DROPOUT_BANDS = {"low": (0.4, 0.6), "medium": (0.6, 0.8), "high": (0.8, 0.95)}  # fracción
-DURATIONS = {  # buckets (min, max)
+DURATIONS = {  # minutos de reloj (min, max); se convierten a buckets con _buckets()
     "spike": (1, 3), "level_shift": (20, 60), "drift": (30, 90),
     "variance_burst": (15, 45), "dropout": (5, 20), "correlated_incident": (10, 40),
 }
@@ -109,8 +112,8 @@ PLACEMENT_ORDER = (  # más largas primero: empaquetan mejor
 CORRELATED_EXTRA_METRIC = 4  # JS_EXCEPTION_RATE se suma con prob. 0.5
 CONTAMINATION_TARGET = 0.02
 MIN_PER_COMBO = 1
-MIN_GAP_BUCKETS = 30
-NEIGHBORHOOD = 60
+MIN_GAP_MINUTES = 30
+NEIGHBORHOOD = 60  # buckets: ventana estadística del desvío local, no una duración
 MIN_EXPECTED_SESSIONS = 3.0
 MIN_DROPOUT_SESSIONS = 20.0
 PEAK_EVERY = 3
@@ -119,7 +122,7 @@ SPLITS = ("train", "validation")
 
 # --- Hard negatives (design §4) --------------------------------------------
 HARD_NEGATIVE_TYPES = ("benign_traffic_surge", "benign_maintenance")
-SURGE_DURATION = (30, 90)
+SURGE_DURATION = (30, 90)  # minutos
 SURGE_MULTIPLIER = (1.8, 2.6)
 SURGE_DAYS_PER_EVENT = 3  # ~1 surge por app cada 3 días de cada split
 MAINTENANCE_HOUR = 22
@@ -158,6 +161,11 @@ def _timeline(days, bucket_seconds):
         dow=(day + origin.weekday()) % 7, day=day, frac=np.arange(n) / max(n - 1, 1),
         boundary=int(math.floor(TRAIN_FRACTION * n)),
     )
+
+
+def _buckets(minutes, bucket_seconds):
+    """Minutos de reloj -> buckets (mínimo 1): la duración no depende del bucket."""
+    return max(1, round(minutes * 60 / bucket_seconds))
 
 
 def _ar1(rng, n, phi):
@@ -230,6 +238,8 @@ class _Scheduler:
     def __init__(self, rng, expected, tl, bucket_seconds):
         self.rng = rng
         self.tl = tl
+        self.bucket_seconds = bucket_seconds
+        self.gap = round(MIN_GAP_MINUTES * 60 / bucket_seconds)  # puede ser 0
         self.exp_n = {
             (app, metric_id): expected[app] * cfg["coverage"] * bucket_seconds / 60.0
             for app in range(len(expected)) for metric_id, cfg in METRICS.items()
@@ -242,9 +252,18 @@ class _Scheduler:
         """Eventos por (tipo, severidad) para ~CONTAMINATION_TARGET de filas anómalas."""
         lo, hi = self.ranges[split]
         rows = sum(float(np.sum(1.0 - np.exp(-n[lo:hi]))) for n in self.exp_n.values())
-        set_rows = sum(sum(DURATIONS[t]) / 2.0 * (3.5 if t == "correlated_incident" else 1.0)
-                       for t in ANOMALY_TYPES)
+        set_rows = sum(sum(self.duration_range(DURATIONS[t])) / 2.0
+                       * (3.5 if t == "correlated_incident" else 1.0) for t in ANOMALY_TYPES)
         return max(MIN_PER_COMBO, round(CONTAMINATION_TARGET * rows / (3 * set_rows)))
+
+    def duration_range(self, minutes):
+        """Rango (min, max) de una duración en minutos, convertido a buckets."""
+        return tuple(_buckets(m, self.bucket_seconds) for m in minutes)
+
+    def draw_length(self, minutes):
+        """Largo en buckets sorteado uniforme dentro del rango."""
+        low, high = self.duration_range(minutes)
+        return int(self.rng.integers(low, high + 1))
 
     def place(self, targets, length, split, threshold, want_peak):
         """Reserva una ventana; devuelve (app, metrics, start)."""
@@ -259,12 +278,11 @@ class _Scheduler:
                     start = int(self.rng.choice(starts))
                     for metric_id in metrics:
                         self.busy[(app, metric_id)][
-                            max(0, start - MIN_GAP_BUCKETS):start + length + MIN_GAP_BUCKETS
-                        ] = True
+                            max(0, start - self.gap):start + length + self.gap] = True
                     return app, metrics, start
         raise RuntimeError(
             f"cannot place a {length}-bucket event in {split}: increase --days"
-        )
+            f" (validated minimum {MIN_DAYS})")
 
     def _valid_starts(self, app, metrics, length, lo, hi, threshold):
         ok = np.ones(self.tl.n, dtype=bool)
@@ -277,8 +295,7 @@ class _Scheduler:
     def reserve(self, app, start, length):
         """Reserva una ventana fija (mantenimiento) en todas las métricas de la app."""
         for metric_id in METRICS:
-            self.busy[(app, metric_id)][
-                max(0, start - MIN_GAP_BUCKETS):start + length + MIN_GAP_BUCKETS] = True
+            self.busy[(app, metric_id)][max(0, start - self.gap):start + length + self.gap] = True
 
 
 def _hard_negative(kind, app, start, length, split, effect):
@@ -305,7 +322,7 @@ def _schedule_hard_negatives(scheduler, n_apps, bucket_seconds):
         lo, hi = scheduler.ranges[split]
         split_days = (hi - lo) * bucket_seconds / 86400.0
         for _ in range(max(1, round(n_apps * split_days / SURGE_DAYS_PER_EVENT))):
-            length = int(rng.integers(SURGE_DURATION[0], SURGE_DURATION[1] + 1))
+            length = scheduler.draw_length(SURGE_DURATION)
             targets = [(app, tuple(METRICS)) for app in range(n_apps)]
             app, _, start = scheduler.place(targets, length, split, MIN_EXPECTED_SESSIONS, True)
             multiplier = round(float(rng.uniform(*SURGE_MULTIPLIER)), 4)
@@ -358,8 +375,7 @@ def _place_anomaly(scheduler, n_apps, anomaly_type, severity, split, want_peak):
     else:
         targets = [(app, (m,)) for app in range(n_apps) for m in METRICS]
     threshold = MIN_DROPOUT_SESSIONS if anomaly_type == "dropout" else MIN_EXPECTED_SESSIONS
-    low, high = DURATIONS[anomaly_type]
-    length = int(rng.integers(low, high + 1))
+    length = scheduler.draw_length(DURATIONS[anomaly_type])
     app, metrics, start = scheduler.place(targets, length, split, threshold, want_peak)
     return {
         "kind": "anomaly", "type": anomaly_type, "severity": severity, "app_index": app,
@@ -487,8 +503,9 @@ def _validate_params(days, bucket_seconds, apps):
         raise ValueError(f"bucket_seconds must be >= {MIN_BUCKET_SECONDS}")
     if not 1 <= apps <= len(APP_PROFILES):
         raise ValueError(f"apps must be between 1 and {len(APP_PROFILES)}")
-    if days < 1:
-        raise ValueError("days must be >= 1")
+    if days < MIN_DAYS:
+        raise ValueError(f"days must be >= {MIN_DAYS}: a shorter window cannot fit every"
+                         " (type, severity) event in both splits")
 
 
 def _app_rows(profile, streams, events, inject_rng, tl, bucket_seconds):
@@ -677,7 +694,10 @@ def main(argv=None):
     parser.add_argument("--apps", type=int, default=DEFAULT_APPS)
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
     args = parser.parse_args(argv)
-    dataset = generate(args.seed, args.days, args.bucket_seconds, args.apps)
+    try:
+        dataset = generate(args.seed, args.days, args.bucket_seconds, args.apps)
+    except (ValueError, RuntimeError) as exc:
+        parser.error(str(exc))  # exit 2 con mensaje claro, sin traceback
     csv_path, manifest_path = write_dataset(dataset, args.out_dir)
     print(f"{len(dataset.rows)} rows -> {csv_path} (+ {manifest_path.name})")
 
