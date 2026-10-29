@@ -84,11 +84,14 @@ test-down:
 lint:
 	$(TEST_COMPOSE) run --rm --build --no-deps tests sh -c "flake8 src/ tests/ && pylint src/ --fail-under=9.0"
 
-# Requiere uv (https://docs.astral.sh/uv/). Resuelve para la misma plataforma
-# que Dockerfile.test y el CI; mantiene los pins existentes salvo que cambie
-# pyproject.toml (forzar upgrade: make lock UV_FLAGS=--upgrade).
+# Requiere uv (https://docs.astral.sh/uv/); corre la versión fijada en
+# UV_VERSION (la misma que setup-uv en .github/workflows/ci.yml) para que el
+# lock salga idéntico en cualquier máquina. Hashes de todas las plataformas
+# (x86_64 y ARM). Mantiene los pins existentes salvo que cambie pyproject.toml
+# (forzar upgrade: make lock UV_FLAGS=--upgrade).
+UV_VERSION = 0.9.5
 lock:
-	uv pip compile pyproject.toml --extra dev \
+	uvx uv@$(UV_VERSION) pip compile pyproject.toml --extra dev \
 		--python-version 3.11 --python-platform x86_64-manylinux_2_28 \
 		--generate-hashes --custom-compile-command "make lock" --quiet \
 		$(UV_FLAGS) -o requirements/dev.lock

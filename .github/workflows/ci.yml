@@ -181,6 +181,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      # Misma versión que UV_VERSION del Makefile (`make lock`).
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.9.5"
