@@ -1,0 +1,36 @@
+# IntellOps — contexto de build de Docker (ISS-S2-05)
+#
+# Las imágenes solo copian src/, tests/, requirements/, alembic.ini,
+# pyproject.toml, .flake8 y Dockerfile (ver Dockerfile, Dockerfile.test,
+# src/ml/Dockerfile y src/comms/Dockerfile). Esto no afecta al bind mount
+# de docker-compose.test.yml, que monta el repo completo.
+
+.git
+.github
+.venv
+venv
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.coverage
+coverage.xml
+htmlcov
+reports
+node_modules
+
+# Secretos locales: nunca al contexto de build
+.env
+.env.*
+!.env.example
+*.env
+
+# Documentación y material del proyecto (no los usa ninguna imagen)
+docs
+openspec
+gestionProyecto
+governance
+onboarding
+papers
+RRHH
+ml
+*.md

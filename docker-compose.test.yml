@@ -1,0 +1,52 @@
+# IntellOps — Entorno reproducible de testing (ISS-S2-05)
+#
+# Proyecto aislado del stack de desarrollo: Postgres efímero (tmpfs, sin
+# volumen) y sin puertos publicados, así la suite no toca la DB de dev ni
+# choca con un Postgres local. Variables fijadas acá para que un .env local
+# no cambie el resultado.
+#
+#   docker compose -f docker-compose.test.yml run --rm tests          # pipeline completo
+#   docker compose -f docker-compose.test.yml run --rm tests pytest -m unit
+#   docker compose -f docker-compose.test.yml down -v
+#
+# Ver `make ci`, `make test*` y CONTRIBUTING.md (sección Testing).
+
+name: intellops-test
+
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: intellops-test:local
+    # Archivos generados (reports/, htmlcov/, .coverage) con el dueño del host.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /app
+    # `:z` reetiqueta para SELinux (hosts RHEL/Fedora como la VM del lab);
+    # en hosts sin SELinux se ignora.
+    volumes:
+      - .:/app:z
+    environment:
+      - HOME=/tmp
+      - INTELLOPS_ENV=test
+      - DATABASE_URL=postgresql+asyncpg://intellops:intellops@test-db:5432/intellops
+      - JWT_SECRET=dev-only-jwt-secret-change-me-0123456789abcdef
+      - ADMIN_BOOTSTRAP_PASSWORD=admin-dev-password
+      - HYPOTHESIS_STORAGE_DIRECTORY=/tmp/.hypothesis
+    depends_on:
+      test-db:
+        condition: service_healthy
+
+  test-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=intellops
+      - POSTGRES_PASSWORD=intellops
+      - POSTGRES_DB=intellops
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intellops -d intellops"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

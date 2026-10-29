@@ -123,20 +123,35 @@ Cada test se clasifica automáticamente (`tests/conftest.py`):
 
 Si un test toca la DB sin pedir esos fixtures (p. ej. vía el engine global, como `/health`), marcalo con `@pytest.mark.integration`; de lo contrario fallará en el job `Unit Tests` del CI, que no tiene base de datos.
 
+### Entorno reproducible de testing
+
+Toda la suite corre en contenedores (`Dockerfile.test` + `docker-compose.test.yml`), así que el único requisito en la máquina es Docker con Compose v2 y `make` (tu laptop —x86_64 o ARM—, el servidor del laboratorio o el runner del CI dan el mismo resultado):
+
+- **Dependencias fijadas**: `requirements/dev.lock` (runtime + dev, con hashes) se instala en la imagen y en los jobs del CI. Si agregás o cambiás una dependencia en `pyproject.toml`, corré `make lock` (requiere [uv](https://docs.astral.sh/uv/); el target usa la versión fijada en `UV_VERSION`, la misma del CI) y commiteá el lock; el CI falla si quedó desactualizado. El lock trae hashes para x86_64 y ARM.
+- **Versiones mayores deliberadas**: el lock fija lo que `>=` resolvía al crearlo (p. ej. pylint 4, SQLAlchemy 2.1, pytest 9). Subir de versión es una decisión explícita: `make lock UV_FLAGS=--upgrade`, revisar el diff y que el CI quede en verde.
+- **Postgres efímero**: `test-db` vive en tmpfs y en un proyecto Compose aparte (`intellops-test`); no toca la DB de `make up` ni publica puertos.
+- **Código montado**: el repo se monta en `/app`, no hace falta reconstruir la imagen al cambiar código. Los reportes (`coverage.xml`, `htmlcov/`, `reports/junit.xml`) quedan en el repo con tu usuario.
+- **Variables fijas**: `DATABASE_URL`, `JWT_SECRET` y `ADMIN_BOOTSTRAP_PASSWORD` vienen del compose; un `.env` local no cambia el resultado.
+
 ```bash
-# Ejecutar tests
+make ci                 # lo mismo que el CI: lint → unit → migraciones → suite + cobertura (≥70%)
 make test               # suite completa
 make test-unit          # solo unit (sin DB, segundos)
 make test-integration   # solo integración (Postgres)
+make test-cov           # suite con cobertura (HTML en htmlcov/)
+make test-contract      # contract tests (schemathesis, OpenAPI 3.1)
+make lint               # flake8 + pylint ≥ 9.0
+make test-down          # borra contenedores y DB efímera
+```
 
-# Test con cobertura (HTML en htmlcov/)
-make test-cov
+Evitá `sudo make ci`: con sudo el UID es 0 y los reportes quedan de root. Si tu usuario no tiene acceso al socket de Docker, pedí que lo agreguen al grupo `docker`.
 
-# Test de contrato
-make test-contract
+```bash
 
-# Test de carga
-make test-load
+# Comando puntual dentro del entorno (exportá tu UID/GID para que los
+# archivos generados queden a tu nombre; `make` lo hace solo)
+HOST_UID=$(id -u) HOST_GID=$(id -g) \
+  docker compose -f docker-compose.test.yml run --rm tests pytest tests/test_auth.py -k login
 ```
 
 ### Pipeline de CI (`.github/workflows/ci.yml`)
@@ -148,16 +163,17 @@ Corre en push a `main`/`develop`, en PRs hacia esas ramas y manualmente (`workfl
 | `Lint & Format` | `flake8 src/ tests/` + `pylint src/` | hay warnings de flake8 o pylint < 9.0 |
 | `Unit Tests` | `pytest -m unit` sin Postgres | falla un test unitario |
 | `Unit & Integration Tests` | suite completa contra Postgres 16 + cobertura | falla un test o la cobertura < 70% |
+| `Reproducible Test Env (Docker)` | `make lock` sin diff + `make ci` en el entorno de testing | el lock está desactualizado o falla el pipeline en el contenedor |
 | `Contract Tests` | `tests/test_contract.py` (schemathesis, OpenAPI 3.1) | el contrato no valida |
 | `License Scan & SBOM` | SBOM CycloneDX + `pip-licenses` | hay dependencias SSPL/AGPL |
 | `Docker Build` | `docker compose build` | la imagen no construye |
 
 **Reporte de cobertura**: en la pestaña *Actions* de cada corrida, el resumen del job `Unit & Integration Tests` muestra el total y la tabla por archivo; el artefacto `coverage-report` trae `coverage.xml`, el HTML navegable (`htmlcov/index.html`) y `reports/junit.xml`.
 
-Reproducir el CI localmente sin Docker (con un Postgres accesible en `DATABASE_URL`):
+Reproducir el CI localmente sin Docker (con Python 3.11 y un Postgres accesible en `DATABASE_URL`):
 
 ```bash
-pip install -e ".[dev]"
+pip install --require-hashes -r requirements/dev.lock && pip install --no-deps -e .
 flake8 src/ tests/ && pylint src/ --fail-under=9.0
 PYTHONPATH=. pytest -m unit
 alembic upgrade head && PYTHONPATH=. pytest --cov --cov-report=term-missing

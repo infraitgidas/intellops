@@ -1,0 +1,27 @@
+# IntellOps — Imagen del entorno de testing (ISS-S2-05)
+#
+# Solo contiene el intérprete y las dependencias fijadas en
+# requirements/dev.lock; el código (src/, tests/, docs/, openspec/) se monta
+# desde el repo en /app (docker-compose.test.yml). Así la suite corre igual en
+# la máquina de cualquier dev, en el servidor del laboratorio y en el CI.
+
+FROM python:3.11.14-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Solo wheels precompilados: sin apt ni gcc, así el build no depende de los
+# mirrors de Debian (bloqueados en la red del laboratorio) ni de un compilador.
+COPY requirements/dev.lock /tmp/dev.lock
+RUN pip install --only-binary=:all: --require-hashes -r /tmp/dev.lock \
+    && rm /tmp/dev.lock
+
+WORKDIR /app
+
+# api.* y ml.* importables como top-level (igual que el Dockerfile de runtime);
+# /app para `tests.*`.
+ENV PYTHONPATH=/app/src:/app
+
+CMD ["sh", "scripts/ci-tests.sh"]
