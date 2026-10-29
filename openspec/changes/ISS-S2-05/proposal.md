@@ -23,7 +23,7 @@ Criterio de #39: **la suite se ejecuta sin depender de la máquina del desarroll
 ### Out of Scope
 - Runner self-hosted en el servidor del laboratorio: el entorno ya corre ahí con `make ci` (solo Docker); registrar un runner es decisión de infraestructura aparte (riesgo de ejecutar PRs de forks en la red del laboratorio).
 - Unificar `src/api/requirements.txt` (imagen de runtime) con el lock.
-- Arquitecturas no x86_64 (ARM): el lock se resuelve para `x86_64-manylinux_2_28`.
+- Ejecución verificada en ARM: el lock trae hashes de todas las plataformas y las 75 dependencias tienen wheel `aarch64` (verificado con `pip download --only-binary=:all: --require-hashes`), pero no se corrió la suite en un host ARM.
 
 ## Approach
 
@@ -41,6 +41,11 @@ La imagen de testing contiene solo el intérprete y las dependencias; el repo se
 | `CONTRIBUTING.md`, `CHANGELOG.md` | Modificado | documentación |
 
 Sin cambios en `src/`, `tests/`, contratos ni runtime.
+
+## Decisiones
+
+- **Saltos de versión mayor fijados a propósito**: al generarse, el lock fija lo que `>=` ya resolvía en el CI (pylint 3→4, SQLAlchemy 2.0→2.1, pytest 8→9); la suite pasa con esas versiones. De acá en adelante, subir versiones es explícito (`make lock UV_FLAGS=--upgrade`) y pasa por review.
+- **uv fijado** (`UV_VERSION` en el Makefile = `setup-uv` en el CI) para que `make lock` genere el mismo archivo en cualquier máquina.
 
 ## Risks
 
