@@ -49,7 +49,7 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   aislado del stack de dev; `scripts/ci-tests.sh` reproduce el pipeline del CI
   (`make ci`); `make test-contract` y `make test-down`; job de CI
   `Reproducible Test Env (Docker)` que corre `make ci` y verifica que el lock
-  esté al día con `pyproject.toml`.
+  esté al día con `pyproject.toml`; `.dockerignore` para el contexto de build.
 - Hardening de aislamiento multi-tenant + read path (ISS-S3-01, #40):
   ownership de sesión en el upsert (`_upsert_sessions` resuelve por PK antes
   del insert; sesión de OTRA app → filas del lote descartadas +
