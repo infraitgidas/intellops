@@ -3,7 +3,7 @@
 **Change**: ISS-S2-05 — Entorno reproducible de testing (GitHub #39)
 **Rama**: feat/ISS-S2-05 (base develop `b9220ab`)
 **Fecha**: 2026-10-23
-**Entorno**: VM del laboratorio GIDAS `intellops` (192.168.1.130, acceso por Twingate): x86_64, familia RHEL, SELinux `Enforcing`, Docker 29.4.1, Compose v5.1.3, GNU Make 4.4.1. Código copiado con `rsync` desde la máquina del dev (sin `.git`), sin Python ni dependencias instaladas en el host. Pendiente: primera corrida del job `Reproducible Test Env (Docker)` en GitHub Actions al abrir el PR.
+**Entorno**: VM del laboratorio GIDAS `intellops` (192.168.1.130, acceso por Twingate): x86_64, familia RHEL, SELinux `Enforcing`, Docker 29.4.1, Compose v5.1.3, GNU Make 4.4.1. Código copiado con `rsync` desde la máquina del dev (sin `.git`), sin Python ni dependencias instaladas en el host. GitHub Actions: el job `Reproducible Test Env (Docker)` y el resto del workflow (7/7) en verde en el PR el 2026-10-25.
 
 ### Criterio de aceptación (#39)
 
@@ -45,3 +45,4 @@ Problemas que la verificación fuera de la máquina del dev sacó a la luz:
 - `make test`, `make test-unit`, `make test-integration`, `make test-cov` y `make lint` ya no corren en `intellops-core`: antes fallaban al colectar `tests/test_contract.py` (sin `schemathesis` en `src/api/requirements.txt`) y truncaban la DB de desarrollo.
 - El lock fija versiones nuevas respecto de develop (fastapi 0.160, SQLAlchemy 2.1.6, pytest 9.1.1, schemathesis 4.32.3): son las que `pip install -e ".[dev]"` resolvía al momento; la suite pasa con ellas.
 - Runner self-hosted en la VM: fuera de alcance (ver proposal).
+- ARM: `pip download --only-binary=:all: --require-hashes -r requirements/dev.lock` para `manylinux*_aarch64` / cp311 baja las 75 dependencias (el lock trae hashes de todas las plataformas). No se corrió la suite en un host ARM.

@@ -25,5 +25,6 @@ Estimated changed lines: ~200 (sin contar el lock generado). Delivery strategy: 
 
 - [x] 4.1 `CONTRIBUTING.md` (sección "Entorno reproducible de testing") y `CHANGELOG.md`.
 - [x] 4.2 `make ci` en verde en una máquina distinta a la del dev (VM `intellops` del laboratorio).
-- [ ] 4.3 Primera corrida del job `Reproducible Test Env (Docker)` en GitHub Actions (al abrir el PR).
+- [x] 4.3 Primera corrida del job `Reproducible Test Env (Docker)` en GitHub Actions (al abrir el PR): en verde el 2026-10-25.
+- [x] 4.5 Ajustes de review: uv fijado en `make lock`, `.dockerignore`, UID en el uso directo documentado, ARM y versiones mayores aclarados.
 - [x] 4.4 `verify-report.md` con evidencia.
