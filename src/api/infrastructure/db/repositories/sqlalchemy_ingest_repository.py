@@ -199,6 +199,7 @@ class SQLAlchemyIngestRepository(IngestRepository):
                     "error_type": row.error_type,
                     "message": row.message,
                     "stack_trace": row.stack_trace,
+                    "sample_rate": row.sample_rate,
                     "timestamp": row.timestamp,
                 }
             )

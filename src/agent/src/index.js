@@ -154,6 +154,7 @@ export function init(config, env) {
       message: normalized.message,
       session_id: session.id,
       timestamp: new Date().toISOString(),
+      sample_rate: sampleRate,
     };
     if (normalized.stackTrace) event.stack_trace = normalized.stackTrace;
     exceptionsQueue.push(event);

@@ -205,6 +205,7 @@ CREATE TABLE js_exception (
     error_type TEXT NOT NULL,
     message TEXT NOT NULL,
     stack_trace TEXT,
+    sample_rate DOUBLE PRECISION,
     timestamp TIMESTAMPTZ NOT NULL,
 
     CONSTRAINT fk_js_exception_session

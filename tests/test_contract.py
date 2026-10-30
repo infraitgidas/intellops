@@ -67,7 +67,7 @@ def test_oas6_telemetry_paths_require_api_key():
             f"{path} DEBE exigir apiKey (OAS-6)"
         )
         declared = set(operation["responses"])
-        assert declared == {"202", "400", "401", "403", "503", "429"}  # OAS-11
+        assert declared == {"202", "400", "401", "403", "503"}  # OAS-11 + D-04
 
 
 def test_oas6_scheme_description_no_longer_defers_wiring():
@@ -126,7 +126,7 @@ def test_oas10_preexisting_paths_intact():
 
 def test_oas11_telemetry_paths_declare_request_body_and_responses():
     """Los paths /telemetry/* DEBEN declarar requestBody (RumEventBatch/
-    JsExceptionBatch) y las respuestas 202/400/401/403/503/429 con sus
+    JsExceptionBatch) y las respuestas 202/400/401/403/503 con sus
     schemas (OAS-11, escenario Contrato de respuestas completo)."""
     doc = _contract()
     metrics = doc["paths"]["/telemetry/metrics"]["post"]
@@ -147,13 +147,38 @@ def test_oas11_telemetry_paths_declare_request_body_and_responses():
             ]
             == "#/components/schemas/IngestResponse"
         )
-        for code in ("400", "401", "403", "503", "429"):
+        for code in ("400", "401", "403", "503"):
             assert (
                 operation["responses"][code]["content"]["application/json"]["schema"][
                     "$ref"
                 ]
                 == "#/components/schemas/ErrorResponse"
             )
+
+
+def test_d04_telemetry_paths_have_no_429_but_assistant_keeps_it():
+    """D-04: /telemetry/* NO DEBE declarar 429 hasta implementar el rate limit;
+    el 429 de /assistant/query (LLM ocupado) es ajeno y se mantiene."""
+    doc = _contract()
+    for path in ("/telemetry/metrics", "/telemetry/exceptions"):
+        assert "429" not in doc["paths"][path]["post"]["responses"], (
+            f"{path} no debe declarar 429 (D-04)"
+        )
+    assistant = doc["paths"]["/assistant/query"]["post"]["responses"]
+    assert "429" in assistant, "/assistant/query conserva su 429 (LLM ocupado)"
+
+
+def test_d03_rum_event_metadata_has_no_viewport_or_connection():
+    """D-03: `viewport` y `connection` NO DEBEN declararse en
+    RumEvent.metadata.properties porque el ingest no los persiste; `page_url`
+    y `user_agent` se mantienen."""
+    metadata = _contract()["components"]["schemas"]["RumEvent"]["properties"][
+        "metadata"
+    ]
+    properties = metadata["properties"]
+    assert "viewport" not in properties, "viewport debe salir del OpenAPI (D-03)"
+    assert "connection" not in properties, "connection debe salir del OpenAPI (D-03)"
+    assert {"page_url", "user_agent"} <= set(properties)
 
 
 # -- OAS-12: application_id fuera de required; sin unknown_application ----------
@@ -188,6 +213,20 @@ def test_oas12_js_exception_event_declares_schema_version():
 
     assert "schema_version" in event["required"]
     assert event["properties"]["schema_version"]["enum"] == ["1.0"]
+
+
+def test_od03_js_exception_event_declares_optional_sample_rate():
+    """OD-03: JsExceptionEvent DEBE declarar `sample_rate` number 0..1, fuera
+    de required, y NO debe incorporar aún `page_url` ni `agent_version`."""
+    event = _contract()["components"]["schemas"]["JsExceptionEvent"]
+    sample_rate = event["properties"]["sample_rate"]
+
+    assert sample_rate["type"] == "number"
+    assert sample_rate["minimum"] == 0
+    assert sample_rate["maximum"] == 1
+    assert "sample_rate" not in event["required"]
+    assert "page_url" not in event["properties"]
+    assert "agent_version" not in event["properties"]
 
 
 # -- OAS-13: contrato de consulta completado (/metrics/query, /metrics/list) --
@@ -366,7 +405,7 @@ def test_schemathesis_live_contract_scoped():
         allow_header_conformance=SimpleCheckConfig(enabled=False),
         positive_data_acceptance=PositiveDataAcceptanceConfig(
             expected_statuses=[
-                200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 429, 503,
+                200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 503,
             ]
         ),
     )

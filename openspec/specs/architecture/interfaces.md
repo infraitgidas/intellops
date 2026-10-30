@@ -62,8 +62,6 @@ responses:
     description: "Aplicación autenticada inactiva (app_inactive)"
   '503':
     description: "Cola de ingesta llena (backpressure, queue_full)"
-  '429':
-    description: "Rate limit excedido (declarado sin implementación)"
 ```
 
 ##### POST /telemetry/exceptions
@@ -88,8 +86,6 @@ responses:
     description: "Aplicación autenticada inactiva (app_inactive)"
   '503':
     description: "Cola de ingesta llena (backpressure, queue_full)"
-  '429':
-    description: "Rate limit excedido (declarado sin implementación)"
 ```
 
 ##### POST /assistant/query

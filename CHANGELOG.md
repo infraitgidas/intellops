@@ -76,6 +76,15 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   worker deja de reescribir timestamps con `now()` y de re-coaccionar el valor.
   Registros compartidos en `ingest_policy`; enum `RumMetric.unit` de OpenAPI
   ampliado a la familia de alias (ARCH-6); ADR-0004..0007.
+- Validación por evento de `schema_version` (B.15, ISS-B-15, #75): un evento
+  con versión distinta de `1.0` se rechaza con el nuevo código
+  `invalid_schema_version` (octavo) en `ingest_policy`, sin romper el 202
+  parcial ni rechazar el batch completo.
+- `sample_rate` en excepciones JS (B.15, ISS-B-15, #75): campo opcional en
+  `JsExceptionEvent` (OpenAPI 0..1 y Pydantic), enviado por el agente,
+  validado por evento (`invalid_range` si no es finito o sale de 0..1) y
+  persistido en `js_exception` (migración 0005 y espejo en `ddl_v1.0.sql`)
+  para ponderar el análisis por `1 / sample_rate`.
 
 ### Changed
 - CI (ISS-S2-04, #38): pylint `--fail-under` sube de 7.0 a 9.0; gate de
@@ -105,6 +114,11 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   por diseño (URL sin query, redacción de PII, DNT/GPC y opt-out). Bundle
   IIFE minificado de 4.3 KB gzip (tope 30 KB), sin dependencias de runtime.
   78 tests con `node --test`, demo HTML y verificación E2E contra la ingesta.
+- Contrato RUM alineado con la implementación (B.15, ISS-B-15, #75): se retiran
+  `viewport` y `connection` del OpenAPI de `RumEvent.metadata` y el `429` de
+  `/telemetry/*` hasta implementar el rate limit (el de `/assistant/query` se
+  mantiene); se corrige la redacción de secretos al inicio del texto
+  (`SECRET_PAIR_RE`, `28181c2`).
 
 ### Security
 

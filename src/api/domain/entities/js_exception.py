@@ -10,6 +10,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, Text, text
+from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -35,6 +36,7 @@ class JsException(Base):
     error_type: Mapped[str] = mapped_column(Text, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     stack_trace: Mapped[str | None] = mapped_column(Text)
+    sample_rate: Mapped[float | None] = mapped_column(DOUBLE_PRECISION)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )

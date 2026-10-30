@@ -65,12 +65,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: "Rate limit excedido (declarado sin implementación, D3)"
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /telemetry/exceptions:
     post:
       summary: Ingesta de excepciones JavaScript
@@ -111,12 +105,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '503':
           description: "Cola de ingesta llena (backpressure, queue_full)"
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: "Rate limit excedido (declarado sin implementación, D3)"
           content:
             application/json:
               schema:
@@ -924,20 +912,6 @@ components:
             user_agent:
               type: string
               description: "User agent del navegador"
-            viewport:
-              type: object
-              description: "Dimensiones de la ventana del navegador"
-              properties:
-                width:
-                  type: integer
-                  description: "Ancho en píxeles"
-                height:
-                  type: integer
-                  description: "Alto en píxeles"
-            connection:
-              type: object
-              description: "Información de conexión del usuario (ej: effectiveType)"
-              additionalProperties: true
     RumMetric:
       type: object
       required: [type, value, unit]
@@ -1016,6 +990,11 @@ components:
           type: string
           format: date-time
           description: "ISO 8601 UTC - momento de captura de la excepción"
+        sample_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: "Tasa de muestreo de excepciones de la sesión (0..1); permite ponderar el análisis por 1/sample_rate. Opcional (OD-03)."
     IngestResponse:
       type: object
       required: [batch_id, accepted, rejected]
@@ -1040,7 +1019,7 @@ components:
                 description: "Posición del evento rechazado dentro del batch"
               reason:
                 type: string
-                description: "Código de rechazo por evento (missing_required_field, invalid_uuid, invalid_metric_type, invalid_unit, invalid_range, invalid_timestamp, oversized_event)"
+                description: "Código de rechazo por evento (missing_required_field, invalid_uuid, invalid_metric_type, invalid_unit, invalid_range, invalid_timestamp, invalid_schema_version, oversized_event)"
     ErrorResponse:
       type: object
       required: [error]
