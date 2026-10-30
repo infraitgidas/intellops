@@ -912,20 +912,6 @@ components:
             user_agent:
               type: string
               description: "User agent del navegador"
-            viewport:
-              type: object
-              description: "Dimensiones de la ventana del navegador"
-              properties:
-                width:
-                  type: integer
-                  description: "Ancho en píxeles"
-                height:
-                  type: integer
-                  description: "Alto en píxeles"
-            connection:
-              type: object
-              description: "Información de conexión del usuario (ej: effectiveType)"
-              additionalProperties: true
     RumMetric:
       type: object
       required: [type, value, unit]

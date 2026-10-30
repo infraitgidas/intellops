@@ -168,6 +168,19 @@ def test_d04_telemetry_paths_have_no_429_but_assistant_keeps_it():
     assert "429" in assistant, "/assistant/query conserva su 429 (LLM ocupado)"
 
 
+def test_d03_rum_event_metadata_has_no_viewport_or_connection():
+    """D-03: `viewport` y `connection` NO DEBEN declararse en
+    RumEvent.metadata.properties porque el ingest no los persiste; `page_url`
+    y `user_agent` se mantienen."""
+    metadata = _contract()["components"]["schemas"]["RumEvent"]["properties"][
+        "metadata"
+    ]
+    properties = metadata["properties"]
+    assert "viewport" not in properties, "viewport debe salir del OpenAPI (D-03)"
+    assert "connection" not in properties, "connection debe salir del OpenAPI (D-03)"
+    assert {"page_url", "user_agent"} <= set(properties)
+
+
 # -- OAS-12: application_id fuera de required; sin unknown_application ----------
 
 def test_oas12_application_id_not_required_and_no_unknown_application():
