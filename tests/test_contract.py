@@ -215,6 +215,20 @@ def test_oas12_js_exception_event_declares_schema_version():
     assert event["properties"]["schema_version"]["enum"] == ["1.0"]
 
 
+def test_od03_js_exception_event_declares_optional_sample_rate():
+    """OD-03: JsExceptionEvent DEBE declarar `sample_rate` number 0..1, fuera
+    de required, y NO debe incorporar aún `page_url` ni `agent_version`."""
+    event = _contract()["components"]["schemas"]["JsExceptionEvent"]
+    sample_rate = event["properties"]["sample_rate"]
+
+    assert sample_rate["type"] == "number"
+    assert sample_rate["minimum"] == 0
+    assert sample_rate["maximum"] == 1
+    assert "sample_rate" not in event["required"]
+    assert "page_url" not in event["properties"]
+    assert "agent_version" not in event["properties"]
+
+
 # -- OAS-13: contrato de consulta completado (/metrics/query, /metrics/list) --
 
 def test_oas13_metrics_paths_complete_contract():

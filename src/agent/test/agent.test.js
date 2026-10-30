@@ -112,6 +112,7 @@ describe("excepciones (§2.3, AC-04)", () => {
     assert.match(event.stack_trace, /app\.js:10:5/);
     assert.equal(event.session_id, agent.sessionId);
     assert.match(event.timestamp, /Z$/);
+    assert.equal(event.sample_rate, 1);
     assert.equal("metric_id" in event, false);
     assert.equal("application_id" in event, false);
   });
@@ -192,15 +193,20 @@ describe("muestreo (§5, AC-08)", () => {
     assert.equal(used.calls.length, 0);
   });
 
-  it("reporta sample_rate en metadata", async () => {
+  it("reporta sample_rate en métricas y excepciones", async () => {
     const fetch = fakeFetch();
-    const { agent, fetch: used } = start(
+    const { agent, window, fetch: used } = start(
       { fetch, performance: fakePerformance({ navigation: { responseStart: 200, requestStart: 100 } }) },
       { sampleRate: 1 },
     );
     await flushMicrotasks();
+    window.dispatch("error", new Error("boom muestreado"));
+    await flushMicrotasks();
     await agent.flush();
-    assert.equal(used.calls[0].body.events[0].metrics[0].metadata.sample_rate, 1);
+    const metricsCall = used.calls.find((call) => call.url.endsWith("/telemetry/metrics"));
+    const exceptionsCall = used.calls.find((call) => call.url.endsWith("/telemetry/exceptions"));
+    assert.equal(metricsCall.body.events[0].metrics[0].metadata.sample_rate, 1);
+    assert.equal(exceptionsCall.body.events[0].sample_rate, 1);
   });
 });
 

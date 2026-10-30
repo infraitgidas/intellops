@@ -990,6 +990,11 @@ components:
           type: string
           format: date-time
           description: "ISO 8601 UTC - momento de captura de la excepción"
+        sample_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: "Tasa de muestreo de excepciones de la sesión (0..1); permite ponderar el análisis por 1/sample_rate. Opcional (OD-03)."
     IngestResponse:
       type: object
       required: [batch_id, accepted, rejected]

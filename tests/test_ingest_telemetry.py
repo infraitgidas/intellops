@@ -312,9 +312,16 @@ def test_ingest_entities_mirror_ddl_0001():
     assert {"metric_id", "session_id", "metric_type_id", "value", "unit", "timestamp"} <= set(
         RumMetric.__table__.columns.keys()
     )
-    assert {"error_id", "session_id", "metric_id", "error_type", "message", "timestamp"} <= set(
-        JsException.__table__.columns.keys()
-    )
+    assert {
+        "error_id",
+        "session_id",
+        "metric_id",
+        "error_type",
+        "message",
+        "stack_trace",
+        "sample_rate",
+        "timestamp",
+    } <= set(JsException.__table__.columns.keys())
 
 
 # -- RUM-5/DD-6: config de ingesta y error 503 ---------------------------------
@@ -531,6 +538,30 @@ def test_js_exception_schema_application_id_optional():
         timestamp=_ts(),
     )
     assert event.application_id is None
+    assert event.sample_rate is None
+    assert "sample_rate" not in event.model_fields_set
+
+
+def test_js_exception_schema_accepts_sample_rate():
+    """OD-03: `sample_rate` se acepta cuando viene y sigue siendo opcional."""
+    from api.presentation.schemas.ingest import JsExceptionEvent
+
+    event = JsExceptionEvent(
+        schema_version="1.0",
+        error_type="TypeError",
+        message="boom",
+        session_id=str(uuid4()),
+        timestamp=_ts(),
+        sample_rate=0.25,
+    )
+    assert event.sample_rate == 0.25
+    assert "sample_rate" in event.model_fields_set
+
+
+def test_policy_accepts_js_exception_sample_rate_present_and_absent():
+    """OD-03: la política no exige `sample_rate`; presente o ausente valida."""
+    assert validate_js_exception(_js()) is None
+    assert validate_js_exception(_js(sample_rate=0.25)) is None
 
 
 def test_rum_event_schema_accepts_over_50_metrics():
@@ -1319,6 +1350,22 @@ def test_build_rows_metric_timestamp_comes_from_canonical_payload():
     )
     _, metrics, _ = _build_rows([event])
     assert metrics[0].timestamp == _datetime.fromisoformat(metric_ts)
+
+
+def test_build_rows_persists_exception_sample_rate_when_present():
+    """OD-03/D1: `_build_rows` DEBE trasladar sample_rate del payload canónico
+    a ExceptionRow; ausente queda en None."""
+    from api.infrastructure.ingest.queue import _build_rows
+
+    event = _queued_event(
+        kind="exception", payload=_canonical_js(sample_rate=0.25)
+    )
+    _, _, exceptions = _build_rows([event])
+    assert exceptions[0].sample_rate == 0.25
+
+    event_without = _queued_event(kind="exception", payload=_canonical_js())
+    _, _, exceptions_without = _build_rows([event_without])
+    assert exceptions_without[0].sample_rate is None
 
 
 # -- RUM-6: persistencia del worker (Postgres real, D1) ------------------------
