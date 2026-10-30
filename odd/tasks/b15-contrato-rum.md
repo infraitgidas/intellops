@@ -60,7 +60,7 @@ Fuera:
 | T4 | OD-04/D-02: validación por evento de `schema_version` + código `invalid_schema_version` | OD-04 | delegated | ✅ | `96170b1` |
 | T5 | OD-03: `sample_rate` en contrato, agente, ingest y persistencia (DDL + migración) | OD-03 | delegated | ✅ | `7457232` |
 | T6 | Actualizar estado de §13/§14 en el contrato + CHANGELOG | — | delegated | ✅ | `39212c9` |
-| T7 | Revisión de la issue #75: validar `sample_rate` (0..1, finito) en `ingest_policy`, matrices de ingesta/agente y tests de migración 0005 | OD-03 | parent | ⏳ | (esta review) |
+| T7 | Revisión de la issue #75: validar `sample_rate` (0..1, finito) en `ingest_policy`, matrices de ingesta/agente y tests de migración 0005 | OD-03 | parent | ✅ | `7eabf92` |
 
 ## Criterios de aceptación
 
@@ -123,4 +123,4 @@ No module named 'numpy'` en `.venv`. No es causada por este cambio.
   Verificación: contract 19 passed + 1 xpassed; unit 298 passed (única falla ambiental
   de `numpy`); agente 79/79; `tests/test_migrations.py` 17 passed y `-m integration`
   130 passed sobre una base Postgres aislada (`intellops_b15_verify`, creada y eliminada
-  para la corrida).
+  para la corrida). T7 commiteada en `7eabf92`.
