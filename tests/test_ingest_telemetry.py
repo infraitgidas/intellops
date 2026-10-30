@@ -76,7 +76,7 @@ def _canonical_js(**overrides) -> dict:
     return normalize_js_exception(_js(**overrides))
 
 
-# -- RUM-4: política por evento — 7 códigos, sin unknown_application ----------
+# -- RUM-4: política por evento — 8 códigos, sin unknown_application ----------
 
 def test_policy_accepts_valid_rum_event():
     """Un evento RUM bien formado DEBE validar (None = sin rechazo)."""
@@ -143,6 +143,39 @@ def test_policy_accepts_rum_without_application_id():
 def test_policy_has_no_unknown_application_code():
     """El código unknown_application NO DEBE existir en el flujo (D2)."""
     assert "unknown_application" not in REJECTION_CODES
+
+
+def test_policy_has_invalid_schema_version_as_eighth_code():
+    """OD-04/D-02: el catálogo DEBE tener ocho códigos e incluir
+    invalid_schema_version para un valor presente pero inválido."""
+    assert "invalid_schema_version" in REJECTION_CODES
+    assert len(REJECTION_CODES) == 8
+
+
+def test_policy_rejects_unsupported_schema_version_per_event():
+    """Un evento con schema_version distinto de 1.0 DEBE rechazarse con
+    invalid_schema_version (no missing_required_field ni invalid_range)."""
+    assert (
+        validate_rum_event(_rum(schema_version="2.0"))
+        == "invalid_schema_version"
+    )
+    assert (
+        validate_js_exception(_js(schema_version="2.0"))
+        == "invalid_schema_version"
+    )
+    # No se aceptan no-strings ni versiones equivalentes.
+    assert (
+        validate_rum_event(_rum(schema_version=1.0))
+        == "invalid_schema_version"
+    )
+
+
+def test_policy_rejects_js_exception_missing_schema_version():
+    """La excepción DEBE requerir schema_version en la política: sin él,
+    missing_required_field; el envelope ya lo exige con 400."""
+    js = _js()
+    del js["schema_version"]
+    assert validate_js_exception(js) == "missing_required_field"
 
 
 def test_policy_rejects_missing_required_field():
@@ -955,6 +988,30 @@ async def test_telemetry_metrics_202_partial_rejection(client, make_admin):
     assert body["accepted"] == 2
     assert body["rejected"] == [{"index": 1, "reason": "invalid_uuid"}]
     assert body["accepted"] + len(body["rejected"]) == 3
+    assert len(env["queue"].enqueued) == 2
+
+
+async def test_telemetry_202_partial_rejection_invalid_schema_version(
+    client, make_admin
+):
+    """OD-04/D-02: envelope válido con un evento schema_version="2.0" → 202;
+    ese evento va en rejected[] con invalid_schema_version y el resto se
+    acepta (el batch no se rechaza completo)."""
+    env = await _setup_ingest(client, make_admin)
+    payload = _rum_batch_payload(n=3)
+    payload["events"][1] = _rum(schema_version="2.0")
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["accepted"] == 2
+    assert body["rejected"] == [
+        {"index": 1, "reason": "invalid_schema_version"}
+    ]
     assert len(env["queue"].enqueued) == 2
 
 

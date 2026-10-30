@@ -67,6 +67,7 @@ sequenceDiagram
 | `invalid_unit` | `unit` fuera de `ms`/`count` o incoherente con el tipo |
 | `invalid_range` | `value` fuera del rango de cordura (ej. TTFB > 60000), conteo no entero o valor no finito (`NaN`/`Infinity`) |
 | `invalid_timestamp` | `timestamp` no parseable o sin zona horaria explícita |
+| `invalid_schema_version` | `schema_version` del evento distinto de `"1.0"` (OD-04/D-02); el envelope ya se rechaza completo con 400 |
 | `oversized_event` | Excede límites de longitud (ej. `stack_trace` > 20000, > 50 métricas) |
 
 > **ISS-S2-03 (D2)**: el código `unknown_application` fue eliminado del flujo — el tenant se deriva EXCLUSIVAMENTE de la API key (IAUTH-2) y el `application_id` del payload es opcional y nunca autoridad.

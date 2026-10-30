@@ -1014,7 +1014,7 @@ components:
                 description: "Posición del evento rechazado dentro del batch"
               reason:
                 type: string
-                description: "Código de rechazo por evento (missing_required_field, invalid_uuid, invalid_metric_type, invalid_unit, invalid_range, invalid_timestamp, oversized_event)"
+                description: "Código de rechazo por evento (missing_required_field, invalid_uuid, invalid_metric_type, invalid_unit, invalid_range, invalid_timestamp, invalid_schema_version, oversized_event)"
     ErrorResponse:
       type: object
       required: [error]
