@@ -124,3 +124,23 @@ No module named 'numpy'` en `.venv`. No es causada por este cambio.
   de `numpy`); agente 79/79; `tests/test_migrations.py` 17 passed y `-m integration`
   130 passed sobre una base Postgres aislada (`intellops_b15_verify`, creada y eliminada
   para la corrida). T7 commiteada en `7eabf92`.
+
+- **L5** (2026-10-30, bloqueo de review nativa, causa real): la nota de L3 decía
+  `managed_assets_outdated` + `--agent opencode`; el stop real es `--agent pi`, y tras
+  `gentle-ai sync --agent pi` (y `--agent opencode`) los assets ya estaban al día, pero el
+  stop siguió hasta refrescar el STATUS: se destrabó. El bloqueo de fondo es otro y es
+  estructural: el controlador deriva la base de **`origin/main`** (`a58e0cd`), que está 220
+  commits atrás de `develop` (base real de las PR de este repo). El candidato resultante
+  son 286 paths / ~46k líneas, y `review start` falla en preflight con
+  `lens_context_budget_exceeded` (sin crear autoridad: `mutation_outcome: not_started`,
+  nada que reparar). Pasar `baseRef=develop` + `committedOnly: true` al START se rechaza
+  con `native-start-retained-selection-candidate-mismatch`, porque la selección retenida
+  quedó atada al árbol de `origin/main`. Es decir: la review nativa no puede cubrir el
+  slice B.15 mientras la base derivada sea `main`.
+  Verificación del mismo día: `make ci` en el entorno docker (Postgres 16 efímero) en
+  verde — lint OK, 431 passed + 1 xpassed, cobertura 90.39 % (ahí el fallo de `numpy` del
+  host no aparece).
+  Salidas posibles (decisión del owner): (a) política de review repo-local que fije
+  `develop` como base (`--policy`), (b) refrescar el espejo local de `origin/main` al tip
+  de `develop` para el scope de review, o (c) `gentle-ai review mode disable --scope clone`
+  y seguir con revisión humana + CI, que ya está verde.
