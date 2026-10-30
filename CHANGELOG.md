@@ -94,6 +94,17 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `ApplicationRead` (Pydantic + OpenAPI) — el hash es dato interno y no viaja
   en respuestas; `ApplicationRead` ahora expone `is_active`.
 - Contract testing con schemathesis (OpenAPI 3.1) como gate de CI (OAS-9).
+- Agente RUM de navegador (B.1, ISS-B-01, #67): `src/agent/` implementa el
+  contrato A.3 v0.1 — TTFB (`responseStart - requestStart`), FCP
+  (`first-contentful-paint`) y excepciones no manejadas (`onerror`,
+  `unhandledrejection`) en `POST /telemetry/metrics` y
+  `POST /telemetry/exceptions`; sesión opaca en `sessionStorage` con rotación
+  30 min/24 h, muestreo determinista por sesión, batching con caps de 400
+  eventos y 32 KiB, `fetch` con `keepalive` y `X-API-Key` (sin `sendBeacon`),
+  reintentos 1 s/2 s con backoff y circuito abierto ante 401/403; privacidad
+  por diseño (URL sin query, redacción de PII, DNT/GPC y opt-out). Bundle
+  IIFE minificado de 4.3 KB gzip (tope 30 KB), sin dependencias de runtime.
+  78 tests con `node --test`, demo HTML y verificación E2E contra la ingesta.
 
 ### Security
 

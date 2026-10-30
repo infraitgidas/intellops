@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IntellOps RUM — demo del agente (ISS-B-01)</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem; line-height: 1.5; }
+      main { max-width: 48rem; margin: 0 auto; }
+      fieldset { border: 1px solid #8884; border-radius: 8px; margin-bottom: 1rem; padding: 1rem; }
+      label { display: block; margin: 0.5rem 0 0.25rem; font-weight: 600; }
+      input { width: 100%; padding: 0.4rem; box-sizing: border-box; }
+      button { padding: 0.5rem 1rem; margin: 0.25rem 0.5rem 0.25rem 0; cursor: pointer; }
+      pre { background: #8881; padding: 1rem; border-radius: 8px; overflow: auto; min-height: 6rem; }
+      .hint { font-size: 0.875rem; opacity: 0.8; }
+      .fcp-block { min-height: 60vh; display: grid; place-items: center; font-size: 1.5rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Agente RUM — demo</h1>
+      <p class="hint">
+        Carga el agente contra la ingesta local. El consentimiento arranca apagado:
+        sin el check, el agente no recolecta nada (§9 del contrato).
+      </p>
+
+      <fieldset>
+        <legend>Configuración</legend>
+        <label for="endpoint">Endpoint de ingesta</label>
+        <input id="endpoint" value="http://localhost:8000" />
+        <label for="apiKey">API key (X-API-Key)</label>
+        <input id="apiKey" placeholder="ilp_... (se pide a la ingesta; nunca se versiona)" />
+        <label for="sampleRate">Tasa de muestreo (0 a 1)</label>
+        <input id="sampleRate" type="number" min="0" max="1" step="0.1" value="1" />
+        <label>
+          <input id="consent" type="checkbox" style="width: auto" />
+          Doy consentimiento de recolección
+        </label>
+        <button id="start">Iniciar agente</button>
+        <button id="flush">Forzar flush</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Provocar eventos</legend>
+        <button id="error-btn">Lanzar TypeError no manejado</button>
+        <button id="rejection-btn">Rechazar una promesa</button>
+        <button id="pii-btn">Error con PII (se debe redactar)</button>
+        <div class="fcp-block">Contenido visible que dispara el FCP</div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Estado</legend>
+        <pre id="status">Agente detenido.</pre>
+      </fieldset>
+    </main>
+
+    <script src="../dist/rum.js"></script>
+    <script>
+      const statusEl = document.getElementById("status");
+      let agent = null;
+
+      function render(extra) {
+        if (!agent) {
+          statusEl.textContent = extra || "Agente detenido.";
+          return;
+        }
+        statusEl.textContent = [
+          `enabled: ${agent.enabled}`,
+          `sessionId: ${agent.sessionId || "-"}`,
+          `sampleRate: ${agent.sampleRate ?? "-"}`,
+          `enviados: ${agent.counters.sent}`,
+          `rechazados: ${agent.counters.rejected}`,
+          `descartados: ${agent.counters.dropped}`,
+          `fallidos: ${agent.counters.failed}`,
+          extra || "",
+        ].join("\n");
+      }
+
+      document.getElementById("start").addEventListener("click", () => {
+        const apiKey = document.getElementById("apiKey").value.trim();
+        const endpoint = document.getElementById("endpoint").value.trim();
+        const consent = document.getElementById("consent").checked;
+        const sampleRate = Number(document.getElementById("sampleRate").value);
+        if (!apiKey) {
+          render("Falta la API key: el agente no se inicializa sin credenciales.");
+          return;
+        }
+        try {
+          agent = IntellOpsRUM.init({ apiKey, endpoint, consent, sampleRate });
+          render();
+        } catch (error) {
+          agent = null;
+          render(`Error al inicializar: ${error.message}`);
+        }
+      });
+
+      document.getElementById("flush").addEventListener("click", async () => {
+        if (!agent) return render("Primero iniciá el agente.");
+        await agent.flush();
+        render("flush manual completado");
+      });
+
+      document.getElementById("error-btn").addEventListener("click", () => {
+        setTimeout(() => {
+          throw new TypeError("demo: función inexistente");
+        }, 0);
+      });
+
+      document.getElementById("rejection-btn").addEventListener("click", () => {
+        Promise.reject(new Error("demo: promesa rechazada sin catch"));
+      });
+
+      document.getElementById("pii-btn").addEventListener("click", () => {
+        setTimeout(() => {
+          throw new Error("demo: falló la compra de federico@example.com token=abc123");
+        }, 0);
+      });
+
+      setInterval(() => {
+        if (agent) render();
+      }, 1000);
+    </script>
+  </body>
+</html>

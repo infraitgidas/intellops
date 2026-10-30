@@ -98,7 +98,23 @@ observabilidad/
 
 - **Estilo**: ESLint con configuración estándar
 - **Formato**: Prettier
-- **Bundle**: < 50KB para agente, < 1MB para dashboard
+- **Bundle del agente RUM**: ≤ 30 KB gzip, objetivo 20 KB
+  (`docs/architecture/ContratoAgenteRUM.md` §10); el dashboard, < 1 MB
+- **Dependencias de runtime del agente**: ninguna; `esbuild` es la única
+  dependencia de desarrollo (`src/agent/package.json`)
+
+### Agente RUM (`src/agent/`)
+
+```bash
+cd src/agent
+npm install
+npm run build       # genera dist/rum.js (minificado) y verifica el tope gzip
+npm test            # tests del agente con el runner nativo de Node
+```
+
+La verificación contra una ingesta real se hace con `scripts/e2e.mjs`
+(ver `src/agent/README.md`). La API key se pasa por variable de entorno:
+nunca se versiona.
 
 ### OpenAPI / AsyncAPI
 
