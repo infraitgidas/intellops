@@ -36,13 +36,13 @@ Un `RumEvent` por page view, con TTFB y FCP en el mismo `metrics[]`. Si FCP no o
 
 | Campo agente | Campo servidor | Tipo / enum | Obligatorio | Regla y evidencia |
 |---|---|---|---|---|
-| `schemaVersion` | `schema_version` (envelope y evento) | string `"1.0"` | Sí | El envelope exige `^1\.0$` (`src/api/presentation/schemas/ingest.py:40`); el evento lo requiere y valida la política con `invalid_schema_version` (`src/api/domain/services/ingest_policy.py:212-218`). |
-| `timestamp` | `timestamp` | string ISO 8601 con zona | Sí | Un timestamp sin zona se rechaza con `invalid_timestamp` (`ingest_policy.py:139-154`). El agente envía `new Date().toISOString()`. |
-| `sessionId` | `session_id` | string UUID | Sí | UUID válido o `invalid_uuid` (`ingest_policy.py:219-221`). |
-| `metrics[]` | `metrics` | array 1..50 | Sí | Máximo 50 métricas por evento (`ingest_policy.py:114,229-231`). |
+| `schemaVersion` | `schema_version` (envelope y evento) | string `"1.0"` | Sí | El envelope exige `^1\.0$` (`src/api/presentation/schemas/ingest.py:40`); el evento lo requiere y valida la política con `invalid_schema_version` (`src/api/domain/services/ingest_policy.py:234-236`). |
+| `timestamp` | `timestamp` | string ISO 8601 con zona | Sí | Un timestamp sin zona se rechaza con `invalid_timestamp` (`ingest_policy.py:144-153`). El agente envía `new Date().toISOString()`. |
+| `sessionId` | `session_id` | string UUID | Sí | UUID válido o `invalid_uuid` (`ingest_policy.py:237-239`). |
+| `metrics[]` | `metrics` | array 1..50 | Sí | Máximo 50 métricas por evento (`ingest_policy.py:123,245-249`). |
 | `metrics[].type` | `metrics[].type` | `"TTFB"` o `"FCP"` | Sí | Enum del servidor: TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK (`openspec/specs/openapi.yaml:921`). |
-| `metrics[].value` | `metrics[].value` | number ≥ 0 | Sí | TTFB 0..60000 ms; FCP 0..120000 ms (`ingest_policy.py:104-108`). |
-| `metrics[].unit` | `metrics[].unit` | `"ms"` | Sí | Unidad canónica por tipo (`ingest_policy.py:36-44`); el agente no usa alias (`s`, `sec`, `msec`, etc.). |
+| `metrics[].value` | `metrics[].value` | number ≥ 0 | Sí | TTFB 0..60000 ms; FCP 0..120000 ms (`ingest_policy.py:105-111`). |
+| `metrics[].unit` | `metrics[].unit` | `"ms"` | Sí | Unidad canónica por tipo (`ingest_policy.py:37-44`); el agente no usa alias (`s`, `sec`, `msec`, etc.). |
 | `metrics[].timestamp` | `metrics[].timestamp` | string ISO 8601 | No | Si falta, hereda el del envelope (`src/api/domain/services/ingest_normalizer.py:125-138`). El agente la omite. |
 | `metrics[].pageUrl` | `metrics[].page_url` | string saneada | No | Se persiste en `rum_metric.page_url` (`queue.py:275-277`). |
 | `metrics[].metadata` | `metrics[].metadata` | objeto JSON | No | Se persiste como JSONB (`migrations/0001_initial_schema.py:175`); es el único lugar donde el agente puede añadir contexto propio. |
@@ -65,16 +65,17 @@ El servidor no define el ancla temporal de una duración. Convención v0.1: `tim
 
 | Campo agente | Campo servidor | Tipo / enum | Obligatorio | Regla y evidencia |
 |---|---|---|---|---|
-| `schemaVersion` | `schema_version` | string `"1.0"` | Sí | Requerido por Pydantic (`src/api/presentation/schemas/ingest.py:47`) y validado por evento con `invalid_schema_version` (`ingest_policy.py:241-245`); el OpenAPI lo declara con enum `1.0` (D-01). |
-| `errorType` | `error_type` | string ≤ 100 | Sí | Catálogo canónico: `Error`, `TypeError`, `ReferenceError`, `RangeError`, `SyntaxError`, `EvalError`, `URIError`, `AggregateError`, `InternalError`, `UnhandledRejection`, `Other` (`ingest_policy.py:78-95`). Desconocido se agrupa en `Other` (`ingest_normalizer.py:93-100`). |
-| `message` | `message` | string ≤ 2000 | Sí | Exceder el límite produce `oversized_event` (`ingest_policy.py:248-251`). |
-| `stackTrace` | `stack_trace` | string ≤ 20000 | No | Exceder el límite produce `oversized_event` (`ingest_policy.py:252-256`). El agente trunca antes de enviar. |
-| `sessionId` | `session_id` | string UUID | Sí | UUID válido o `invalid_uuid` (`ingest_policy.py:258-259`). |
-| `timestamp` | `timestamp` | string ISO 8601 con zona | Sí | `invalid_timestamp` si falta zona (`ingest_policy.py:265-266`). |
+| `schemaVersion` | `schema_version` | string `"1.0"` | Sí | Requerido por Pydantic (`src/api/presentation/schemas/ingest.py:47`) y validado por evento con `invalid_schema_version` (`ingest_policy.py:262-263`); el OpenAPI lo declara con enum `1.0` (D-01). |
+| `errorType` | `error_type` | string ≤ 100 | Sí | Catálogo canónico: `Error`, `TypeError`, `ReferenceError`, `RangeError`, `SyntaxError`, `EvalError`, `URIError`, `AggregateError`, `InternalError`, `UnhandledRejection`, `Other` (`ingest_policy.py:79-93`). Desconocido se agrupa en `Other` (`ingest_normalizer.py:93-100`). |
+| `message` | `message` | string ≤ 2000 | Sí | Exceder el límite produce `oversized_event` (`ingest_policy.py:264-266`). |
+| `stackTrace` | `stack_trace` | string ≤ 20000 | No | Exceder el límite produce `oversized_event` (`ingest_policy.py:267-274`). El agente trunca antes de enviar. |
+| `sessionId` | `session_id` | string UUID | Sí | UUID válido o `invalid_uuid` (`ingest_policy.py:275-276`). |
+| `timestamp` | `timestamp` | string ISO 8601 con zona | Sí | `invalid_timestamp` si falta zona (`ingest_policy.py:286-287`). |
+| `sampleRate` | `sample_rate` | number 0..1 | No | Opcional (OD-03): se persiste en `js_exception.sample_rate` y se usa para ponderar por `1 / sample_rate` (§5). Fuera de rango o no finito produce `invalid_range` (`ingest_policy.py:283-285`). |
 | `application_id` | `application_id` | UUID | No | Se omite por la misma razón que en métricas. |
 | `metricId` | `metric_id` | UUID | No | Se omite: el servidor genera `metric_id` al persistir (`queue.py:289`), por lo que el cliente no puede conocerlo. |
 
-Para `errorType`, el agente usa `error.name` y, para promesas rechazadas, `"UnhandledRejection"` (`ingest_policy.py:94-99`).
+Para `errorType`, el agente usa `error.name` y, para promesas rechazadas, `"UnhandledRejection"` (`ingest_policy.py:95-100`).
 
 ### 2.4 Datos que el servidor no recibe
 
@@ -248,7 +249,7 @@ La retención del lado del servidor (`< 90 días` en la investigación, `rum-age
 | ID | Discrepancia | Evidencia |
 |---|---|---|
 | D-01 | **Corregido (23/10/2026)**: `schema_version` se declara requerido en `JsExceptionEvent` con enum `1.0`, alineado con `RumEvent`. OD-04 implementó la validación del valor por evento (ISS-B-15, #75) | `openspec/specs/openapi.yaml`; `tests/test_contract.py::test_oas12_js_exception_event_declares_schema_version` |
-| D-02 | **Implementado (ISS-B-15, #75)**: se valida el valor de `schema_version` por evento con `^1\.0$` y el octavo código `invalid_schema_version`; el resto del batch sigue aceptándose | `ingest_policy.py:212-245`; `tests/test_ingest_telemetry.py::test_policy_rejects_unsupported_schema_version_per_event` |
+| D-02 | **Implementado (ISS-B-15, #75)**: se valida el valor de `schema_version` por evento con `^1\.0$` y el octavo código `invalid_schema_version`; el resto del batch sigue aceptándose | `ingest_policy.py:234-236,262-263`; `tests/test_ingest_telemetry.py::test_policy_rejects_unsupported_schema_version_per_event` |
 | D-03 | **Implementado (ISS-B-15, #75)**: se quitaron `viewport` y `connection` del OpenAPI porque el ingest no los persiste | `tests/test_contract.py::test_d03_rum_event_metadata_has_no_viewport_or_connection`; `queue.py:275-291` |
 | D-04 | **Implementado (ISS-B-15, #75)**: se quitó el 429 de `/telemetry/*` hasta implementar rate limit; queda registrado en OD-06 y `/assistant/query` conserva el suyo | `openapi.yaml:24-111`; `tests/test_contract.py::test_d04_telemetry_paths_have_no_429_but_assistant_keeps_it` |
 | D-05 | **Corregido (23/10/2026)**: `allow_credentials=False`, por lo que el wildcard de orígenes es válido en navegadores. El allowlist por aplicación queda en backlog post-v1 (OD-02) | `src/api/main.py:77-88`; `tests/test_cors.py` |

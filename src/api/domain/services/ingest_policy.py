@@ -8,7 +8,8 @@ and are NOT rejection criteria — the ranges here are sanity bounds.
 Validation order is deterministic so a single event maps to exactly one
 reason: required fields → schema_version → uuids → metric type → unit →
 value range → timestamp → size limits. El validador de excepciones aplica
-los límites de tamaño antes de los UUID.
+los límites de tamaño antes de los UUID y valida `sample_rate` (0..1, finito)
+antes del timestamp.
 """
 
 from datetime import datetime
@@ -122,6 +123,10 @@ _REQUIRED_JS_FIELDS = ("schema_version", "error_type", "message", "session_id", 
 # exacta sobre str: no se aceptan números ni valores equivalentes.
 SUPPORTED_SCHEMA_VERSION = "1.0"
 
+# Rango declarado en OpenAPI para `sample_rate` (OD-03): el valor se persiste,
+# así que fuera de rango o no finito se rechaza como cualquier otra magnitud.
+SAMPLE_RATE_RANGE = (0.0, 1.0)
+
 
 def _is_uuid(value: object) -> bool:
     """True si value parsea como UUID (str o UUID nativo)."""
@@ -182,6 +187,19 @@ def _validate_optional_uuid(value: object) -> str | None:
 def _schema_version_is_supported(value: object) -> bool:
     """True solo si value es el string exacto "1.0" (OD-04/D-02)."""
     return isinstance(value, str) and value == SUPPORTED_SCHEMA_VERSION
+
+
+def _sample_rate_is_valid(value: object) -> bool:
+    """True si value es un número finito dentro del rango de OpenAPI (OD-03).
+
+    `sample_rate` se persiste en `js_exception`, así que se valida antes de
+    encolar: NaN/Infinity no son ponderables y `1 / sample_rate` se usa en el
+    análisis (§5 del contrato del agente).
+    """
+    if not _is_number(value) or not isfinite(value):
+        return False
+    low, high = SAMPLE_RATE_RANGE
+    return low <= value <= high
 
 
 def _validate_metric(metric: object) -> str | None:
@@ -262,6 +280,9 @@ def validate_js_exception(event: dict) -> str | None:
     metric_reason = _validate_optional_uuid(event.get("metric_id"))
     if metric_reason is not None:
         return metric_reason
+    sample_rate = event.get("sample_rate")
+    if sample_rate is not None and not _sample_rate_is_valid(sample_rate):
+        return "invalid_range"
     if not _is_timestamp(event["timestamp"]):
         return "invalid_timestamp"
     return None

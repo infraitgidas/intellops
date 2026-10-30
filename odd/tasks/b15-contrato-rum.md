@@ -60,11 +60,14 @@ Fuera:
 | T4 | OD-04/D-02: validación por evento de `schema_version` + código `invalid_schema_version` | OD-04 | delegated | ✅ | `96170b1` |
 | T5 | OD-03: `sample_rate` en contrato, agente, ingest y persistencia (DDL + migración) | OD-03 | delegated | ✅ | `7457232` |
 | T6 | Actualizar estado de §13/§14 en el contrato + CHANGELOG | — | delegated | ✅ | `39212c9` |
+| T7 | Revisión de la issue #75: validar `sample_rate` (0..1, finito) en `ingest_policy`, matrices de ingesta/agente y tests de migración 0005 | OD-03 | parent | ⏳ | (esta review) |
 
 ## Criterios de aceptación
 
 - [x] OD-03: `sample_rate` presente en `JsExceptionEvent` (OpenAPI + Pydantic), enviado
       por el agente y persistido en `js_exception`.
+- [x] OD-03: `sample_rate` fuera de 0..1 o no finito se rechaza con `invalid_range`
+      antes de encolar (202 parcial), igual que el rango declarado en OpenAPI.
 - [x] OD-04/D-02: un evento con `schema_version` distinto de `1.0` se rechaza y el resto
       del batch se acepta (202 parcial).
 - [x] D-03: `viewport` y `connection` ya no están en el OpenAPI.
@@ -76,6 +79,8 @@ Fuera:
 ```bash
 .venv/bin/python -m pytest tests/test_contract.py -q
 .venv/bin/python -m pytest -m unit -q
+.venv/bin/python -m pytest tests/test_migrations.py -q   # requiere Postgres aislado
+.venv/bin/python -m pytest -m integration -q            # requiere Postgres aislado
 cd src/agent && npm test
 ```
 
@@ -98,3 +103,24 @@ No module named 'numpy'` en `.venv`. No es causada por este cambio.
   ambiental de `numpy`; agente 79/79. Riesgo nativo: **medium**, 23 paths / 533 líneas,
   `review_due` por `slice_budget_reached`. Review bloqueada por `managed_assets_outdated`
   (requiere `gentle-ai sync --agent opencode`).
+
+- **L4** (2026-10-30, review de la issue #75): dos huecos corregidos en T7.
+  1. `sample_rate` llegaba a `ExceptionRow` y a la DB **sin validación**, aunque el
+     OpenAPI que este mismo cambio declara impone 0..1 y el análisis pondera por
+     `1 / sample_rate` (un `NaN` o `Infinity` rompe la ponderación). Se valida en
+     `validate_js_exception` con `invalid_range` (nuevo `_sample_rate_is_valid`) contra
+     el rango declarado **0..1 inclusivo**, antes de encolar: el 202 parcial se mantiene
+     y la fila inválida no se escribe. Queda anotada para QA la tensión de
+     `sample_rate = 0` con `1 / sample_rate` (el contrato lo admite, el análisis no): no
+     se cambia el rango por decisión unilateral.
+  2. La rama agregaba la migración `0005` sin tocar `tests/test_migrations.py`: varias
+     precondiciones `_current_revision(conn) == REV_0004` fallaban al subir head a 0005
+     y no había test de la migración nueva. Se actualizaron a `REV_0005` y se agregaron
+     `test_0005_adds_sample_rate_to_js_exception` (upgrade/downgrade) y
+     `test_ddl_v1_0_sql_synced_with_0005`. Además se completaron las matrices de
+     `ContratoIngestaRUM` (`schema_version`, `sample_rate`, DDL) y el `sampleRate` de la
+     tabla de excepciones en `ContratoAgenteRUM`.
+  Verificación: contract 19 passed + 1 xpassed; unit 298 passed (única falla ambiental
+  de `numpy`); agente 79/79; `tests/test_migrations.py` 17 passed y `-m integration`
+  130 passed sobre una base Postgres aislada (`intellops_b15_verify`, creada y eliminada
+  para la corrida).

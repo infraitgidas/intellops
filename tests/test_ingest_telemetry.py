@@ -564,6 +564,18 @@ def test_policy_accepts_js_exception_sample_rate_present_and_absent():
     assert validate_js_exception(_js(sample_rate=0.25)) is None
 
 
+def test_policy_rejects_invalid_js_exception_sample_rate():
+    """OD-03: `sample_rate` se persiste, así que DEBE validarse contra el
+    rango declarado en OpenAPI (0..1): fuera de rango, no numérico o no finito
+    se rechaza con invalid_range; ambos extremos del contrato son válidos."""
+    for invalid in (1.5, -0.1, float("nan"), float("inf"), True):
+        assert (
+            validate_js_exception(_js(sample_rate=invalid)) == "invalid_range"
+        ), f"sample_rate={invalid!r} debe rechazarse con invalid_range"
+    for valid in (0, 0.25, 1):
+        assert validate_js_exception(_js(sample_rate=valid)) is None
+
+
 def test_rum_event_schema_accepts_over_50_metrics():
     """El schema del EVENTO NO DEBE fijar maxItems en metrics: el límite de 50
     lo aplica la política por evento (202 parcial con oversized_event, RUM-4)."""
@@ -1043,6 +1055,27 @@ async def test_telemetry_202_partial_rejection_invalid_schema_version(
     assert body["rejected"] == [
         {"index": 1, "reason": "invalid_schema_version"}
     ]
+    assert len(env["queue"].enqueued) == 2
+
+
+async def test_telemetry_js_exception_202_partial_invalid_sample_rate(
+    client, make_admin
+):
+    """OD-03: una excepción con `sample_rate` 1.5 se rechaza con invalid_range
+    y no se encola, mientras el resto del batch se acepta (202 parcial)."""
+    env = await _setup_ingest(client, make_admin)
+    payload = _js_batch_payload(n=3)
+    payload["events"][1] = _js(sample_rate=1.5)
+
+    resp = await client.post(
+        "/telemetry/exceptions",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["accepted"] == 2
+    assert body["rejected"] == [{"index": 1, "reason": "invalid_range"}]
     assert len(env["queue"].enqueued) == 2
 
 

@@ -65,7 +65,7 @@ sequenceDiagram
 | `invalid_uuid` | `session_id` / `application_id` / `metric_id` no son UUID válidos |
 | `invalid_metric_type` | `type` fuera del enum (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
 | `invalid_unit` | `unit` fuera de `ms`/`count` o incoherente con el tipo |
-| `invalid_range` | `value` fuera del rango de cordura (ej. TTFB > 60000), conteo no entero o valor no finito (`NaN`/`Infinity`) |
+| `invalid_range` | `value` fuera del rango de cordura (ej. TTFB > 60000), conteo no entero o valor no finito (`NaN`/`Infinity`); también `sample_rate` de excepción fuera de 0..1 o no finito (OD-03) |
 | `invalid_timestamp` | `timestamp` no parseable o sin zona horaria explícita |
 | `invalid_schema_version` | `schema_version` del evento distinto de `"1.0"` (OD-04/D-02); el envelope ya se rechaza completo con 400 |
 | `oversized_event` | Excede límites de longitud (ej. `stack_trace` > 20000, > 50 métricas) |

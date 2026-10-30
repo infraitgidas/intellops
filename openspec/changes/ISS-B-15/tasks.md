@@ -23,6 +23,7 @@ Estimated changed lines: ~450 (contrato ~60, ingest/persistencia ~120, tests ~22
 - [x] 3.4 OD-03: `sample_rate` optional en OpenAPI y `JsExceptionEvent`; el agente lo envía en excepciones.
 - [x] 3.5 OD-03: persistir `sample_rate` en `ExceptionRow`, entidad, repositorio y `_build_rows`.
 - [x] 3.6 OD-03: migración `0005` y espejo en `ddl_v1.0.sql`.
+- [x] 3.7 OD-03: validar `sample_rate` en `validate_js_exception` (0..1 finito → `invalid_range`) y reflejarlo en las matrices de `ContratoIngestaRUM`/`ContratoAgenteRUM` y en `invalid_range` del pipeline.
 
 ## Fase 4 — Tests y verificación
 
@@ -32,3 +33,4 @@ Estimated changed lines: ~450 (contrato ~60, ingest/persistencia ~120, tests ~22
 - [x] 4.4 Tests del agente: `sample_rate` en el payload de excepciones y en métricas.
 - [x] 4.5 Actualizar §13/§14 del contrato y `CHANGELOG.md`.
 - [x] 4.6 `pytest tests/test_contract.py`, `pytest -m unit` y `npm test` en verde (salvo la falla ambiental de `numpy`).
+- [x] 4.7 Revisión de la issue #75: tests de `sample_rate` inválido (política y 202 parcial) y de la migración `0005` (`tests/test_migrations.py`, head 0005 + sincronía DDL, corridos contra Postgres aislado).

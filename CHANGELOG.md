@@ -81,7 +81,8 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `invalid_schema_version` (octavo) en `ingest_policy`, sin romper el 202
   parcial ni rechazar el batch completo.
 - `sample_rate` en excepciones JS (B.15, ISS-B-15, #75): campo opcional en
-  `JsExceptionEvent` (OpenAPI 0..1 y Pydantic), enviado por el agente y
+  `JsExceptionEvent` (OpenAPI 0..1 y Pydantic), enviado por el agente,
+  validado por evento (`invalid_range` si no es finito o sale de 0..1) y
   persistido en `js_exception` (migración 0005 y espejo en `ddl_v1.0.sql`)
   para ponderar el análisis por `1 / sample_rate`.
 
