@@ -54,22 +54,22 @@ Fuera:
 | ID | Tarea | Specs | Ruta | Estado | Commit |
 |----|-------|-------|------|--------|--------|
 | T0 | Redacción de secretos al inicio del texto | OD contrato §9 | parent | ✅ | `28181c2` |
-| T1 | OpenSpec change `ISS-B-15`: proposal + tasks | — | parent | ⬜ | |
-| T2 | D-04: quitar `429` de telemetría en OpenAPI, interfaces y docs + tests | D-04 | delegated | ⬜ | |
-| T3 | D-03: quitar `viewport`/`connection` del OpenAPI + test | D-03 | delegated | ⬜ | |
-| T4 | OD-04/D-02: validación por evento de `schema_version` + código `invalid_schema_version` | OD-04 | delegated | ⬜ | |
-| T5 | OD-03: `sample_rate` en contrato, agente, ingest y persistencia (DDL + migración) | OD-03 | delegated | ⬜ | |
-| T6 | Actualizar estado de §13/§14 en el contrato + CHANGELOG | — | delegated | ⬜ | |
+| T1 | OpenSpec change `ISS-B-15`: proposal + tasks | — | delegated | ✅ | `8a0d9fa` |
+| T2 | D-04: quitar `429` de telemetría en OpenAPI, interfaces y docs + tests | D-04 | delegated | ✅ | `439a022` |
+| T3 | D-03: quitar `viewport`/`connection` del OpenAPI + test | D-03 | delegated | ✅ | `811e770` |
+| T4 | OD-04/D-02: validación por evento de `schema_version` + código `invalid_schema_version` | OD-04 | delegated | ✅ | `96170b1` |
+| T5 | OD-03: `sample_rate` en contrato, agente, ingest y persistencia (DDL + migración) | OD-03 | delegated | ✅ | `7457232` |
+| T6 | Actualizar estado de §13/§14 en el contrato + CHANGELOG | — | delegated | ✅ | `39212c9` |
 
 ## Criterios de aceptación
 
-- [ ] OD-03: `sample_rate` presente en `JsExceptionEvent` (OpenAPI + Pydantic), enviado
+- [x] OD-03: `sample_rate` presente en `JsExceptionEvent` (OpenAPI + Pydantic), enviado
       por el agente y persistido en `js_exception`.
-- [ ] OD-04/D-02: un evento con `schema_version` distinto de `1.0` se rechaza y el resto
+- [x] OD-04/D-02: un evento con `schema_version` distinto de `1.0` se rechaza y el resto
       del batch se acepta (202 parcial).
-- [ ] D-03: `viewport` y `connection` ya no están en el OpenAPI.
-- [ ] D-04: `/telemetry/*` ya no declara `429`; `/assistant/query` lo conserva.
-- [ ] Contract tests verdes y OpenAPI actualizado.
+- [x] D-03: `viewport` y `connection` ya no están en el OpenAPI.
+- [x] D-04: `/telemetry/*` ya no declara `429`; `/assistant/query` lo conserva.
+- [x] Contract tests verdes y OpenAPI actualizado.
 
 ## Verificación
 
@@ -91,3 +91,10 @@ No module named 'numpy'` en `.venv`. No es causada por este cambio.
   `sample_rate` existe en métricas pero no en excepciones; `schema_version` sólo se valida
   en el envelope; `viewport`/`connection` se declaran y se descartan; el `429` no está
   implementado en el servidor.
+
+- **L3** (2026-10-30, cierre de implementación): T1–T6 commiteadas (`8a0d9fa`, `439a022`,
+  `811e770`, `96170b1`, `7457232`, `39212c9`) más el documento (`bffeac9`). Verificación
+  observada: contract tests 19 passed + 1 xpassed; unit 298 passed con la única falla
+  ambiental de `numpy`; agente 79/79. Riesgo nativo: **medium**, 23 paths / 533 líneas,
+  `review_due` por `slice_budget_reached`. Review bloqueada por `managed_assets_outdated`
+  (requiere `gentle-ai sync --agent opencode`).
