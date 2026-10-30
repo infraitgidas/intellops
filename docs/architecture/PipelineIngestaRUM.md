@@ -100,7 +100,7 @@ Para S1 se adopta una **cola en proceso (`asyncio.Queue`) acotada** (ISS-S2-03),
 ### 3.3. Backpressure
 
 - Cola llena → **503 Service Unavailable** (el agente debe reintentar con backoff).
-- 429 sigue siendo rate limit por API key.
+- El `429` queda fuera del contrato v0.1 hasta implementar el rate limit (D-04); la única respuesta de backpressure es `503 queue_full`.
 
 ### 3.4. Semántica del 202
 

@@ -15,7 +15,7 @@ La ingesta RUM se compone de dos endpoints, ambos de aceptación asíncrona (202
 | `POST /telemetry/metrics` | `RumEventBatch` | Métricas RUM (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
 | `POST /telemetry/exceptions` | `JsExceptionBatch` | Excepciones JavaScript no manejadas |
 
-Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 y los envía con `schema_version: "1.0"`. Ambas respuestas son idénticas (202 / 400 / 401 / 403 / 503 / 429) y están definidas en `openspec/specs/openapi.yaml`. El 202 se responde al **encolar** (semántica §3.4 del pipeline); el 503 `queue_full` es backpressure de la cola llena. La nomenclatura `/telemetry/*` es la definitiva (ADR-0002).
+Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 y los envía con `schema_version: "1.0"`. Ambas respuestas son idénticas (202 / 400 / 401 / 403 / 503) y están definidas en `openspec/specs/openapi.yaml`. El 202 se responde al **encolar** (semántica §3.4 del pipeline); el 503 `queue_full` es backpressure de la cola llena. La nomenclatura `/telemetry/*` es la definitiva (ADR-0002).
 
 ## Matriz de validación del evento RUM
 
