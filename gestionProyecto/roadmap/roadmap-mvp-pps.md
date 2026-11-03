@@ -29,7 +29,7 @@ Las PPS 2026 tienen 3 restricciones duras:
 | E03 Ingesta y Storage | M-ING | M | X (Coordinación + Pablo/QA) | jun–ago |
 | E04 ML + Health Score | M-ML | M | Romeo | may–ago |
 | E05 Dashboard 3 vistas | M-DASH | S | Romeo + Ema | ago–oct |
-| E06 Alertas | M-ACT | S | X | sep–oct |
+| E06 Alertas | M-ACT | S | Romeo (reglas) + Santiago (notificaciones) | sep–oct |
 | E07 Seguridad | M-SEG | M | Federico | jun–oct |
 | E08 CI/CD Gates | M-QA | M | Santiago | jun–ago |
 | E09 Testing | M-QA | M | Santiago | jul–sep |
@@ -38,6 +38,8 @@ Las PPS 2026 tienen 3 restricciones duras:
 | E12 Evaluación/Transferencia | — | S | X | oct+ |
 
 **Nota**: E10, E11 y E12 **exceden la ventana de las PPS 2026** (se planifican para F1/F2 del roadmap de producto). El MVP de las PPS cubre: **E01, E02, E03, E04, E05 (parcial), E06 (parcial), E07, E08, E09**.
+
+**Actualización 03/11/2026**: M-ACT (Alertas) queda a cargo de **Romeo** (B.14, reglas de umbral; C.4, falsos positivos) y **Santiago** (B.10, notificaciones mail/Telegram), según el anexo de correlación del plan integral v1.1.
 
 ---
 
