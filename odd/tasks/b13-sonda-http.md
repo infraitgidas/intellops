@@ -69,3 +69,12 @@ forman parte de esta issue.» y «Depende de: B.1».
 - **L4** (03/11/2026): hallazgo — `GET /metrics/query` solo devuelve `AVG(value)` y
   `COUNT(DISTINCT session_id)` por bucket; no hay forma de leer `metadata` por el read
   path existente. De ahí D3 + T6.
+- **L5** (03/11/2026): slices de entrega. El candidato completo son ~875 líneas
+  autoradas en 3 commits (`dcbfa58` doc ODD, `52e26c6` contrato + catálogo, `cc855f1`
+  sonda). Ese volumen pasa el límite de ~400 líneas por slice, así que el límite queda
+  acá: contrato+catálogo y sonda son el **slice 1**, y `GET /metrics/probes` (T6) es el
+  **slice 2** con su propio commit. Si el PR crece más, se encadena por slice
+  (`chained-pr`) en lugar de empujar todo junto.
+- **L6** (03/11/2026): la migración `0006` y los asserts de head se verifican contra
+  Postgres real en un proyecto docker aislado (`intellops_b13_mig`), para no depender de
+  la base local ni ensuciar la del worker del read path.
