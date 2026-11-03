@@ -76,7 +76,7 @@ def _canonical_js(**overrides) -> dict:
     return normalize_js_exception(_js(**overrides))
 
 
-# -- RUM-4: política por evento — 7 códigos, sin unknown_application ----------
+# -- RUM-4: política por evento — 8 códigos, sin unknown_application ----------
 
 def test_policy_accepts_valid_rum_event():
     """Un evento RUM bien formado DEBE validar (None = sin rechazo)."""
@@ -143,6 +143,39 @@ def test_policy_accepts_rum_without_application_id():
 def test_policy_has_no_unknown_application_code():
     """El código unknown_application NO DEBE existir en el flujo (D2)."""
     assert "unknown_application" not in REJECTION_CODES
+
+
+def test_policy_has_invalid_schema_version_as_eighth_code():
+    """OD-04/D-02: el catálogo DEBE tener ocho códigos e incluir
+    invalid_schema_version para un valor presente pero inválido."""
+    assert "invalid_schema_version" in REJECTION_CODES
+    assert len(REJECTION_CODES) == 8
+
+
+def test_policy_rejects_unsupported_schema_version_per_event():
+    """Un evento con schema_version distinto de 1.0 DEBE rechazarse con
+    invalid_schema_version (no missing_required_field ni invalid_range)."""
+    assert (
+        validate_rum_event(_rum(schema_version="2.0"))
+        == "invalid_schema_version"
+    )
+    assert (
+        validate_js_exception(_js(schema_version="2.0"))
+        == "invalid_schema_version"
+    )
+    # No se aceptan no-strings ni versiones equivalentes.
+    assert (
+        validate_rum_event(_rum(schema_version=1.0))
+        == "invalid_schema_version"
+    )
+
+
+def test_policy_rejects_js_exception_missing_schema_version():
+    """La excepción DEBE requerir schema_version en la política: sin él,
+    missing_required_field; el envelope ya lo exige con 400."""
+    js = _js()
+    del js["schema_version"]
+    assert validate_js_exception(js) == "missing_required_field"
 
 
 def test_policy_rejects_missing_required_field():
@@ -279,9 +312,16 @@ def test_ingest_entities_mirror_ddl_0001():
     assert {"metric_id", "session_id", "metric_type_id", "value", "unit", "timestamp"} <= set(
         RumMetric.__table__.columns.keys()
     )
-    assert {"error_id", "session_id", "metric_id", "error_type", "message", "timestamp"} <= set(
-        JsException.__table__.columns.keys()
-    )
+    assert {
+        "error_id",
+        "session_id",
+        "metric_id",
+        "error_type",
+        "message",
+        "stack_trace",
+        "sample_rate",
+        "timestamp",
+    } <= set(JsException.__table__.columns.keys())
 
 
 # -- RUM-5/DD-6: config de ingesta y error 503 ---------------------------------
@@ -498,6 +538,42 @@ def test_js_exception_schema_application_id_optional():
         timestamp=_ts(),
     )
     assert event.application_id is None
+    assert event.sample_rate is None
+    assert "sample_rate" not in event.model_fields_set
+
+
+def test_js_exception_schema_accepts_sample_rate():
+    """OD-03: `sample_rate` se acepta cuando viene y sigue siendo opcional."""
+    from api.presentation.schemas.ingest import JsExceptionEvent
+
+    event = JsExceptionEvent(
+        schema_version="1.0",
+        error_type="TypeError",
+        message="boom",
+        session_id=str(uuid4()),
+        timestamp=_ts(),
+        sample_rate=0.25,
+    )
+    assert event.sample_rate == 0.25
+    assert "sample_rate" in event.model_fields_set
+
+
+def test_policy_accepts_js_exception_sample_rate_present_and_absent():
+    """OD-03: la política no exige `sample_rate`; presente o ausente valida."""
+    assert validate_js_exception(_js()) is None
+    assert validate_js_exception(_js(sample_rate=0.25)) is None
+
+
+def test_policy_rejects_invalid_js_exception_sample_rate():
+    """OD-03: `sample_rate` se persiste, así que DEBE validarse contra el
+    rango declarado en OpenAPI (0..1): fuera de rango, no numérico o no finito
+    se rechaza con invalid_range; ambos extremos del contrato son válidos."""
+    for invalid in (1.5, -0.1, float("nan"), float("inf"), True):
+        assert (
+            validate_js_exception(_js(sample_rate=invalid)) == "invalid_range"
+        ), f"sample_rate={invalid!r} debe rechazarse con invalid_range"
+    for valid in (0, 0.25, 1):
+        assert validate_js_exception(_js(sample_rate=valid)) is None
 
 
 def test_rum_event_schema_accepts_over_50_metrics():
@@ -958,6 +1034,51 @@ async def test_telemetry_metrics_202_partial_rejection(client, make_admin):
     assert len(env["queue"].enqueued) == 2
 
 
+async def test_telemetry_202_partial_rejection_invalid_schema_version(
+    client, make_admin
+):
+    """OD-04/D-02: envelope válido con un evento schema_version="2.0" → 202;
+    ese evento va en rejected[] con invalid_schema_version y el resto se
+    acepta (el batch no se rechaza completo)."""
+    env = await _setup_ingest(client, make_admin)
+    payload = _rum_batch_payload(n=3)
+    payload["events"][1] = _rum(schema_version="2.0")
+
+    resp = await client.post(
+        "/telemetry/metrics",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["accepted"] == 2
+    assert body["rejected"] == [
+        {"index": 1, "reason": "invalid_schema_version"}
+    ]
+    assert len(env["queue"].enqueued) == 2
+
+
+async def test_telemetry_js_exception_202_partial_invalid_sample_rate(
+    client, make_admin
+):
+    """OD-03: una excepción con `sample_rate` 1.5 se rechaza con invalid_range
+    y no se encola, mientras el resto del batch se acepta (202 parcial)."""
+    env = await _setup_ingest(client, make_admin)
+    payload = _js_batch_payload(n=3)
+    payload["events"][1] = _js(sample_rate=1.5)
+
+    resp = await client.post(
+        "/telemetry/exceptions",
+        headers=_api_key_header(env["key"]),
+        json=payload,
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["accepted"] == 2
+    assert body["rejected"] == [{"index": 1, "reason": "invalid_range"}]
+    assert len(env["queue"].enqueued) == 2
+
+
 # -- RUM-5 vía HTTP: backpressure 503 queue_full (maxsize 1) -------------------
 
 async def test_telemetry_503_queue_full_when_queue_maxsize_1(client, make_admin):
@@ -1262,6 +1383,22 @@ def test_build_rows_metric_timestamp_comes_from_canonical_payload():
     )
     _, metrics, _ = _build_rows([event])
     assert metrics[0].timestamp == _datetime.fromisoformat(metric_ts)
+
+
+def test_build_rows_persists_exception_sample_rate_when_present():
+    """OD-03/D1: `_build_rows` DEBE trasladar sample_rate del payload canónico
+    a ExceptionRow; ausente queda en None."""
+    from api.infrastructure.ingest.queue import _build_rows
+
+    event = _queued_event(
+        kind="exception", payload=_canonical_js(sample_rate=0.25)
+    )
+    _, _, exceptions = _build_rows([event])
+    assert exceptions[0].sample_rate == 0.25
+
+    event_without = _queued_event(kind="exception", payload=_canonical_js())
+    _, _, exceptions_without = _build_rows([event_without])
+    assert exceptions_without[0].sample_rate is None
 
 
 # -- RUM-6: persistencia del worker (Postgres real, D1) ------------------------

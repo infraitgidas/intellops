@@ -15,7 +15,7 @@ La ingesta RUM se compone de dos endpoints, ambos de aceptación asíncrona (202
 | `POST /telemetry/metrics` | `RumEventBatch` | Métricas RUM (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
 | `POST /telemetry/exceptions` | `JsExceptionBatch` | Excepciones JavaScript no manejadas |
 
-Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 y los envía con `schema_version: "1.0"`. Ambas respuestas son idénticas (202 / 400 / 401 / 403 / 503 / 429) y están definidas en `openspec/specs/openapi.yaml`. El 202 se responde al **encolar** (semántica §3.4 del pipeline); el 503 `queue_full` es backpressure de la cola llena. La nomenclatura `/telemetry/*` es la definitiva (ADR-0002).
+Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 y los envía con `schema_version: "1.0"`. Ambas respuestas son idénticas (202 / 400 / 401 / 403 / 503) y están definidas en `openspec/specs/openapi.yaml`. El 202 se responde al **encolar** (semántica §3.4 del pipeline); el 503 `queue_full` es backpressure de la cola llena. La nomenclatura `/telemetry/*` es la definitiva (ADR-0002).
 
 ## Matriz de validación del evento RUM
 
@@ -35,12 +35,14 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 
 | Campo | Obligatorio | Tipo | Longitud máxima | Notas |
 |-------|-------------|------|-----------------|-------|
+| `schema_version` | Sí | string | — | Exactamente `"1.0"`; un valor distinto se rechaza por evento con `invalid_schema_version` (OD-04/D-02). El envelope ya se rechaza completo con 400 |
 | `error_type` | Sí | string | 100 | Ej: TypeError, ReferenceError, RangeError, UnhandledRejection, Other |
 | `message` | Sí | string | 2000 | Mensaje del error |
 | `stack_trace` | No | string | 20000 | Opcional |
 | `session_id` | Sí | string (uuid) | — | FK a `user_session` |
 | `application_id` | No | string (uuid) | — | Opcional desde ISS-S2-03 (D2): el tenant se deriva EXCLUSIVAMENTE de la API key (IAUTH-2); el payload nunca es autoridad. Si viene, debe ser UUID válido |
 | `metric_id` | No | string (uuid) | — | FK nullable a `rum_metric`, ON DELETE SET NULL |
+| `sample_rate` | No | number 0..1 finito | — | Tasa de muestreo de la sesión (OD-03); fuera de rango o no finito se rechaza con `invalid_range`. Se persiste para ponderar por `1 / sample_rate` |
 | `timestamp` | Sí | string (date-time) | — | ISO 8601 UTC |
 
 ## Reglas de validación generales
@@ -48,13 +50,13 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 - **UUID**: todos los identificadores (`session_id`, `application_id`, `metric_id`) deben ser UUID válidos.
 - **Timestamp**: formato ISO 8601 en UTC, con zona horaria explícita.
 - **Límites de batch**: máximo 500 eventos por batch y máximo 50 métricas por evento.
-- **Versión**: `schema_version` debe ser exactamente `"1.0"`.
+- **Versión**: `schema_version` debe ser exactamente `"1.0"`, tanto en el envelope (400) como en cada evento (rechazo parcial `invalid_schema_version`).
 - **Normalización (ISS-S3-02, ADR-0004/0005/0006/0007)**: antes de la validación por evento corre una etapa de normalización pura de **solo representación** que resuelve inconsistencias que de otro modo serían rechazadas:
   - canonicaliza timestamps a UTC con zona explícita; el `timestamp` de la métrica **hereda** el del envelope si falta, y un naïve/no parseable **no** se reescribe con `now()` (se rechaza);
   - convierte alias de unidad a la canónica (`s`/`sec`/`secs`/`msec`/`millis` → `ms`, `counts` → `count`), idempotente y preservando la magnitud;
   - canonicaliza nombres de tipo de métrica (trim/case) y `error_type` (trim/case + catálogo; desconocido → `Other`);
   - coacciona cadenas numéricas **finitas** (`"120.5"` → `120.5`) y recorta espacios en los campos de clasificación.
-  - **Nunca** recorta/repara magnitudes: los valores fuera de rango y los conteos no enteros se rechazan (`invalid_range`). La validación sigue siendo la **autoridad única de rechazo** (semántica parcial `202` intacta).
+  - **Nunca** recorta/repara magnitudes: los valores fuera de rango y los conteos no enteros se rechazan (`invalid_range`), igual que un `sample_rate` fuera de 0..1 o no finito. La validación sigue siendo la **autoridad única de rechazo** (semántica parcial `202` intacta).
 
 ## Alineación con el DDL
 
@@ -77,6 +79,7 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 | `error_type` | `error_type` | `TEXT NOT NULL` |
 | `message` | `message` | `TEXT NOT NULL` |
 | `stack_trace` | `stack_trace` | `TEXT` nullable |
+| `sample_rate` | `sample_rate` | `DOUBLE PRECISION` nullable (migración `0005`, OD-03); NULL cuando el cliente no reporta la tasa |
 | `session_id` | `session_id` | FK a `user_session` |
 | `metric_id` | `metric_id` | FK nullable a `rum_metric`, ON DELETE SET NULL |
 | `timestamp` | `timestamp` | `TIMESTAMPTZ NOT NULL` |

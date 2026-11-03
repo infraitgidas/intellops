@@ -288,6 +288,7 @@ def _build_rows(
                     timestamp=ts,
                     metric_id=UUID(metric_id) if metric_id else None,
                     stack_trace=payload.get("stack_trace"),
+                    sample_rate=payload.get("sample_rate"),
                 )
             )
     return list(sessions.values()), metrics, exceptions

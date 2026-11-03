@@ -52,6 +52,7 @@ class JsExceptionEvent(BaseModel):
     application_id: str | None = None
     metric_id: str | None = None
     timestamp: str
+    sample_rate: float | None = None
 
 
 class JsExceptionBatch(BaseModel):

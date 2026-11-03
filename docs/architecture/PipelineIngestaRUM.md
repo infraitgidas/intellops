@@ -65,8 +65,9 @@ sequenceDiagram
 | `invalid_uuid` | `session_id` / `application_id` / `metric_id` no son UUID válidos |
 | `invalid_metric_type` | `type` fuera del enum (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
 | `invalid_unit` | `unit` fuera de `ms`/`count` o incoherente con el tipo |
-| `invalid_range` | `value` fuera del rango de cordura (ej. TTFB > 60000), conteo no entero o valor no finito (`NaN`/`Infinity`) |
+| `invalid_range` | `value` fuera del rango de cordura (ej. TTFB > 60000), conteo no entero o valor no finito (`NaN`/`Infinity`); también `sample_rate` de excepción fuera de 0..1 o no finito (OD-03) |
 | `invalid_timestamp` | `timestamp` no parseable o sin zona horaria explícita |
+| `invalid_schema_version` | `schema_version` del evento distinto de `"1.0"` (OD-04/D-02); el envelope ya se rechaza completo con 400 |
 | `oversized_event` | Excede límites de longitud (ej. `stack_trace` > 20000, > 50 métricas) |
 
 > **ISS-S2-03 (D2)**: el código `unknown_application` fue eliminado del flujo — el tenant se deriva EXCLUSIVAMENTE de la API key (IAUTH-2) y el `application_id` del payload es opcional y nunca autoridad.
@@ -100,7 +101,7 @@ Para S1 se adopta una **cola en proceso (`asyncio.Queue`) acotada** (ISS-S2-03),
 ### 3.3. Backpressure
 
 - Cola llena → **503 Service Unavailable** (el agente debe reintentar con backoff).
-- 429 sigue siendo rate limit por API key.
+- El `429` queda fuera del contrato v0.1 hasta implementar el rate limit (D-04); la única respuesta de backpressure es `503 queue_full`.
 
 ### 3.4. Semántica del 202
 

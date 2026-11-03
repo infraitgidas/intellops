@@ -56,6 +56,11 @@ describe("redacción de PII (§9, AC-09)", () => {
     assert.equal(redact("GET /login?password=hunter2&user=x"), "GET /login?password=[REDACTED]&user=x");
   });
 
+  it("redacta parámetros sensibles al inicio del texto", () => {
+    assert.equal(redact("token=abc123"), "token=[REDACTED]");
+    assert.equal(redact("api_key=abc123&user=x"), "api_key=[REDACTED]&user=x");
+  });
+
   it("redacta JWT", () => {
     assert.equal(
       redact("token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123XYZ"),

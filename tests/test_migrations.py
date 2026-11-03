@@ -28,6 +28,7 @@ REV_0001 = "0001"
 REV_0002 = "0002"
 REV_0003 = "0003"
 REV_0004 = "0004"
+REV_0005 = "0005"
 
 DDL_PATH = "openspec/specs/database/ddl_v1.0.sql"
 
@@ -136,7 +137,7 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0004
+    assert _current_revision(conn) == REV_0005
 
     lab_user_columns = _column_names(conn, "lab_user")
     assert "password_hash" in lab_user_columns
@@ -148,6 +149,10 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 
     assert _index_exists(conn, "idx_lab_user_email") is True
     assert _index_exists(conn, "idx_application_api_token_hash") is True
+
+    # OD-03: 0005 deja sample_rate nullable en js_exception.
+    assert "sample_rate" in _column_names(conn, "js_exception")
+    assert _column_nullable(conn, "js_exception", "sample_rate") is True
 
     seed = _seed_row(conn)
     assert seed is not None
@@ -165,8 +170,8 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 def test_downgrade_0001_removes_credentials_and_seed(alembic_cfg, conn):
     """DATA-4: downgrade 0001 elimina columnas, índices y seed; 0001 intacto."""
     command.upgrade(alembic_cfg, "head")
-    # Precondición: head (0004) aplicada (evita falso verde).
-    assert _current_revision(conn) == REV_0004
+    # Precondición: head (0005) aplicada (evita falso verde).
+    assert _current_revision(conn) == REV_0005
 
     command.downgrade(alembic_cfg, REV_0001)
 
@@ -190,7 +195,7 @@ def test_upgrade_restores_state_after_downgrade(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0004
+    assert _current_revision(conn) == REV_0005
     assert "password_hash" in _column_names(conn, "lab_user")
     application_columns = _column_names(conn, "application")
     assert "api_token_hash" in application_columns
@@ -229,7 +234,7 @@ def test_upgrade_head_adds_is_active_default_true_for_existing_rows(
     )
 
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0004
+    assert _current_revision(conn) == REV_0005
 
     application_columns = _column_names(conn, "application")
     assert "is_active" in application_columns
@@ -253,7 +258,7 @@ def test_downgrade_0002_removes_is_active_only(alembic_cfg, conn):
     """DATA-8: downgrade 0002 elimina solo is_active; api_token_hash y el
     índice único parcial quedan intactos (rollback plan)."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0004
+    assert _current_revision(conn) == REV_0005
     assert "is_active" in _column_names(conn, "application")
 
     command.downgrade(alembic_cfg, REV_0002)
@@ -266,7 +271,7 @@ def test_downgrade_0002_removes_is_active_only(alembic_cfg, conn):
 
     # Dejar la DB en head para no contaminar el resto de la suite.
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0004
+    assert _current_revision(conn) == REV_0005
 
 
 def test_ddl_v1_0_sql_synced_with_0003(alembic_cfg, conn):
@@ -362,7 +367,7 @@ def seeded(alembic_cfg, conn):
 def test_0004_replaces_metric_id_with_series_anchor(alembic_cfg, conn):
     """DB-ANOM-2.1 / DB-MIG-1.1: columnas nuevas, sin metric_id ni su FK."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0004
+    assert _current_revision(conn) == REV_0005
     columns = _column_names(conn, "anomaly")
     assert {
         "application_id", "metric_type_id", "bucket_start",
@@ -433,19 +438,21 @@ def test_downgrade_0004_empty_table_restores_metric_id(alembic_cfg, conn):
     assert _index_exists(conn, "idx_anomaly_series_bucket_model") is False
 
     command.upgrade(alembic_cfg, "head")  # DB-MIG-1.4: upgrade sin datos
-    assert _current_revision(conn) == REV_0004
+    assert _current_revision(conn) == REV_0005
 
 
-def test_downgrade_0004_with_rows_fails_and_stays_at_0004(seeded, alembic_cfg, conn):
-    """DB-MIG-1.3: guard explícito; la DB queda en 0004."""
+def test_downgrade_0004_with_rows_fails_and_stays_at_head(seeded, alembic_cfg, conn):
+    """DB-MIG-1.3: guard explícito; la DB queda en la revisión previa (head)."""
     app_id, model_a, _ = seeded
     _insert_anomaly(conn, app_id, model_a)
 
     with pytest.raises((RuntimeError, DBAPIError)):
         command.downgrade(alembic_cfg, REV_0003)
 
-    assert _current_revision(conn) == REV_0004
+    assert _current_revision(conn) == REV_0005
     assert "application_id" in _column_names(conn, "anomaly")
+    # El rollback también deshace el downgrade de 0005, previo al guard.
+    assert "sample_rate" in _column_names(conn, "js_exception")
 
 
 def test_ddl_v1_0_sql_synced_with_0004():
@@ -467,3 +474,32 @@ def test_ddl_v1_0_sql_synced_with_0004():
     ):
         assert fragment in block
     assert "fk_anomaly_metric\n" not in block
+
+
+# -- DB-MIG / DB-DDL: migración 0005 (ISS-B-15, OD-03) -----------------------
+
+def test_0005_adds_sample_rate_to_js_exception(alembic_cfg, conn):
+    """OD-03/DB-MIG-1.5: 0005 agrega sample_rate DOUBLE PRECISION nullable;
+    el downgrade la retira sin tocar el resto de la tabla."""
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_0005
+    assert "sample_rate" in _column_names(conn, "js_exception")
+    assert _column_nullable(conn, "js_exception", "sample_rate") is True
+
+    command.downgrade(alembic_cfg, REV_0004)
+    assert _current_revision(conn) == REV_0004
+    assert "sample_rate" not in _column_names(conn, "js_exception")
+    assert {"error_type", "message", "stack_trace"} <= _column_names(
+        conn, "js_exception"
+    )
+
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_0005
+
+
+def test_ddl_v1_0_sql_synced_with_0005():
+    """DB-DDL-1.2: ddl_v1.0.sql §7 refleja sample_rate de js_exception."""
+    with open(DDL_PATH, encoding="utf-8") as handle:
+        ddl = handle.read()
+    block = ddl.split("CREATE TABLE js_exception", 1)[1].split("-- 8. ML_MODEL", 1)[0]
+    assert "sample_rate DOUBLE PRECISION" in block

@@ -1,13 +1,15 @@
 """Per-event ingest policy — pure, no I/O (RUM-4, DD-2).
 
 Applies the ContratoIngestaRUM.md matrices + PipelineIngestaRUM.md §2.3:
-7 rejection codes, no `unknown_application` (D2), `application_id` optional
+8 rejection codes, no `unknown_application` (D2), `application_id` optional
 (never a tenant authority, IAUTH-2). Ratings good/poor are reference only
 and are NOT rejection criteria — the ranges here are sanity bounds.
 
 Validation order is deterministic so a single event maps to exactly one
-reason: required fields → uuids → metric type → unit → value range →
-timestamp → size limits.
+reason: required fields → schema_version → uuids → metric type → unit →
+value range → timestamp → size limits. El validador de excepciones aplica
+los límites de tamaño antes de los UUID y valida `sample_rate` (0..1, finito)
+antes del timestamp.
 """
 
 from datetime import datetime
@@ -24,6 +26,7 @@ REJECTION_CODES = frozenset(
         "invalid_unit",
         "invalid_range",
         "invalid_timestamp",
+        "invalid_schema_version",
         "oversized_event",
     }
 )
@@ -114,7 +117,15 @@ MAX_MESSAGE_LEN = 2000
 MAX_STACK_TRACE_LEN = 20_000
 
 _REQUIRED_RUM_FIELDS = ("schema_version", "timestamp", "session_id", "metrics")
-_REQUIRED_JS_FIELDS = ("error_type", "message", "session_id", "timestamp")
+_REQUIRED_JS_FIELDS = ("schema_version", "error_type", "message", "session_id", "timestamp")
+
+# v0.1 acepta exclusivamente esta versión por evento (OD-04/D-02). Comparación
+# exacta sobre str: no se aceptan números ni valores equivalentes.
+SUPPORTED_SCHEMA_VERSION = "1.0"
+
+# Rango declarado en OpenAPI para `sample_rate` (OD-03): el valor se persiste,
+# así que fuera de rango o no finito se rechaza como cualquier otra magnitud.
+SAMPLE_RATE_RANGE = (0.0, 1.0)
 
 
 def _is_uuid(value: object) -> bool:
@@ -173,6 +184,24 @@ def _validate_optional_uuid(value: object) -> str | None:
     return None
 
 
+def _schema_version_is_supported(value: object) -> bool:
+    """True solo si value es el string exacto "1.0" (OD-04/D-02)."""
+    return isinstance(value, str) and value == SUPPORTED_SCHEMA_VERSION
+
+
+def _sample_rate_is_valid(value: object) -> bool:
+    """True si value es un número finito dentro del rango de OpenAPI (OD-03).
+
+    `sample_rate` se persiste en `js_exception`, así que se valida antes de
+    encolar: NaN/Infinity no son ponderables y `1 / sample_rate` se usa en el
+    análisis (§5 del contrato del agente).
+    """
+    if not _is_number(value) or not isfinite(value):
+        return False
+    low, high = SAMPLE_RATE_RANGE
+    return low <= value <= high
+
+
 def _validate_metric(metric: object) -> str | None:
     """Valida una métrica RUM individual (RUM-4, matriz ContratoIngestaRUM)."""
     if not isinstance(metric, dict):
@@ -203,6 +232,8 @@ def validate_rum_event(event: dict) -> str | None:
     for field in _REQUIRED_RUM_FIELDS:
         if field not in event:
             return "missing_required_field"
+    if not _schema_version_is_supported(event["schema_version"]):
+        return "invalid_schema_version"
     session_id = event["session_id"]
     if not _is_uuid(session_id):
         return "invalid_uuid"
@@ -228,6 +259,8 @@ def validate_js_exception(event: dict) -> str | None:
     for field in _REQUIRED_JS_FIELDS:
         if field not in event:
             return "missing_required_field"
+    if not _schema_version_is_supported(event["schema_version"]):
+        return "invalid_schema_version"
     error_type = event["error_type"]
     if not isinstance(error_type, str) or len(error_type) > MAX_ERROR_TYPE_LEN:
         return "oversized_event"
@@ -247,6 +280,9 @@ def validate_js_exception(event: dict) -> str | None:
     metric_reason = _validate_optional_uuid(event.get("metric_id"))
     if metric_reason is not None:
         return metric_reason
+    sample_rate = event.get("sample_rate")
+    if sample_rate is not None and not _sample_rate_is_valid(sample_rate):
+        return "invalid_range"
     if not _is_timestamp(event["timestamp"]):
         return "invalid_timestamp"
     return None

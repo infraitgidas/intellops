@@ -50,6 +50,7 @@ class ExceptionRow:
     timestamp: datetime
     metric_id: UUID | None = None
     stack_trace: str | None = None
+    sample_rate: float | None = None
 
 
 @dataclass(frozen=True)

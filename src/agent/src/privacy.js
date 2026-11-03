@@ -21,7 +21,7 @@ const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const BEARER_RE = /\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const API_KEY_RE = /\b(ilp|sk|pk|ghp|gho|xox[baprs])[_-][A-Za-z0-9_-]{8,}/g;
 const SECRET_PAIR_RE =
-  /([?&;,\s])((?:password|passwd|pwd|token|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|authorization|session[_-]?id|sig|signature|key)=)[^&;,\s"'}]+/gi;
+  /(^|[?&;,\s])((?:password|passwd|pwd|token|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|authorization|session[_-]?id|sig|signature|key)=)[^&;,\s"'}]+/gi;
 const JWT_RE = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g;
 
 /** Redacta credenciales y PII de un texto libre (message o stack trace). */
