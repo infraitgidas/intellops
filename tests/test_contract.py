@@ -301,6 +301,45 @@ def test_b13_availability_unit_and_range_are_documented():
     assert "1" in description and "0" in description
 
 
+def test_b13_metrics_probes_endpoint_contract():
+    """B.13/T6: `GET /metrics/probes` DEBE declarar `security: [apiKey]` (el
+    tenant sale de la key, OAS-14), `operationId: listProbeRuns`, el parámetro
+    `limit` acotado 1..500 con default 50, las respuestas 200/401/403/422 y un
+    schema `ProbeRun` con los campos por ejecución (S2, S3, D3)."""
+    doc = _contract()
+    operation = doc["paths"]["/metrics/probes"]["get"]
+
+    assert operation["operationId"] == "listProbeRuns"
+    assert operation["security"] == [{"apiKey": []}], (
+        "/metrics/probes DEBE exigir apiKey (OAS-14)"
+    )
+    assert {"200", "401", "403", "422"} <= set(operation["responses"])
+
+    limit = next(
+        param for param in operation["parameters"] if param["name"] == "limit"
+    )
+    assert limit["in"] == "query"
+    assert limit["schema"]["minimum"] == 1
+    assert limit["schema"]["maximum"] == 500
+    assert limit["schema"]["default"] == 50
+
+    items = operation["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]["items"]
+    assert items["$ref"] == "#/components/schemas/ProbeRun"
+
+    probe_run = doc["components"]["schemas"]["ProbeRun"]
+    assert set(probe_run["properties"]) == {
+        "timestamp",
+        "target",
+        "http_status",
+        "outcome",
+        "latency_ms",
+        "available",
+    }
+    assert set(probe_run["required"]) == {"timestamp", "available"}
+
+
 # -- OAS-14 (ISS-S3-02/ARCH-6): enum unit ampliado + nota error_type ---------
 
 def test_oas14_metric_unit_accepts_alias_family():
