@@ -119,7 +119,7 @@ async def test_build_batch_emits_availability_metric_accepted_by_policy():
     async with _client(lambda request: httpx.Response(200)) as client:
         result = await run_probe(TARGET, timeout_seconds=5.0, client=client)
 
-    payload = build_batch(result, session_id=SESSION_ID, application_id=APP_ID)
+    payload = build_batch(result, api_key=API_KEY, session_id=SESSION_ID, application_id=APP_ID)
 
     assert payload["schema_version"] == "1.0"
     event = payload["events"][0]
@@ -147,7 +147,7 @@ async def test_build_batch_omits_ttfb_when_unavailable_without_response():
     async with _client(handler) as client:
         result = await run_probe(TARGET, timeout_seconds=0.5, client=client)
 
-    payload = build_batch(result, session_id=SESSION_ID, application_id=None)
+    payload = build_batch(result, api_key=API_KEY, session_id=SESSION_ID, application_id=None)
     event = payload["events"][0]
 
     assert validate_rum_event(event) is None
@@ -163,12 +163,34 @@ async def test_build_batch_uses_stable_synthetic_session_id():
     async with _client(lambda request: httpx.Response(200)) as client:
         result = await run_probe(TARGET, timeout_seconds=5.0, client=client)
 
-    first = build_batch(result, session_id=None, application_id=None)
-    second = build_batch(result, session_id=None, application_id=None)
+    first = build_batch(result, api_key=API_KEY, session_id=None, application_id=None)
+    second = build_batch(result, api_key=API_KEY, session_id=None, application_id=None)
 
     session_id = first["events"][0]["session_id"]
     assert session_id == second["events"][0]["session_id"]
     assert UUID(session_id)  # es UUID válido para la política
+
+
+async def test_synthetic_session_id_is_scoped_by_tenant():
+    """R1-001/R3-001/R4-005: dos tenants que miden el MISMO target NO pueden
+    compartir sesión. `session_id` es la PK de `user_session` y la dueña es la
+    aplicación: compartirla atribuiría (o descartaría) las métricas del otro
+    tenant."""
+    async with _client(lambda request: httpx.Response(200)) as client:
+        result = await run_probe(TARGET, timeout_seconds=5.0, client=client)
+
+    tenant_a = build_batch(result, api_key="ilp_tenant_a", session_id=None)
+    tenant_b = build_batch(result, api_key="ilp_tenant_b", session_id=None)
+
+    assert (
+        tenant_a["events"][0]["session_id"]
+        != tenant_b["events"][0]["session_id"]
+    )
+    # El mismo tenant conserva la sesión: es estable, no aleatoria.
+    again = build_batch(result, api_key="ilp_tenant_a", session_id=None)
+    assert again["events"][0]["session_id"] == tenant_a["events"][0]["session_id"]
+    # La API key no queda codificada en el identificador persistido.
+    assert "ilp_tenant_a" not in tenant_a["events"][0]["session_id"]
 
 
 async def test_send_batch_posts_through_telemetry_endpoint():
@@ -184,7 +206,7 @@ async def test_send_batch_posts_through_telemetry_endpoint():
 
     async with _client(lambda request: httpx.Response(200)) as probe_client:
         result = await run_probe(TARGET, timeout_seconds=5.0, client=probe_client)
-    payload = build_batch(result, session_id=SESSION_ID, application_id=APP_ID)
+    payload = build_batch(result, api_key=API_KEY, session_id=SESSION_ID, application_id=APP_ID)
 
     async with _client(handler) as client:
         status_code = await send_batch(
@@ -201,6 +223,50 @@ async def test_send_batch_posts_through_telemetry_endpoint():
 
 
 # -- S1: intervalo configurable ---------------------------------------------
+
+
+async def test_run_probe_measures_ttfb_without_reading_the_body():
+    """R3-002/R4-001: la latencia es TTFB. Leer el body mediría la descarga
+    completa —y podría declarar `timeout` a un sitio que está arriba— además de
+    materializar en memoria una respuesta que la sonda no usa."""
+    reads: list[int] = []
+
+    class _TrackingBody(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            reads.append(1)
+            yield b"cuerpo que la sonda no debe leer"
+
+    async with _client(
+        lambda request: httpx.Response(200, stream=_TrackingBody())
+    ) as client:
+        result = await run_probe(TARGET, timeout_seconds=5.0, client=client)
+
+    assert result.available is True
+    assert result.status_code == 200
+    assert result.latency_ms is not None
+    assert reads == []  # el body nunca se iteró
+
+
+async def test_send_batch_always_applies_a_finite_timeout():
+    """R3-003: el envío a la ingesta NUNCA sale sin timeout. Sin él, una
+    ingesta que no responde cuelga el ciclo y el intervalo deja de correr."""
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["timeout"] = request.extensions.get("timeout")
+        return httpx.Response(202, json={"batch_id": "b-1", "accepted": 1})
+
+    async with _client(handler) as client:
+        await send_batch(
+            base_url="http://api.test",
+            api_key=API_KEY,
+            payload={"schema_version": "1.0", "events": []},
+            client=client,
+        )
+
+    timeout = seen["timeout"]
+    assert timeout is not None
+    assert any(value and value > 0 for value in timeout.values())
 
 
 async def test_scheduler_uses_configured_interval():

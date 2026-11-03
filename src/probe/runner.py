@@ -4,6 +4,11 @@ El transporte HTTP se inyecta (`httpx.AsyncClient`), así la corrida es
 determinista en tests y no abre red por su cuenta. La latencia se mide con
 `time.perf_counter()`, que es monotónico y no depende del reloj de pared.
 
+La medición es de TTFB y por streaming (D2, R3-002, R4-001): se mide al recibir
+los headers y NO se lee el body. Leer el body mediría la descarga completa (no
+el primer byte) y podría tardar más que el timeout en un sitio que está arriba,
+además de materializar en memoria una respuesta que no se usa.
+
 Ningún error de red escapa: un timeout o un error de conexión se registran
 como indisponibilidad explícita (S4), no como una corrida perdida.
 """
@@ -77,10 +82,15 @@ async def run_probe(
 
     `client` lo provee el llamador (un solo `AsyncClient` compartido por ciclo
     en `python -m probe`), de modo que la sonda no abre conexiones propias.
+
+    La latencia se toma al recibir la respuesta (headers), antes de cualquier
+    lectura del body: es TTFB, no tiempo total de descarga (R3-002, R4-001).
     """
     started = time.perf_counter()
     try:
-        response = await client.get(target_url, timeout=timeout_seconds)
+        async with client.stream("GET", target_url, timeout=timeout_seconds) as response:
+            latency_ms = _latency_ms(started)
+            status_code = response.status_code
     except httpx.TimeoutException:
         # Antes que TransportError: TimeoutException es su subclase.
         return _without_response(target_url, ProbeOutcome.TIMEOUT)
@@ -88,13 +98,12 @@ async def run_probe(
         # DNS/TCP/rechazo de conexión: también es indisponibilidad (S4).
         return _without_response(target_url, ProbeOutcome.CONNECTION_ERROR)
 
-    latency_ms = _latency_ms(started)
-    available = response.status_code < UNAVAILABLE_STATUS_THRESHOLD
+    available = status_code < UNAVAILABLE_STATUS_THRESHOLD
     return ProbeResult(
         target_url=target_url,
         timestamp=_utc_now(),
         available=available,
-        status_code=response.status_code,
+        status_code=status_code,
         latency_ms=latency_ms,
         outcome=ProbeOutcome.OK if available else ProbeOutcome.HTTP_ERROR,
     )

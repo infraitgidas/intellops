@@ -39,7 +39,8 @@ async def run_cycle(settings: ProbeSettings, client: httpx.AsyncClient) -> Probe
     )
     payload = build_batch(
         result,
-        session_id=None,  # D4: sesión sintética estable derivada del target.
+        api_key=settings.probe_api_key,
+        session_id=None,  # D4: sesión sintética por tenant y target.
         application_id=settings.probe_application_id,
     )
     ingest_status = await send_batch(
@@ -47,6 +48,7 @@ async def run_cycle(settings: ProbeSettings, client: httpx.AsyncClient) -> Probe
         api_key=settings.probe_api_key,
         payload=payload,
         client=client,
+        timeout_seconds=settings.probe_timeout_seconds,
     )
     _log_result(result, ingest_status)
     return result

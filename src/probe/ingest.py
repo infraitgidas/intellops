@@ -10,6 +10,7 @@ disponibilidad queda agregable por `GET /metrics/query` sin read path nuevo.
 - D4: sin `session_id` explícito se usa un UUID v5 estable derivado del target.
 """
 
+from hashlib import sha256
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
@@ -27,14 +28,24 @@ LATENCY_UNIT = "ms"
 TELEMETRY_PATH = "/telemetry/metrics"
 API_KEY_HEADER = "X-API-Key"
 
+# Timeout del envío: el ciclo nunca queda colgado esperando una ingesta muda
+# (R3-003). Se override con el timeout de la corrida en `python -m probe`.
+DEFAULT_INGEST_TIMEOUT_SECONDS = 10.0
 
-def synthetic_session_id(target_url: str) -> str:
-    """UUID v5 estable por target (D4): una sesión sintética, no una por corrida.
 
-    `uuid5` sobre `NAMESPACE_URL` es determinista entre procesos, así que el
-    mismo target conserva su sesión y no se inventa cardinalidad.
+def synthetic_session_id(api_key: str, target_url: str) -> str:
+    """UUID v5 estable por TENANT y target (D4, R1-001/R3-001/R4-005).
+
+    El tenant entra en la derivación porque `session_id` es la PK de
+    `user_session` y la dueña de la sesión es la aplicación: sin él, dos
+    tenants que miden el mismo target colisionarían en la misma sesión y sus
+    métricas se atribuirían (o se descartarían) al otro tenant.
+
+    La API key se hashea antes de entrar al UUID: la sesión depende del tenant
+    sin codificar el secreto en el identificador persistido.
     """
-    return str(uuid5(NAMESPACE_URL, target_url))
+    tenant = sha256(api_key.encode("utf-8")).hexdigest()
+    return str(uuid5(NAMESPACE_URL, f"{tenant}:{target_url}"))
 
 
 def _metric_metadata(result: ProbeResult) -> dict[str, Any]:
@@ -71,10 +82,15 @@ def _latency_metric(result: ProbeResult) -> dict[str, Any] | None:
 
 def build_batch(
     result: ProbeResult,
+    api_key: str,
     session_id: str | None = None,
     application_id: str | None = None,
 ) -> dict[str, Any]:
     """Arma el `RumEventBatch` de una corrida (payload JSON de ingesta).
+
+    `api_key` identifica al tenant: sin `session_id` explícito, la sesión
+    sintética se deriva de (tenant, target) para no mezclar tenants que miden
+    el mismo sitio (D4, R1-001).
 
     El evento cumple `api.domain.services.ingest_policy.validate_rum_event`: es
     la política real, no una copia, para que la sonda no derive del contrato.
@@ -87,7 +103,7 @@ def build_batch(
     event: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "timestamp": result.timestamp.isoformat(),
-        "session_id": session_id or synthetic_session_id(result.target_url),
+        "session_id": session_id or synthetic_session_id(api_key, result.target_url),
         "metrics": metrics,
     }
     if application_id is not None:
@@ -105,6 +121,10 @@ async def send_batch(
 ) -> int:
     """Envía el batch por `POST /telemetry/metrics` y devuelve el status.
 
+    El envío SIEMPRE lleva timeout (R3-003): uno explícito o el default acotado.
+    Sin él, una ingesta que no responde bloquea el ciclo y el intervalo de la
+    sonda deja de correr.
+
     El status lo decide la ingesta (202 en el camino feliz, 401/422 si la API
     key o el payload no son válidos); el llamador solo lo registra.
     """
@@ -113,6 +133,10 @@ async def send_batch(
         url,
         json=payload,
         headers={API_KEY_HEADER: api_key},
-        timeout=timeout_seconds,
+        timeout=(
+            DEFAULT_INGEST_TIMEOUT_SECONDS
+            if timeout_seconds is None
+            else timeout_seconds
+        ),
     )
     return response.status_code
