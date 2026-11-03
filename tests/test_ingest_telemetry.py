@@ -194,6 +194,23 @@ def test_policy_rejects_invalid_metric_type():
     assert validate_rum_event(event) == "invalid_metric_type"
 
 
+def test_policy_accepts_availability_metric_from_probe():
+    """B.13/D1: la sonda HTTP ingesta `AVAILABILITY` (unidad `count`, valor
+    1/0) por el mismo camino que el RUM. La política DEBE aceptarla y seguir
+    rechazando unidad y rango inválidos (S2, S3)."""
+    up = _rum(metrics=[{"type": "AVAILABILITY", "value": 1, "unit": "count"}])
+    assert validate_rum_event(up) is None
+    down = _rum(metrics=[{"type": "AVAILABILITY", "value": 0, "unit": "count"}])
+    assert validate_rum_event(down) is None
+
+    wrong_unit = _rum(metrics=[{"type": "AVAILABILITY", "value": 1, "unit": "ms"}])
+    assert validate_rum_event(wrong_unit) == "invalid_unit"
+    out_of_range = _rum(
+        metrics=[{"type": "AVAILABILITY", "value": 2, "unit": "count"}]
+    )
+    assert validate_rum_event(out_of_range) == "invalid_range"
+
+
 def test_policy_rejects_invalid_application_uuid_when_present():
     """application_id presente pero no-UUID DEBE rechazarse con invalid_uuid
     (matriz general del contrato: todos los UUID válidos)."""

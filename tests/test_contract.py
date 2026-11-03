@@ -279,6 +279,28 @@ def test_oas13_metric_aggregate_shape_ml():
     }
 
 
+# -- B.13/D1: tipo AVAILABILITY en el catálogo de métricas -------------------
+
+def test_b13_metric_type_enum_includes_availability():
+    """B.13/D1: `RumMetric.type` DEBE aceptar `AVAILABILITY` (unidad `count`,
+    valor 1/0) para que la sonda HTTP registre disponibilidad por el camino de
+    ingesta RUM (S2, S3)."""
+    doc = _contract()
+    metric_type = doc["components"]["schemas"]["RumMetric"]["properties"]["type"]
+    assert "AVAILABILITY" in metric_type["enum"]
+
+
+def test_b13_availability_unit_and_range_are_documented():
+    """B.13/D1: el contrato DEBE documentar que `AVAILABILITY` usa la unidad
+    `count` con valor 1 (disponible) o 0 (no disponible), para que el ingest y
+    el read path no queden como un acuerdo tácito."""
+    doc = _contract()
+    metric_type = doc["components"]["schemas"]["RumMetric"]["properties"]["type"]
+    description = metric_type["description"].lower()
+    assert "availability" in description
+    assert "1" in description and "0" in description
+
+
 # -- OAS-14 (ISS-S3-02/ARCH-6): enum unit ampliado + nota error_type ---------
 
 def test_oas14_metric_unit_accepts_alias_family():

@@ -918,12 +918,12 @@ components:
       properties:
         type:
           type: string
-          enum: [TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK]
-          description: "Tipo de métrica RUM"
+          enum: [TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK, AVAILABILITY]
+          description: "Tipo de métrica RUM. AVAILABILITY (B.13) es la disponibilidad medida por la sonda HTTP: valor 1 = disponible, 0 = no disponible, en los valores enteros 1 y 0"
         value:
           type: number
           minimum: 0
-          description: "ms para TTFB/FCP/XHR_LATENCY; count para JS_EXCEPTION_RATE/RAGE_CLICK"
+          description: "ms para TTFB/FCP/XHR_LATENCY; count para JS_EXCEPTION_RATE/RAGE_CLICK; 1 o 0 para AVAILABILITY (disponible o no disponible)"
         unit:
           type: string
           enum: [ms, count, s, sec, secs, msec, millis, counts]
@@ -1064,7 +1064,7 @@ components:
           description: "Id del tipo de métrica"
         name:
           type: string
-          description: "Nombre canónico del tipo (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK)"
+          description: "Nombre canónico del tipo (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK, AVAILABILITY)"
         description:
           type: string
           description: "Descripción del tipo de métrica"
