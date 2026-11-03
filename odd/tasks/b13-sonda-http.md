@@ -77,4 +77,12 @@ forman parte de esta issue.» y «Depende de: B.1».
   (`chained-pr`) en lugar de empujar todo junto.
 - **L6** (03/11/2026): la migración `0006` y los asserts de head se verifican contra
   Postgres real en un proyecto docker aislado (`intellops_b13_mig`), para no depender de
-  la base local ni ensuciar la del worker del read path.
+  la base local ni ensuciar la del worker del read path. Corrido: 18 passed.
+- **L7** (03/11/2026, owner): «con respecto a la url, como el objetivo seria que la
+  persona ingrese la url del sitio del que se recuperan los datos creo que lo mejor sera
+  que me pases un instructivo con los pasos para preparar el sitio siendo un usuario de
+  nuestra aplicacion». Entregado `docs/guias/preparar-sitio-piloto.md` (S5 pasa a
+  ejecutarse con el target que el usuario elija). **Decisión abierta**: hoy el target es
+  por despliegue (`PROBE_TARGET_URL`); el alta autoservicio de la URL por aplicación es
+  un cambio de producto que excede B.13 y queda registrado como pendiente en la sección
+  7 del instructivo. No se implementa sin decisión del owner.
