@@ -8,15 +8,24 @@ disponibilidad queda agregable por `GET /metrics/query` sin read path nuevo.
 - D2: la latencia va como `TTFB` (la sonda mide tiempo hasta el primer byte).
 - D3: el status HTTP va en `metadata`, no como métrica.
 - D4: sin `session_id` explícito se usa un UUID v5 estable derivado del target.
+
+Un evento que la política rechaza se pierde COMPLETO, no por métrica: por eso
+`build_batch` no emite `TTFB` cuando la latencia medida queda fuera del rango de
+cordura del contrato (S2). Un sitio lento produce una latencia mayor al tope y
+mandarla haría que la ingesta descarte también la disponibilidad.
 """
 
+import logging
 from hashlib import sha256
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 import httpx
 
+from api.domain.services.ingest_policy import RANGE_BY_TYPE
 from probe.runner import ProbeResult
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = "1.0"
 AVAILABILITY_METRIC = "AVAILABILITY"
@@ -69,8 +78,20 @@ def _availability_metric(result: ProbeResult) -> dict[str, Any]:
 
 
 def _latency_metric(result: ProbeResult) -> dict[str, Any] | None:
-    """Métrica `TTFB` en ms, solo si hubo respuesta que medir (D2, S4)."""
+    """Métrica `TTFB` en ms, solo si hubo respuesta que medir (D2, S4).
+
+    La métrica se emite ÚNICAMENTE si la latencia cae dentro del rango de
+    cordura que la política declara para `TTFB` (S2): el rango se importa de
+    `ingest_policy.RANGE_BY_TYPE`, no se copia, para que la sonda siga al
+    contrato sin deriva. Una corrida contra un sitio lento puede superar el
+    tope; enviarla haría que la ingesta rechace el evento ENTERO con
+    `invalid_range` y se perdería también la disponibilidad. El valor medido no
+    se pierde: queda en `metadata.latency_ms` del registro de disponibilidad.
+    """
     if result.latency_ms is None:
+        return None
+    _, max_latency_ms = RANGE_BY_TYPE[LATENCY_METRIC]
+    if max_latency_ms is not None and result.latency_ms > max_latency_ms:
         return None
     return {
         "type": LATENCY_METRIC,
@@ -78,6 +99,60 @@ def _latency_metric(result: ProbeResult) -> dict[str, Any] | None:
         "unit": LATENCY_UNIT,
         "metadata": _metric_metadata(result),
     }
+
+
+def _parse_ingest_body(response: httpx.Response) -> tuple[int | None, list[str]]:
+    """Extrae `accepted` y las razones de rechazo de la respuesta (S2, S3).
+
+    El cuerpo de la ingesta es `IngestResponse` (`batch_id`, `accepted`,
+    `rejected[{index, reason}]`). Si no es JSON o no trae `accepted`, se
+    devuelve `None` para no inventar un resultado: el status es toda la
+    evidencia disponible.
+    """
+    try:
+        body = response.json()
+    except ValueError:
+        return None, []
+    if not isinstance(body, dict):
+        return None, []
+    accepted = body.get("accepted")
+    if not isinstance(accepted, int) or isinstance(accepted, bool):
+        accepted = None
+    rejected = body.get("rejected")
+    reasons = [
+        f"{item.get('index')}:{item.get('reason')}"
+        for item in (rejected if isinstance(rejected, list) else [])
+        if isinstance(item, dict)
+    ]
+    return accepted, reasons
+
+
+def _log_ingest_outcome(response: httpx.Response, payload: dict[str, Any]) -> None:
+    """Registra QUÉ aceptó la ingesta, no solo el status (S2, S3).
+
+    `202` solo significa "recibido": si la política rechazó eventos, el batch
+    se pierde igual y un log con `ingest_status=202` a secas esconde la pérdida.
+    Por eso se registran `accepted`, la cantidad enviada y las razones del
+    rechazo, con nivel WARNING cuando no se aceptó todo.
+    """
+    sent = len(payload.get("events") or [])
+    accepted, reasons = _parse_ingest_body(response)
+    if accepted is None:
+        logger.info(
+            "probe ingest status=%s sent=%s accepted=unknown",
+            response.status_code,
+            sent,
+        )
+        return
+    log = logger.info if accepted >= sent else logger.warning
+    log(
+        "probe ingest status=%s sent=%s accepted=%s rejected=%s reasons=%s",
+        response.status_code,
+        sent,
+        accepted,
+        len(reasons),
+        ",".join(reasons) or "-",
+    )
 
 
 def build_batch(
@@ -126,7 +201,9 @@ async def send_batch(
     sonda deja de correr.
 
     El status lo decide la ingesta (202 en el camino feliz, 401/422 si la API
-    key o el payload no son válidos); el llamador solo lo registra.
+    key o el payload no son válidos); el llamador solo lo registra. El cuerpo de
+    la respuesta sí se registra acá: es el único lugar donde `accepted` y las
+    razones de rechazo están disponibles (S2).
     """
     url = f"{base_url.rstrip('/')}{TELEMETRY_PATH}"
     response = await client.post(
@@ -139,4 +216,5 @@ async def send_batch(
             else timeout_seconds
         ),
     )
+    _log_ingest_outcome(response, payload)
     return response.status_code

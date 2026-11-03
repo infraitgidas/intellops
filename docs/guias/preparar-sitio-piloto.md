@@ -173,7 +173,7 @@ que medir. Por eso en esas corridas la métrica es solo `AVAILABILITY = 0`.
 | `401 invalid_api_key` al enviar | Key mal copiada, revocada, o de otra aplicación | Emití una nueva (paso 2.3) |
 | `403` al crear aplicación o emitir key | Tu usuario no es Admin | Pedile la key a un Admin |
 | `409` al emitir key | La aplicación ya tiene una key activa | Revocá la anterior primero |
-| `503 queue_full` | Backpressure de la cola de ingesta | Bajá `PROBE_INTERVAL_SECONDS` o reintentá; el siguiente ciclo va solo |
+| `503 queue_full` | Backpressure de la cola de ingesta | Subí `PROBE_INTERVAL_SECONDS` (sondear menos seguido) o reintentá; el siguiente ciclo va solo |
 | Todo `http_error` con 404 | La URL mide una ruta que no existe | Corregí `PROBE_TARGET_URL` |
 | Todo `timeout`, pero `curl` responde | La sonda corre en una red distinta o el sitio bloquea esa IP | Verificá desde la máquina de la sonda |
 

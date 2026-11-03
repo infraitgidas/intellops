@@ -7,9 +7,14 @@ ingesta apunta a la API con `INGEST_BASE_URL`.
 Un intervalo no positivo es configuración inválida: la sonda nunca debe
 entrar en un bucle sin pausa (S1). Se valida al construir, no en la primera
 corrida.
+
+`PROBE_APPLICATION_ID` se valida como UUID por la misma razón (S2): un valor
+que no es UUID hace que la política de ingesta rechace el evento COMPLETO con
+`invalid_uuid`, así que la sonda perdería la corrida en silencio cada ciclo.
 """
 
 from functools import lru_cache
+from uuid import UUID
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -44,6 +49,24 @@ class ProbeSettings(BaseSettings):
         """Un target sin esquema no es una URL medible: se rechaza al construir."""
         if not value.startswith(("http://", "https://")):
             raise ValueError("url must start with http:// or https://")
+        return value
+
+    @field_validator("probe_application_id")
+    @classmethod
+    def _validate_application_id(cls, value: str | None) -> str | None:
+        """El `application_id` debe ser UUID o ausente (S2).
+
+        La política de ingesta rechaza el evento completo con `invalid_uuid` si
+        el valor no parsea como UUID: sin esta validación la sonda arrancaría
+        igual y perdería cada corrida sin dejar rastro (solo un 202 con
+        `accepted=0`). Falla al construir, que es donde se puede corregir.
+        """
+        if value is None:
+            return None
+        try:
+            UUID(value)
+        except (ValueError, AttributeError, TypeError) as exc:
+            raise ValueError("application_id must be a UUID") from exc
         return value
 
 

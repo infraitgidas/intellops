@@ -14,7 +14,8 @@ los tests y los casos de error son reproducibles.
 """
 
 import json
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from uuid import UUID
 
 import httpx
@@ -23,7 +24,7 @@ import pytest
 from api.domain.services.ingest_policy import validate_rum_event
 from probe.config import ProbeSettings
 from probe.ingest import build_batch, send_batch
-from probe.runner import ProbeOutcome, run_probe
+from probe.runner import ProbeOutcome, ProbeResult, run_probe
 from probe.scheduler import ProbeScheduler
 
 TARGET = "https://piloto.example.com/health"
@@ -193,6 +194,21 @@ async def test_synthetic_session_id_is_scoped_by_tenant():
     assert "ilp_tenant_a" not in tenant_a["events"][0]["session_id"]
 
 
+def test_probe_latency_above_ttfb_cap_keeps_availability_record():
+    """B.13/S2: un TTFB sobre el tope de cordura NO puede descartar el registro
+    de disponibilidad: el evento sigue siendo válido para la política."""
+    result = ProbeResult(target_url=TARGET, timestamp=datetime.now(timezone.utc),
+                         available=True, status_code=200, latency_ms=70_000.0,
+                         outcome=ProbeOutcome.OK)
+    payload = build_batch(result, api_key=API_KEY)
+    event = payload["events"][0]
+    assert validate_rum_event(event) is None
+    metrics = {m["type"]: m for m in event["metrics"]}
+    assert metrics["AVAILABILITY"]["value"] == 1
+    assert "TTFB" not in metrics          # fuera de rango: no se envía
+    assert metrics["AVAILABILITY"]["metadata"]["latency_ms"] == 70_000.0
+
+
 async def test_send_batch_posts_through_telemetry_endpoint():
     """S3: el envío usa `POST /telemetry/metrics` con la API key del tenant y
     devuelve el status de la ingesta (202 en el camino feliz)."""
@@ -269,6 +285,60 @@ async def test_send_batch_always_applies_a_finite_timeout():
     assert any(value and value > 0 for value in timeout.values())
 
 
+async def test_send_batch_logs_rejection_reasons_from_response():
+    """S2/S3: un 202 no es "todo bien". Si la ingesta aceptó 0 eventos, el
+    ciclo tiene que registrar la cantidad aceptada y la razón del rechazo: un
+    log con solo `ingest_status=202` esconde la pérdida de datos.
+
+    La captura usa un handler propio del logger `probe.ingest` en vez de
+    `caplog`: el root logger cambia cuando otros módulos de la suite se
+    importan (la app configura logging), y este test no puede depender de eso.
+    """
+    records: list[logging.LogRecord] = []
+
+    class _Collector(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            202,
+            json={
+                "batch_id": "b-2",
+                "accepted": 0,
+                "rejected": [{"index": 0, "reason": "invalid_range"}],
+            },
+        )
+
+    ingest_logger = logging.getLogger("probe.ingest")
+    collector = _Collector()
+    # Nivel y `disabled` explícitos: otros tests de la suite reconfiguran
+    # logging con `disable_existing_loggers`, que apaga este logger y hace que
+    # el registro ni se cree. Sin esto el test miente.
+    previous_level = ingest_logger.level
+    previous_disabled = ingest_logger.disabled
+    ingest_logger.setLevel(logging.INFO)
+    ingest_logger.disabled = False
+    ingest_logger.addHandler(collector)
+    try:
+        async with _client(handler) as client:
+            status_code = await send_batch(
+                base_url="http://api.test",
+                api_key=API_KEY,
+                payload={"schema_version": "1.0", "events": [{"x": 1}]},
+                client=client,
+            )
+    finally:
+        ingest_logger.removeHandler(collector)
+        ingest_logger.setLevel(previous_level)
+        ingest_logger.disabled = previous_disabled
+
+    assert status_code == 202  # el contrato de retorno no cambia
+    messages = [record.getMessage() for record in records]
+    assert any("invalid_range" in message for message in messages)
+    assert any("accepted=0" in message for message in messages)
+
+
 async def test_scheduler_uses_configured_interval():
     """S1: el intervalo es configurable y la corrida es periódica: con un
     intervalo corto se ejecutan varias corridas, y el intervalo configurado es
@@ -292,6 +362,17 @@ def test_settings_reject_non_positive_interval():
         _settings(probe_interval_seconds=0)
     with pytest.raises(ValueError):
         _settings(probe_interval_seconds=-5)
+
+
+def test_settings_reject_non_uuid_application_id():
+    """S2: un `PROBE_APPLICATION_ID` que no es UUID hace que la política
+    rechace el evento completo (`invalid_uuid`) y la corrida se pierda en
+    silencio cada ciclo. Se rechaza al construir, no en la primera corrida."""
+    with pytest.raises(ValueError):
+        _settings(probe_application_id="piloto")
+
+    settings = _settings(probe_application_id=APP_ID)
+    assert settings.probe_application_id == APP_ID
 
 
 def test_settings_require_target_and_api_key():
