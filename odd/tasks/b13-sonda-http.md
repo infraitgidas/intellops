@@ -110,3 +110,15 @@ forman parte de esta issue.» y «Depende de: B.1».
   grupo de reviewers sí corrió porque lo ejecuta el build de la extensión. Remedio que
   imprime el propio provider: actualizar el `gentle-ai` que resuelve el `PATH` al build
   que escribió la autoridad. Decisión del owner: es mantenimiento de entorno.
+- **L10** (03/11/2026, evidencia de ejecución real, S5): target del owner
+  `https://inns-officials-singles-green.trycloudflare.com/login`. Tres ciclos reales de
+  `python -m probe` contra la API local:
+  `outcome=ok http_status=200 latency_ms=289.194 / 272.217 / 277.669 ingest_status=202`.
+  Consultable por el read path: `GET /metrics/query` AVAILABILITY → `value: 1.0` (uptime
+  del bucket) y TTFB → `279.69` ms; `GET /metrics/probes?limit=5` → 200 con las tres
+  corridas, la más nueva primero, `target`, `http_status`, `outcome`, `latency_ms` y
+  `available` mapeados desde `metadata`.
+  Alta hecha por la API pública (login → `POST /applications` → `POST .../api-key`) tras
+  restaurar el usuario seed `admin@intellops.local` que la migración `0002` declara y que
+  faltaba en la base de desarrollo (la tabla `lab_user` estaba vacía). Sin cambios de
+  código por esto.
