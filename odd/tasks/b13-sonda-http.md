@@ -134,3 +134,8 @@ forman parte de esta issue.» y «Depende de: B.1».
   `RestrictViolation` una vez usada la métrica; (5) fila de tabla huérfana en este
   doc, bullets pegados y el 503 del instructivo recomendando bajar el intervalo.
   S5 quedó `pending` en su corrida (no tenía la URL); cubierto por L10.
+- **L12** (03/11/2026, cierre de verificación): suite completa en docker con Postgres 16
+  efímero sobre el commit final: **460 passed + 1 xpassed** (21.92 s), alembic a head
+  incluido. Cobertura de la feature: 17 tests de la sonda, 20 de migraciones, contrato y
+  read path verdes. En el host queda una única falla ambiental conocida y ajena:
+  `tests/test_ml_worker.py` por `numpy` ausente en `.venv`.
