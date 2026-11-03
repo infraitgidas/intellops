@@ -86,3 +86,27 @@ forman parte de esta issue.» y «Depende de: B.1».
   por despliegue (`PROBE_TARGET_URL`); el alta autoservicio de la URL por aplicación es
   un cambio de producto que excede B.13 y queda registrado como pendiente en la sección
   7 del instructivo. No se implementa sin decisión del owner.
+- **L8** (03/11/2026, review nativa): el grupo de 4 lentes corrió sobre el candidato
+  congelado `d0141dd` y levantó 6 hallazgos severos, todos `introduced` por este
+  cambio y todos aceptados:
+  - `R1-001`/`R3-001`/`R4-005` (CRITICAL/BLOCKER): la sesión sintética se derivaba
+    solo del target, así que dos tenants que miden el mismo sitio compartían
+    `session_id` —PK de `user_session`, cuya dueña es la aplicación— y las métricas
+    se atribuían o se descartaban al otro tenant. Corregido: derivación de
+    `(sha256(api_key), target)`.
+  - `R3-002`/`R4-001` (CRITICAL): `client.get` leía el body completo antes de medir,
+    así que la latencia era tiempo total y no TTFB, y un body lento podía registrar
+    `timeout` en un sitio arriba. Corregido: `client.stream`, medición al recibir
+    headers, body nunca leído.
+  - `R3-003` (CRITICAL): `send_batch` pasaba `timeout=None` y desactivaba el timeout
+    del cliente, colgando el ciclo si la ingesta no responde. Corregido: timeout
+    acotado por default.
+  Corrección commiteada en `0c9e669` (154 diff lines sobre el candidato congelado,
+  dentro del budget de 200).
+- **L9** (03/11/2026, bloqueo de la review nativa): declarar el plan de corrección
+  falla con `review_authority_newer_release`: la autoridad la escribió un `gentle-ai`
+  más nuevo (campo `lens_selection_reason`) y el binario del `PATH` es 3.7.0, que no
+  puede parsearla (`/home/federico/go/bin/gentle-ai` es 2.6.0, todavía más viejo). El
+  grupo de reviewers sí corrió porque lo ejecuta el build de la extensión. Remedio que
+  imprime el propio provider: actualizar el `gentle-ai` que resuelve el `PATH` al build
+  que escribió la autoridad. Decisión del owner: es mantenimiento de entorno.
