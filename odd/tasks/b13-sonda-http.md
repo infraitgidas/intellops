@@ -122,3 +122,15 @@ forman parte de esta issue.» y «Depende de: B.1».
   restaurar el usuario seed `admin@intellops.local` que la migración `0002` declara y que
   faltaba en la base de desarrollo (la tabla `lab_user` estaba vacía). Sin cambios de
   código por esto.
+- **L11** (03/11/2026, verificador independiente): S1-S4 `pass` con evidencia de
+  sockets reales (headers rápidos + body lento no leído, timeout a 400 ms contado,
+  puerto cerrado y host inválido como `connection_error`, redirect no seguido,
+  dos tenants con sesiones distintas). Los 6 hallazgos de la review: 6/6
+  corregidos, probado contra `git show cc855f1`. Encontró además 5 defectos
+  propios, corregidos en `498a1df`: (1) un TTFB sobre el tope de cordura hacía
+  rechazar el evento entero y se perdía la disponibilidad; (2)
+  `PROBE_APPLICATION_ID` no-UUID descartaba el evento; (3) el log decía 202 aunque
+  se aceptaran 0 eventos; (4) el downgrade de `0006` reventaba con
+  `RestrictViolation` una vez usada la métrica; (5) fila de tabla huérfana en este
+  doc, bullets pegados y el 503 del instructivo recomendando bajar el intervalo.
+  S5 quedó `pending` en su corrida (no tenía la URL); cubierto por L10.
