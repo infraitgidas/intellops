@@ -41,6 +41,7 @@ Thumbs.db
 ## ML / Data
 ml/data/raw/
 ml/data/processed/
+ml/data/synthetic/
 ml/models/*.bin
 ml/models/*.onnx
 ml/models/*.gguf
