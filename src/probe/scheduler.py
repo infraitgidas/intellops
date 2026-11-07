@@ -3,9 +3,15 @@
 El ciclo se inyecta como callable async sin argumentos, así el scheduler solo
 se ocupa del ritmo: nunca duerme después de la última corrida, porque un
 `max_cycles` finito debe terminar exactamente con esa cantidad de corridas.
+
+El ritmo se ancla a `time.monotonic()`: la espera es el intervalo MENOS lo que
+duró el ciclo, así el período real es `interval_seconds` y no intervalo +
+duración del ciclo. Sin esa compensación, con un intervalo de 60 s y buckets de
+agregación de 60 s, algunos buckets quedarían con 0 muestras y otros con 2.
 """
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable
 
 
@@ -22,15 +28,20 @@ class ProbeScheduler:
         self._cycle = cycle
 
     async def run(self, max_cycles: int | None = None) -> None:
-        """Ejecuta `cycle` y espera el intervalo entre corridas.
+        """Ejecuta `cycle` y espera lo que falta del intervalo entre corridas.
 
         `max_cycles=None` corre indefinidamente (`python -m probe`); con un
         entero corre exactamente esa cantidad de ciclos y no duerme al final.
+
+        Si un ciclo dura más que el intervalo, la espera se recorta a cero
+        (nunca negativa) y el próximo ciclo arranca de inmediato.
         """
         cycles = 0
+        next_tick = time.monotonic()
         while max_cycles is None or cycles < max_cycles:
             await self._cycle()
             cycles += 1
             if max_cycles is not None and cycles >= max_cycles:
                 return
-            await asyncio.sleep(self.interval_seconds)
+            next_tick += self.interval_seconds
+            await asyncio.sleep(max(0.0, next_tick - time.monotonic()))

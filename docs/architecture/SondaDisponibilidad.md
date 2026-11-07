@@ -47,7 +47,7 @@ Variables de entorno (`ProbeSettings`, prefijo `PROBE_`):
 | `PROBE_TARGET_URL` | — (requerida) | Origen único medido; debe empezar con `http://` o `https://` |
 | `PROBE_API_KEY` | — (requerida) | API key del tenant que reporta (`X-API-Key`) |
 | `INGEST_BASE_URL` | `http://localhost:8000` | Base de la API de ingesta |
-| `PROBE_INTERVAL_SECONDS` | `60` | Intervalo entre corridas; debe ser `> 0` |
+| `PROBE_INTERVAL_SECONDS` | `60` | Período entre corridas; debe ser `> 0`. Se compensa la duración del ciclo (el período real es el intervalo, no intervalo + ciclo), así los buckets de agregación no quedan con 0 o 2 muestras |
 | `PROBE_TIMEOUT_SECONDS` | `5` | Timeout de la corrida; debe ser `> 0` |
 | `PROBE_APPLICATION_ID` | — (opcional) | `application_id` del evento; debe ser UUID (si no, la política rechaza el evento y la sonda falla al arrancar). Nunca es autoridad de tenant |
 
@@ -71,7 +71,13 @@ no puede colgar el ciclo ni detener el intervalo configurado.
 
 Un `202` no significa "todo aceptado": es "recibido". El log del ciclo incluye
 `accepted` y las razones de rechazo del cuerpo de la respuesta, así un batch
-descartado no queda escondido detrás de un status exitoso.
+descartado no queda escondido detrás de un status exitoso. Cualquier status
+de ingesta no-2xx (un 401 por API key mala, un 422) se loguea como **WARNING**:
+una sonda mal configurada no puede parecer sana mientras no manda nada.
+
+El target se persiste y se loguea **saneado** (`metadata.probe_target`): sin
+query string, fragmento ni credenciales. Si la URL del target trae un token en
+el query string, no queda guardado ni expuesto por el read path.
 
 El payload se valida contra la política real de ingesta
 (`api.domain.services.ingest_policy.validate_rum_event`) en los tests: si el
@@ -82,6 +88,8 @@ contrato cambia, la sonda falla en la suite, no en producción.
 - Un solo origen: la comparación multi-punto es R.4 (2027).
 - Sin TLS ni DNS: son parte de R.4; acá `connection_error` los agrupa.
 - Sin reintento: un ciclo fallido se registra y el siguiente intervalo vuelve a
-  intentar. La sonda no acumula estado.
+  intentar. La sonda no acumula estado. Un error inesperado del ciclo (no solo
+  los de red) se registra con stack trace y tampoco mata el proceso: el
+  scheduler es la política de reinicio.
 - No se despliega como contenedor propio en este slice (ADR-0010 fija cuatro
   contenedores); el despliegue se decide en C.5 junto con el release.

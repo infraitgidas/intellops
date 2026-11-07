@@ -11,7 +11,7 @@ import logging
 import httpx
 
 from probe.config import ProbeSettings
-from probe.ingest import build_batch, send_batch
+from probe.ingest import build_batch, sanitize_target_url, send_batch
 from probe.runner import ProbeResult, run_probe
 from probe.scheduler import ProbeScheduler
 
@@ -23,7 +23,7 @@ def _log_result(result: ProbeResult, ingest_status: int) -> None:
     logger.info(
         "probe outcome=%s target=%s http_status=%s latency_ms=%s ingest_status=%s",
         result.outcome.value,
-        result.target_url,
+        sanitize_target_url(result.target_url),
         result.status_code,
         result.latency_ms,
         ingest_status,
@@ -65,6 +65,12 @@ async def _serve(settings: ProbeSettings) -> None:
                 # La corrida nunca pierde el ritmo por un fallo de ingesta: se
                 # registra y el próximo intervalo vuelve a intentar.
                 logger.warning("probe ingest failed: %s", exc)
+            except Exception:
+                # Un error inesperado (p. ej. en build_batch) tampoco puede
+                # matar el proceso: no hay política de reinicio externa, el
+                # próximo ciclo ES el reintento. CancelledError no entra acá
+                # (deriva de BaseException): la cancelación sí frena la sonda.
+                logger.exception("probe cycle failed unexpectedly")
 
         await ProbeScheduler(
             interval_seconds=settings.probe_interval_seconds,
@@ -81,7 +87,7 @@ def main() -> None:
     settings = ProbeSettings()
     logger.info(
         "probe starting target=%s interval=%ss ingest=%s",
-        settings.probe_target_url,
+        sanitize_target_url(settings.probe_target_url),
         settings.probe_interval_seconds,
         settings.ingest_base_url,
     )

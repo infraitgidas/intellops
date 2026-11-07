@@ -15,12 +15,16 @@ los tests y los casos de error son reproducibles.
 
 import json
 import logging
+from contextlib import contextmanager
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from uuid import UUID
 
 import httpx
 import pytest
 
+import probe.__main__ as probe_main
+import probe.scheduler as scheduler_module
 from api.domain.services.ingest_policy import validate_rum_event
 from probe.config import ProbeSettings
 from probe.ingest import build_batch, send_batch
@@ -382,3 +386,205 @@ def test_settings_require_target_and_api_key():
         ProbeSettings(probe_api_key=API_KEY)
     with pytest.raises(ValueError):
         ProbeSettings(probe_target_url=TARGET)
+
+
+# -- Correcciones de review de la PR #88 (comentario de RomeKai) -------------
+
+
+@contextmanager
+def _captured_logs(logger_name: str):
+    """Registros de un logger propio, inmune a la reconfiguración global de
+    logging que hacen otros módulos de la suite (mismo criterio que el test de
+    razones de rechazo: nivel y `disabled` explícitos)."""
+    records: list[logging.LogRecord] = []
+
+    class _Collector(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    target = logging.getLogger(logger_name)
+    collector = _Collector()
+    previous_level = target.level
+    previous_disabled = target.disabled
+    target.setLevel(logging.INFO)
+    target.disabled = False
+    target.addHandler(collector)
+    try:
+        yield records
+    finally:
+        target.removeHandler(collector)
+        target.setLevel(previous_level)
+        target.disabled = previous_disabled
+
+
+async def test_send_batch_logs_warning_when_ingest_status_is_not_2xx():
+    """Review 3: un 401 (API key mala) o un 422 NO pueden loguearse como INFO
+    con `accepted=unknown`: una sonda mal configurada parecería sana mientras
+    no manda nada. Todo status no-2xx se registra como WARNING; un 2xx sin
+    cuerpo parseable sigue siendo INFO."""
+    payload = {"schema_version": "1.0", "events": [{"x": 1}]}
+
+    with _captured_logs("probe.ingest") as records:
+        async with _client(
+            lambda request: httpx.Response(401, json={"detail": "invalid api key"})
+        ) as client:
+            await send_batch(
+                base_url="http://api.test", api_key=API_KEY, payload=payload, client=client
+            )
+    warnings = [r for r in records if r.levelno == logging.WARNING]
+    assert any("accepted=unknown" in r.getMessage() for r in warnings)
+
+    with _captured_logs("probe.ingest") as records:
+        async with _client(
+            lambda request: httpx.Response(200, text="no es json")
+        ) as client:
+            await send_batch(
+                base_url="http://api.test", api_key=API_KEY, payload=payload, client=client
+            )
+    assert [r for r in records if r.levelno >= logging.WARNING] == []
+
+
+async def test_serve_survives_unexpected_cycle_error(monkeypatch):
+    """Review 4: `cycle()` no puede atrapar solo `httpx.HTTPError`. Cualquier
+    otra excepción (por ejemplo, de `build_batch`) mataba el proceso y no hay
+    política de reinicio: el error se registra y el próximo ciclo reintenta."""
+    attempts: list[int] = []
+
+    async def flaky_run_cycle(settings, client):
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise ValueError("build_batch explotó")
+
+    class _TwoCycles:
+        """Scheduler acotado: dos ciclos y termina, para no correr infinito."""
+
+        def __init__(self, interval_seconds, cycle):
+            self._cycle = cycle
+
+        async def run(self):
+            await self._cycle()
+            await self._cycle()
+
+    monkeypatch.setattr(probe_main, "run_cycle", flaky_run_cycle)
+    monkeypatch.setattr(probe_main, "ProbeScheduler", _TwoCycles)
+
+    await probe_main._serve(_settings())
+
+    assert len(attempts) == 2  # la excepción no mató el proceso
+
+
+class _FakeClock:
+    """Reloj monotónico determinista para el scheduler (sin sleeps reales)."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+
+async def test_scheduler_compensates_cycle_duration(monkeypatch):
+    """Review 5: el período real es `interval_seconds`, NO intervalo +
+    duración del ciclo. Con buckets de 60 s, la deriva dejaba buckets con 0
+    muestras y otros con 2. La espera es el intervalo menos lo que duró el
+    ciclo, anclada al reloj monotónico."""
+    clock = _FakeClock()
+    sleeps: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        clock.now += max(0.0, seconds)
+
+    async def cycle() -> None:
+        clock.now += 0.03  # el ciclo dura 30 ms
+
+    # `raising=False`: el reloj se inyecta aunque el scheduler viejo no lo use.
+    monkeypatch.setattr(
+        scheduler_module, "time", SimpleNamespace(monotonic=clock.monotonic), raising=False
+    )
+    monkeypatch.setattr(scheduler_module, "asyncio", SimpleNamespace(sleep=fake_sleep))
+
+    await ProbeScheduler(interval_seconds=0.05, cycle=cycle).run(max_cycles=3)
+
+    assert sleeps == pytest.approx([0.02, 0.02])  # 50 ms - 30 ms, sin deriva
+
+
+async def test_scheduler_never_sleeps_negative_when_cycle_overruns(monkeypatch):
+    """Review 5: si un ciclo dura más que el intervalo, la espera se recorta a
+    cero (nunca negativa) y el próximo ciclo arranca de inmediato."""
+    clock = _FakeClock()
+    sleeps: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        clock.now += max(0.0, seconds)
+
+    async def cycle() -> None:
+        clock.now += 0.07  # el ciclo dura más que el intervalo de 50 ms
+
+    monkeypatch.setattr(
+        scheduler_module, "time", SimpleNamespace(monotonic=clock.monotonic), raising=False
+    )
+    monkeypatch.setattr(scheduler_module, "asyncio", SimpleNamespace(sleep=fake_sleep))
+
+    await ProbeScheduler(interval_seconds=0.05, cycle=cycle).run(max_cycles=3)
+
+    assert sleeps == [0.0, 0.0]
+
+
+def test_build_batch_strips_secrets_from_probe_target_metadata():
+    """Review 6: `probe_target` se persiste y se expone por el read path. La
+    URL cruda puede traer un token en el query string (o credenciales en el
+    userinfo): se guarda saneada, sin query, fragmento ni userinfo."""
+    result = ProbeResult(
+        target_url="https://user:pass@piloto.example.com/health?token=secreto&x=1#frag",
+        timestamp=datetime.now(timezone.utc),
+        available=True,
+        status_code=200,
+        latency_ms=10.0,
+        outcome=ProbeOutcome.OK,
+    )
+    payload = build_batch(result, api_key=API_KEY)
+
+    metadata = payload["events"][0]["metrics"][0]["metadata"]
+    assert metadata["probe_target"] == "https://piloto.example.com/health"
+    serialized = json.dumps(payload)
+    assert "secreto" not in serialized
+    assert "user:pass" not in serialized
+
+
+def test_build_batch_sanitizes_even_unparseable_target():
+    """Review 6: aunque la URL no se pueda parsear, el query string no se
+    persiste (fallback defensivo, nunca la URL cruda)."""
+    result = ProbeResult(
+        target_url="https://piloto.example.com:bad/health?token=secreto",
+        timestamp=datetime.now(timezone.utc),
+        available=True,
+        status_code=200,
+        latency_ms=10.0,
+        outcome=ProbeOutcome.OK,
+    )
+    payload = build_batch(result, api_key=API_KEY)
+
+    metadata = payload["events"][0]["metrics"][0]["metadata"]
+    assert "secreto" not in json.dumps(payload)
+    assert metadata["probe_target"].endswith("/health")
+
+
+def test_cycle_log_does_not_leak_url_secrets():
+    """Review 6: el log del ciclo también persiste el target en cada corrida;
+    usa el mismo saneo que la metadata para no filtrar el token por otro
+    camino."""
+    result = ProbeResult(
+        target_url="https://piloto.example.com/health?token=secreto",
+        timestamp=datetime.now(timezone.utc),
+        available=True,
+        status_code=200,
+        latency_ms=10.0,
+        outcome=ProbeOutcome.OK,
+    )
+    with _captured_logs("probe.__main__") as records:
+        probe_main._log_result(result, 202)
+
+    assert records, "el ciclo tiene que registrar su resultado"
+    assert "secreto" not in records[0].getMessage()

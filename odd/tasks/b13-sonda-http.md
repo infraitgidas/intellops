@@ -139,3 +139,16 @@ forman parte de esta issue.» y «Depende de: B.1».
   incluido. Cobertura de la feature: 17 tests de la sonda, 20 de migraciones, contrato y
   read path verdes. En el host queda una única falla ambiental conocida y ajena:
   `tests/test_ml_worker.py` por `numpy` ausente en `.venv`.
+- **L13** (07/11/2026, correcciones de review de la PR #88, comentario de RomeKai):
+  cuatro arreglos test-first (RED → GREEN, 7 tests nuevos, 24/24 de la sonda y
+  suite completa **466 passed + 1 xpassed**; única falla la ambiental conocida de
+  `numpy`). (3) Un status de ingesta no-2xx (401 por API key mala, 422) se loguea
+  como WARNING aunque `accepted` no se pueda leer: la sonda mal configurada ya no
+  parece sana. (4) `cycle()` atrapa cualquier excepción, no solo `httpx.HTTPError`:
+  un error inesperado (p. ej. de `build_batch`) se registra con stack trace y el
+  próximo ciclo reintenta, el proceso no muere. (5) El scheduler ancla el ritmo a
+  `time.monotonic()` y duerme intervalo − duración del ciclo (recortado a cero):
+  el período real es el intervalo y los buckets no quedan con 0 o 2 muestras.
+  (6) `probe_target` se persiste y se loguea saneado (sin query string, fragmento
+  ni credenciales): un token en la URL del target no queda guardado ni expuesto.
+  Doc de arquitectura actualizada en los cuatro puntos.

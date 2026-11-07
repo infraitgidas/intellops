@@ -18,6 +18,7 @@ mandarla haría que la ingesta descarte también la disponibilidad.
 import logging
 from hashlib import sha256
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 from uuid import NAMESPACE_URL, uuid5
 
 import httpx
@@ -57,11 +58,30 @@ def synthetic_session_id(api_key: str, target_url: str) -> str:
     return str(uuid5(NAMESPACE_URL, f"{tenant}:{target_url}"))
 
 
+def sanitize_target_url(url: str) -> str:
+    """URL del target sin query string, fragmento ni credenciales.
+
+    `probe_target` se persiste en `rum_metric.metadata` y se expone por el read
+    path: la URL cruda puede traer un token en el query string (o `user:pass@`)
+    y quedaría guardada en claro. La sesión sintética se sigue derivando de la
+    URL completa: va hasheada dentro de un UUID, no se expone.
+    """
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname or ""
+        port = parts.port
+    except ValueError:
+        # URL que ni urlsplit entiende: se recorta lo mínimo, nunca la cruda.
+        return url.split("?", 1)[0].split("#", 1)[0]
+    netloc = host if port is None else f"{host}:{port}"
+    return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
+
+
 def _metric_metadata(result: ProbeResult) -> dict[str, Any]:
-    """Metadata de la corrida: status, target, resultado y latencia (D3)."""
+    """Metadata de la corrida: status, target saneado, resultado y latencia (D3)."""
     return {
         "http_status": result.status_code,
-        "probe_target": result.target_url,
+        "probe_target": sanitize_target_url(result.target_url),
         "outcome": result.outcome.value,
         "latency_ms": result.latency_ms,
     }
@@ -133,18 +153,23 @@ def _log_ingest_outcome(response: httpx.Response, payload: dict[str, Any]) -> No
     `202` solo significa "recibido": si la política rechazó eventos, el batch
     se pierde igual y un log con `ingest_status=202` a secas esconde la pérdida.
     Por eso se registran `accepted`, la cantidad enviada y las razones del
-    rechazo, con nivel WARNING cuando no se aceptó todo.
+    rechazo, con nivel WARNING cuando no se aceptó todo. Un status no-2xx (un
+    401 por API key mala, un 422) también es WARNING aunque no se pueda leer
+    `accepted`: si no, una sonda mal configurada parece sana mientras no manda
+    nada.
     """
     sent = len(payload.get("events") or [])
     accepted, reasons = _parse_ingest_body(response)
+    ok_status = 200 <= response.status_code < 300
     if accepted is None:
-        logger.info(
+        log = logger.info if ok_status else logger.warning
+        log(
             "probe ingest status=%s sent=%s accepted=unknown",
             response.status_code,
             sent,
         )
         return
-    log = logger.info if accepted >= sent else logger.warning
+    log = logger.info if ok_status and accepted >= sent else logger.warning
     log(
         "probe ingest status=%s sent=%s accepted=%s rejected=%s reasons=%s",
         response.status_code,
