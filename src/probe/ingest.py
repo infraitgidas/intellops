@@ -91,7 +91,14 @@ def sanitize_target_url(url: str) -> str:
     # fragmento.
     scheme, sep, rest = url.partition("://")
     if not sep:
-        return url.rsplit("@", 1)[-1].split("?", 1)[0].split("#", 1)[0]
+        # Sin `esquema://` no hay authority y, por lo tanto, tampoco userinfo:
+        # un `@` acá es parte del path y recortarlo lo mutila. La forma
+        # scheme-relative (`//host/...`) sí tiene authority.
+        body = url
+        if body.startswith("//"):
+            authority, slash, tail = body[2:].partition("/")
+            body = f"//{authority.rsplit('@', 1)[-1]}{slash}{tail}"
+        return body.split("?", 1)[0].split("#", 1)[0]
     authority, slash, tail = rest.partition("/")
     authority = authority.rsplit("@", 1)[-1]
     path = f"{slash}{tail}".split("?", 1)[0].split("#", 1)[0]
@@ -201,6 +208,19 @@ def _log_ingest_outcome(response: httpx.Response, payload: dict[str, Any]) -> No
     )
 
 
+def _telemetry_url(base_url: str) -> str:
+    """URL de ingesta a partir del base, sin su query ni su fragmento.
+
+    Concatenar con `rstrip('/')` pegaba el path de ingesta detrás del query del
+    base (`http://api.test/?x=1` → `http://api.test/?x=1/telemetry/metrics`),
+    una URL que no existe. El path base se conserva: un despliegue detrás de
+    `/v1` sigue funcionando.
+    """
+    parts = urlsplit(base_url)
+    path = f"{parts.path.rstrip('/')}{TELEMETRY_PATH}"
+    return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
+
+
 def build_batch(
     result: ProbeResult,
     api_key: str,
@@ -251,7 +271,7 @@ async def send_batch(
     la respuesta sí se registra acá: es el único lugar donde `accepted` y las
     razones de rechazo están disponibles (S2).
     """
-    url = f"{base_url.rstrip('/')}{TELEMETRY_PATH}"
+    url = _telemetry_url(base_url)
     response = await client.post(
         url,
         json=payload,

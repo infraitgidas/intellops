@@ -83,7 +83,8 @@ class QueryService:
         effective_limit = DEFAULT_PROBE_LIMIT if limit is None else limit
         if not MIN_PROBE_LIMIT <= effective_limit <= MAX_PROBE_LIMIT:
             raise QueryRangeError(
-                f"limit must be between {MIN_PROBE_LIMIT} and {MAX_PROBE_LIMIT}"
+                f"limit must be between {MIN_PROBE_LIMIT} and "
+                f"{MAX_PROBE_LIMIT}, got {effective_limit}"
             )
         return await self._repository.list_probe_runs(
             app_id=app_id, limit=effective_limit

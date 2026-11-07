@@ -44,4 +44,12 @@ class ProbeScheduler:
             if max_cycles is not None and cycles >= max_cycles:
                 return
             next_tick += self.interval_seconds
-            await asyncio.sleep(max(0.0, next_tick - time.monotonic()))
+            wait = next_tick - time.monotonic()
+            if wait < 0.0:
+                # El ciclo se pasó del intervalo: se resincroniza el reloj en
+                # vez de arrastrar el atraso. Sin esto `next_tick` queda cada
+                # vez más atrás y la espera se queda en 0 para siempre: un
+                # bucle sin pausa en vez de recuperar el ritmo.
+                next_tick = time.monotonic()
+                wait = 0.0
+            await asyncio.sleep(wait)

@@ -606,4 +606,7 @@ async def test_service_rejects_out_of_bounds_probe_limit_without_calling_repo():
             await service.list_probe_runs(app_id=uuid4(), limit=bad_limit)
         assert excinfo.value.http_code == 422
         assert excinfo.value.code == "invalid_query_range"
+        # R2-002: el 422 tiene que decir el valor rechazado, no solo el rango:
+        # si no, el cliente no sabe si mandó 0 o 501.
+        assert str(bad_limit) in excinfo.value.message
     assert repo.called is False

@@ -13,22 +13,27 @@ que no es UUID hace que la política de ingesta rechace el evento COMPLETO con
 `invalid_uuid`, así que la sonda perdería la corrida en silencio cada ciclo.
 """
 
+import os
 from functools import lru_cache
 from urllib.parse import urlsplit
 from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Destino por defecto de la ingesta: la API local del stack de desarrollo. En
 # producción se override con `INGEST_BASE_URL` (nunca se asume un host de test).
 DEFAULT_INGEST_BASE_URL = "http://localhost:8000"
 
+# Prefijos de entorno que la sonda consume. Cualquier otra variable con estos
+# prefijos es un typo del operador, no ruido ajeno.
+_ENV_PREFIXES = ("PROBE_", "INGEST_")
+
 
 class ProbeSettings(BaseSettings):
     """Variables de entorno consumidas por `python -m probe`."""
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(extra="forbid")
 
     # Origen único medido por la sonda y API key del tenant que reporta (S1).
     probe_target_url: str
@@ -43,6 +48,27 @@ class ProbeSettings(BaseSettings):
     # Aplicación RUM a la que pertenece la sesión sintética (D4). Opcional:
     # `application_id` nunca es autoridad de tenant (IAUTH-2).
     probe_application_id: str | None = None
+
+    @model_validator(mode="after")
+    def _reject_unknown_env_vars(self) -> "ProbeSettings":
+        """Un `PROBE_*` mal escrito es configuración inválida, no ruido.
+
+        pydantic-settings solo lee los campos declarados, así que `extra` no ve
+        un `PROBE_INTERVAL_SECOND` (sin la S final): la sonda arrancaría con el
+        intervalo por defecto sin ningún aviso. Se rechaza al construir, que es
+        donde se puede corregir.
+        """
+        known = {name.upper() for name in type(self).model_fields.keys()}
+        unknown = sorted(
+            key
+            for key in os.environ
+            if key.upper().startswith(_ENV_PREFIXES) and key.upper() not in known
+        )
+        if unknown:
+            raise ValueError(
+                "unknown probe environment variables: " + ", ".join(unknown)
+            )
+        return self
 
     @field_validator("probe_target_url", "ingest_base_url")
     @classmethod
@@ -84,5 +110,10 @@ class ProbeSettings(BaseSettings):
 
 @lru_cache
 def get_probe_settings() -> ProbeSettings:
-    """Settings de la sonda cacheadas como singleton para todo el proceso."""
+    """Settings de la sonda cacheadas como singleton para todo el proceso.
+
+    `main()` la usa; construir otro `ProbeSettings` por ciclo releería el
+    entorno en cada corrida (una sonda lee su configuración una vez, al
+    arrancar).
+    """
     return ProbeSettings()

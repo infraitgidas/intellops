@@ -189,3 +189,31 @@ forman parte de esta issue.» y «Depende de: B.1».
   `urlunsplit` no los agrega). 15/15 casos adversariales sin fuga; 45/45 en
   sonda + read path, suite completa **475 passed + 1 xpassed**; differential
   contra `e28b04b`: único diff, el arreglo IPv6.
+- **L15** (07/11/2026, hallazgos de la segunda review nativa): la review
+  `review-e7da28ac` (candidato `21fa6d2`) aprobó con 11 hallazgos informativos.
+  Se compararon con los de la review anterior: 7 de los 12 previos desaparecieron
+  (el read path y `__main__.py` quedaron sin hallazgos), 1 se repitió
+  (`get_probe_settings`) y 6 eran nuevos. Los 6 nuevos + el repetido, corregidos
+  test-first (6 RED, 50/50 en sonda + read path, suite completa **480 passed +
+  1 xpassed**, única falla la ambiental de `numpy`; `pylint` 10.00/10):
+  (1) `scheduler.py` — R3-001/R4-001: `next_tick += intervalo` sin acotar; si un
+  ciclo se pasa del intervalo el atraso se acumula y la espera queda en 0 para
+  siempre (bucle sin pausa). Ahora se resincroniza el reloj monotónico.
+  (2) `sanitize_target_url` — R2-001/R3-004: sin `esquema://` no hay authority,
+  así que un `@` en el path es parte del path; recortarlo lo mutilaba
+  (`host.com/user@example.com/p` quedaba `example.com/p`). La forma
+  scheme-relative sí se sanea.
+  (3) `ProbeSettings` — R4-003: `extra="ignore"` se tragaba los typos, y `extra`
+  tampoco ve un env var mal escrito (pydantic-settings solo lee los campos
+  declarados). Se rechaza al construir cualquier `PROBE_*`/`INGEST_*` que no
+  corresponda a un campo.
+  (4) `send_batch` — R3-002: `base_url.rstrip('/')` pegaba el path de ingesta
+  detrás del query del base. Ahora se arma con path + `urlunsplit`, conservando
+  un prefijo `/v1` y descartando query/fragmento.
+  (5) `query_service.list_probe_runs` — R2-002: el 422 decía el rango pero no el
+  valor rechazado, así que no se sabía si se mandó 0 o 501.
+  (6) `get_probe_settings` — R2-003 (la SUGGESTION repetida): decía ser el
+  singleton del proceso y `main()` lo saltaba construyendo otro `ProbeSettings`.
+  Ahora `main()` la usa.
+  Differential contra `21fa6d2`: únicos diffs, el path con `@` y el query del
+  base; todo lo demás idéntico.

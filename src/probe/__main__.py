@@ -10,7 +10,7 @@ import logging
 
 import httpx
 
-from probe.config import ProbeSettings
+from probe.config import ProbeSettings, get_probe_settings
 from probe.ingest import build_batch, sanitize_target_url, send_batch
 from probe.runner import ProbeResult, run_probe
 from probe.scheduler import ProbeScheduler
@@ -113,7 +113,7 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
-    settings = ProbeSettings()
+    settings = get_probe_settings()
     _log_startup(settings)
     try:
         asyncio.run(_serve(settings))

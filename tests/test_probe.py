@@ -692,3 +692,99 @@ async def test_cycle_logs_the_measurement_even_when_ingest_send_fails(monkeypatc
     assert any(
         "outcome=ok" in m and "ingest_status=" in m for m in messages
     ), f"la medición se perdió: {messages}"
+
+
+# -- Hallazgos de la segunda review nativa (review-e7da28ac) ------------------
+
+
+async def test_scheduler_resyncs_after_an_overrunning_cycle(monkeypatch):
+    """R3-001/R4-001: si un ciclo se pasa del intervalo, el reloj se
+    resincroniza. Sin eso `next_tick` queda atrás y la espera se vuelve 0 para
+    siempre: un bucle sin pausa en vez de recuperar el ritmo."""
+    clock = _FakeClock()
+    sleeps: list[float] = []
+    durations = iter([0.07, 0.01, 0.01])  # el primero dura MÁS que el intervalo
+
+    async def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        clock.now += max(0.0, seconds)
+
+    async def cycle() -> None:
+        clock.now += next(durations, 0.01)
+
+    monkeypatch.setattr(
+        scheduler_module, "time", SimpleNamespace(monotonic=clock.monotonic), raising=False
+    )
+    monkeypatch.setattr(scheduler_module, "asyncio", SimpleNamespace(sleep=fake_sleep))
+
+    await ProbeScheduler(interval_seconds=0.05, cycle=cycle).run(max_cycles=3)
+
+    # Tras el desborde la espera es 0 (arranca ya) y después un intervalo
+    # COMPLETO: el atraso no se arrastra.
+    assert sleeps == pytest.approx([0.0, 0.04])
+
+
+def test_sanitize_target_url_keeps_at_sign_that_is_not_userinfo():
+    """R2-001/R3-004: sin `esquema://` no hay authority, así que un `@` es parte
+    del path y recortarlo lo mutila (`host.com/user@example.com/p` quedaba como
+    `example.com/p`). Scheme-relative SÍ tiene authority: ahí se quita."""
+    assert (
+        sanitize_target_url("host.com/user@example.com/p?t=1")
+        == "host.com/user@example.com/p"
+    )
+    assert sanitize_target_url("//user:pass@host.com/p?t=1") == "//host.com/p"
+
+
+def test_settings_reject_unknown_keys(monkeypatch):
+    """R4-003: `extra="ignore"` se tragaba los typos de configuración:
+    `PROBE_INTERVAL_SECOND` (sin la S final) dejaba la sonda corriendo con el
+    intervalo por defecto, sin ningún aviso."""
+    monkeypatch.setenv("PROBE_INTERVAL_SECOND", "30")
+    with pytest.raises(ValueError):
+        ProbeSettings(probe_target_url=TARGET, probe_api_key=API_KEY)
+
+    # Un kwarg desconocido explícito tampoco puede pasar en silencio.
+    with pytest.raises(ValueError):
+        _settings(prob_interval_seconds=30)
+
+
+async def test_send_batch_builds_the_url_from_the_base_path_only():
+    """R3-002: `base_url.rstrip('/')` pegaba el path de ingesta detrás del query
+    del base: `http://api.test/?x=1` producía
+    `http://api.test/?x=1/telemetry/metrics`, una URL que no existe."""
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        return httpx.Response(202, json={"accepted": 1})
+
+    async with _client(handler) as client:
+        await send_batch(
+            base_url="http://api.test/v1/?token=x",
+            api_key=API_KEY,
+            payload={"schema_version": "1.0", "events": []},
+            client=client,
+        )
+
+    # El path base se conserva; el query y el fragmento no contaminan.
+    assert seen["url"] == "http://api.test/v1/telemetry/metrics"
+
+
+def test_main_reads_settings_through_the_cached_accessor(monkeypatch):
+    """R2-003: `get_probe_settings` decía ser el singleton del proceso y
+    `main()` lo saltaba construyendo otro `ProbeSettings` aparte."""
+    used: list[int] = []
+
+    def fake_settings() -> ProbeSettings:
+        used.append(1)
+        return _settings()
+
+    async def noop_serve(settings: ProbeSettings) -> None:
+        return None
+
+    monkeypatch.setattr(probe_main, "_serve", noop_serve)
+    monkeypatch.setattr(probe_main, "get_probe_settings", fake_settings, raising=False)
+
+    probe_main.main()
+
+    assert used == [1]
