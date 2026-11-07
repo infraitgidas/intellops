@@ -12,6 +12,8 @@ from uuid import uuid4
 
 import pytest
 
+from api.infrastructure.db.repositories.sqlalchemy_query_repository import _as_float
+
 
 def _ts(dt: datetime) -> str:
     """ISO 8601 UTC con zona explícita (contrato date-time)."""
@@ -504,6 +506,45 @@ async def test_metrics_probes_tolerates_absent_and_malformed_metadata(
     assert partial["latency_ms"] is None  # valor no numérico → null
     assert partial["outcome"] == "connection_error"
     assert partial["available"] is False  # value 0.0
+
+
+def test_as_float_rejects_non_finite_values():
+    """R1-001/R3-001: `float("nan")` e `float("inf")` no lanzan, así que un
+    `metadata.latency_ms` corrupto se colaba como NaN/Infinity en la respuesta.
+    `json.dumps` acepta `NaN` pero emite JSON inválido (RFC 8259): el contrato
+    del endpoint es `null` para un valor no interpretable."""
+    assert _as_float("nan") is None
+    assert _as_float("inf") is None
+    assert _as_float("-inf") is None
+    assert _as_float("NaN") is None
+    assert _as_float("  inf  ") is None
+    # Los valores finitos siguen convirtiéndose.
+    assert _as_float("279.69") == 279.69
+    assert _as_float("0") == 0.0
+    assert _as_float(None) is None
+    assert _as_float("n/d") is None
+
+
+async def test_metrics_probes_returns_null_for_non_finite_latency(
+    client, make_admin, db_session
+):
+    """R1-001: una latencia `NaN` persistida en `metadata` NO puede salir en el
+    cuerpo: el cliente recibiría JSON inválido. Se expone `null`."""
+    app_id, key = await _make_app_with_key(client, make_admin, "probe-nan")
+    ref = datetime.now(timezone.utc).replace(microsecond=0)
+    await _seed_probe_run(
+        db_session,
+        app_id,
+        ts=ref,
+        value=1.0,
+        metadata={"outcome": "ok", "http_status": 200, "latency_ms": "NaN"},
+    )
+
+    resp = await client.get("/metrics/probes", headers={"X-API-Key": key})
+
+    assert resp.status_code == 200
+    assert "NaN" not in resp.text
+    assert resp.json()[0]["latency_ms"] is None
 
 
 async def test_metrics_probes_limit_bounds(client, make_admin, db_session):

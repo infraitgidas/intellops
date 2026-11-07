@@ -14,6 +14,7 @@ que no es UUID hace que la política de ingesta rechace el evento COMPLETO con
 """
 
 from functools import lru_cache
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from pydantic import Field, field_validator
@@ -46,9 +47,20 @@ class ProbeSettings(BaseSettings):
     @field_validator("probe_target_url", "ingest_base_url")
     @classmethod
     def _validate_url(cls, value: str) -> str:
-        """Un target sin esquema no es una URL medible: se rechaza al construir."""
-        if not value.startswith(("http://", "https://")):
-            raise ValueError("url must start with http:// or https://")
+        """Una URL medible necesita esquema `http(s)` Y host.
+
+        Validar solo el prefijo deja pasar `http://`, que no es una URL
+        medible: la sonda arrancaría y perdería cada corrida con
+        `connection_error` en vez de fallar al construir, que es donde se puede
+        corregir. Un puerto no numérico se rechaza acá por la misma razón.
+        """
+        try:
+            parts = urlsplit(value)
+            _ = parts.port  # un puerto inválido lanza acá, no en la corrida.
+        except ValueError as exc:
+            raise ValueError("url is not a valid http(s) url") from exc
+        if parts.scheme not in ("http", "https") or not (parts.hostname or "").strip():
+            raise ValueError("url must start with http:// or https:// and have a host")
         return value
 
     @field_validator("probe_application_id")

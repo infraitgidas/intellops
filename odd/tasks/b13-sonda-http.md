@@ -152,3 +152,32 @@ forman parte de esta issue.» y «Depende de: B.1».
   (6) `probe_target` se persiste y se loguea saneado (sin query string, fragmento
   ni credenciales): un token en la URL del target no queda guardado ni expuesto.
   Doc de arquitectura actualizada en los cuatro puntos.
+- **L14** (07/11/2026, hallazgos informativos de la review nativa): la review
+  aprobada de la PR #88 dejó 12 hallazgos no bloqueantes (0 correcciones
+  abiertas). El texto de los reviewers no era recuperable — la autoridad era
+  `compact-v2` y quedó quemada al acknowledgear —, así que cada hallazgo se
+  reconstruyó desde su id/lente/ubicación contra el árbol congelado (`674676d`,
+  idéntico al árbol de HEAD). Seis defectos reales, test-first (5 RED, 43/43 en
+  sonda + read path, suite completa **473 passed + 1 xpassed**, única falla la
+  ambiental de `numpy`; `pylint src/probe/` 10.00/10):
+  (1) `sanitize_target_url` — R1-002/R2-003/R3-002/R4-002: el fallback (URL que
+  `urlsplit` no entiende) era más débil que el camino principal y conservaba
+  `user:pass@`, justo lo que la función existe para no persistir. Un solo saneo
+  para ambos caminos.
+  (2) `_validate_url` — R4-001/R3-003: validar solo el prefijo dejaba pasar
+  `http://`, `https:// ` y puertos no numéricos; la sonda arrancaba y perdía
+  cada corrida. Ahora exige esquema `http(s)` + host no vacío + puerto válido al
+  construir.
+  (3) `_as_float` — R1-001/R3-001: `float("nan")`/`float("inf")` no lanzan, así
+  que un `metadata.latency_ms` corrupto entraba como NaN al dominio. El endpoint
+  lo tapaba (pydantic serializa NaN como `null` en JSON — hay test que lo fija
+  como comportamiento previo), pero violaba el contrato del helper y cualquier
+  consumidor de `ProbeRun` recibía un no-número. Se rechaza lo no finito.
+  (4) `_log_startup` — R1-003: el arranque saneaba el target pero no
+  `INGEST_BASE_URL`, que es igual de configurable y puede traer userinfo o token.
+  (5) `run_cycle` — R4-003: si `send_batch` fallaba, `_log_result` nunca corría y
+  la medición ya tomada no quedaba registrada. Ahora se registra con
+  `ingest_status=unknown` antes de propagar el error.
+  (6) docstring D4 — R2-001: decía "derivado del target" cuando la sesión se
+  deriva de (tenant, target).
+  Doc de arquitectura actualizada en los cuatro comportamientos observables.

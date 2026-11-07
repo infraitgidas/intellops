@@ -44,16 +44,18 @@ Variables de entorno (`ProbeSettings`, prefijo `PROBE_`):
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `PROBE_TARGET_URL` | — (requerida) | Origen único medido; debe empezar con `http://` o `https://` |
+| `PROBE_TARGET_URL` | — (requerida) | Origen único medido; debe ser una URL `http(s)` con host |
 | `PROBE_API_KEY` | — (requerida) | API key del tenant que reporta (`X-API-Key`) |
 | `INGEST_BASE_URL` | `http://localhost:8000` | Base de la API de ingesta |
 | `PROBE_INTERVAL_SECONDS` | `60` | Período entre corridas; debe ser `> 0`. Se compensa la duración del ciclo (el período real es el intervalo, no intervalo + ciclo), así los buckets de agregación no quedan con 0 o 2 muestras |
 | `PROBE_TIMEOUT_SECONDS` | `5` | Timeout de la corrida; debe ser `> 0` |
 | `PROBE_APPLICATION_ID` | — (opcional) | `application_id` del evento; debe ser UUID (si no, la política rechaza el evento y la sonda falla al arrancar). Nunca es autoridad de tenant |
 
-Una configuración inválida (target sin esquema, intervalo o timeout no
-positivos, `PROBE_APPLICATION_ID` que no es UUID) falla al construir, no en la
-primera corrida.
+Una configuración inválida (URL sin host como `http://`, esquema distinto de
+`http(s)`, puerto no numérico, intervalo o timeout no positivos,
+`PROBE_APPLICATION_ID` que no es UUID) falla al construir, no en la primera
+corrida. Validar solo el prefijo no alcanza: `http://` no es una URL medible y
+haría que la sonda arranque y pierda cada corrida con `connection_error`.
 
 ## Cómo reporta
 
@@ -77,7 +79,11 @@ una sonda mal configurada no puede parecer sana mientras no manda nada.
 
 El target se persiste y se loguea **saneado** (`metadata.probe_target`): sin
 query string, fragmento ni credenciales. Si la URL del target trae un token en
-el query string, no queda guardado ni expuesto por el read path.
+el query string, no queda guardado ni expuesto por el read path. El saneo es el
+mismo para una URL que el parser no entiende: una URL malformada no puede
+terminar menos saneada que una válida. La URL de ingesta (`INGEST_BASE_URL`) se
+sanea igual en el log de arranque, porque también es configurable y puede traer
+credenciales.
 
 El payload se valida contra la política real de ingesta
 (`api.domain.services.ingest_policy.validate_rum_event`) en los tests: si el
@@ -90,6 +96,8 @@ contrato cambia, la sonda falla en la suite, no en producción.
 - Sin reintento: un ciclo fallido se registra y el siguiente intervalo vuelve a
   intentar. La sonda no acumula estado. Un error inesperado del ciclo (no solo
   los de red) se registra con stack trace y tampoco mata el proceso: el
-  scheduler es la política de reinicio.
+  scheduler es la política de reinicio. Si falla el envío, la corrida ya se
+  midió: se registra con `ingest_status=unknown` antes de propagar el error, así
+  un fallo de ingesta no borra la evidencia.
 - No se despliega como contenedor propio en este slice (ADR-0010 fija cuatro
   contenedores); el despliegue se decide en C.5 junto con el release.

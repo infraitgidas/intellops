@@ -27,7 +27,7 @@ import probe.__main__ as probe_main
 import probe.scheduler as scheduler_module
 from api.domain.services.ingest_policy import validate_rum_event
 from probe.config import ProbeSettings
-from probe.ingest import build_batch, send_batch
+from probe.ingest import build_batch, sanitize_target_url, send_batch
 from probe.runner import ProbeOutcome, ProbeResult, run_probe
 from probe.scheduler import ProbeScheduler
 
@@ -588,3 +588,85 @@ def test_cycle_log_does_not_leak_url_secrets():
 
     assert records, "el ciclo tiene que registrar su resultado"
     assert "secreto" not in records[0].getMessage()
+
+
+# -- Hallazgos informativos de la review nativa (R1-R4) ----------------------
+
+
+def test_sanitize_target_url_strips_userinfo_when_unparseable():
+    """R1-002/R2-003/R3-002/R4-002: el fallback del saneo (URL que `urlsplit`
+    no entiende) NO puede ser más débil que el camino principal. `https://
+    user:pass@host:bad/path?token=x` entra por el fallback y antes conservaba
+    `user:pass@`: las credenciales quedaban persistidas, que es exactamente lo
+    que la función existe para impedir."""
+    sanitized = sanitize_target_url(
+        "https://user:pass@piloto.example.com:bad/health?token=secreto#frag"
+    )
+
+    assert "secreto" not in sanitized
+    assert "user:pass" not in sanitized
+    assert sanitized.endswith("/health")
+
+
+def test_sanitize_target_url_strips_userinfo_in_the_main_path():
+    """R1-002: el camino principal quita el userinfo, y el resultado no tiene
+    query, fragmento ni credenciales."""
+    sanitized = sanitize_target_url(
+        "https://user:pass@piloto.example.com/health?token=secreto#frag"
+    )
+
+    assert sanitized == "https://piloto.example.com/health"
+
+
+def test_settings_reject_url_without_host():
+    """R4-001/R3-003: validar solo el prefijo deja pasar `http://`, que no es
+    una URL medible: la sonda arranca y pierde cada corrida con
+    `connection_error` en vez de fallar al construir, que es donde se puede
+    corregir."""
+    for value in ("http://", "https://", "http:///health", "https:// "):
+        with pytest.raises(ValueError):
+            _settings(probe_target_url=value)
+        with pytest.raises(ValueError):
+            _settings(ingest_base_url=value)
+
+    # Un host válido (con o sin puerto, con o sin path) sigue aceptándose.
+    for value in ("http://localhost:8000", "https://piloto.example.com/health"):
+        assert _settings(probe_target_url=value).probe_target_url == value
+
+
+def test_startup_log_does_not_leak_ingest_credentials():
+    """R1-003: el log de arranque saneaba el target pero no `ingest_base_url`,
+    que también es una URL configurable y puede traer credenciales en el
+    userinfo o un token en el query string."""
+    settings = _settings(
+        ingest_base_url="https://user:pass@api.example.com/?token=secreto"
+    )
+    with _captured_logs("probe.__main__") as records:
+        probe_main._log_startup(settings)
+
+    assert records, "el arranque tiene que registrar su configuración"
+    message = records[0].getMessage()
+    assert "secreto" not in message
+    assert "user:pass" not in message
+
+
+async def test_cycle_logs_the_measurement_even_when_ingest_send_fails(monkeypatch):
+    """R4-003: si el envío a la ingesta falla, la corrida YA se midió. Antes
+    `send_batch` lanzaba antes de `_log_result` y la medición no quedaba
+    registrada en ningún lado: el ciclo sobrevivía, pero la evidencia se
+    perdía."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/telemetry/metrics":
+            raise httpx.ConnectError("ingesta caída", request=request)
+        return httpx.Response(200)
+
+    with _captured_logs("probe.__main__") as records:
+        async with _client(handler) as client:
+            with pytest.raises(httpx.ConnectError):
+                await probe_main.run_cycle(_settings(), client)
+
+    messages = [r.getMessage() for r in records]
+    assert any(
+        "outcome=ok" in m and "ingest_status=" in m for m in messages
+    ), f"la medición se perdió: {messages}"

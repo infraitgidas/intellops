@@ -19,6 +19,7 @@ resuelven EN SQL: el proceso nunca filtra una lista larga en memoria.
 """
 
 from datetime import datetime
+from math import isfinite
 from typing import Any
 from uuid import UUID
 
@@ -72,13 +73,21 @@ def _as_int(raw: Any) -> int | None:
 
 
 def _as_float(raw: Any) -> float | None:
-    """Convierte el texto de `metadata ->> 'key'` a float (None si no se puede)."""
+    """Convierte el texto de `metadata ->> 'key'` a float (None si no se puede).
+
+    `float("nan")` e `float("inf")` no lanzan, así que un valor corrupto se
+    colaba como NaN/Infinity en el dominio y rompía el contrato "no
+    interpretable → null". El endpoint lo tapaba (pydantic serializa NaN como
+    `null` en JSON), pero cualquier consumidor de `ProbeRun` —aritmética,
+    agregados— recibía un número que no es un número.
+    """
     if raw is None:
         return None
     try:
-        return float(raw)
+        value = float(raw)
     except (TypeError, ValueError):
         return None
+    return value if isfinite(value) else None
 
 
 class SQLAlchemyQueryRepository(QueryRepository):

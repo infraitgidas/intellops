@@ -7,7 +7,8 @@ disponibilidad queda agregable por `GET /metrics/query` sin read path nuevo.
 - D1: `AVAILABILITY`, unidad `count`, valor 1/0 (razón de uptime por bucket).
 - D2: la latencia va como `TTFB` (la sonda mide tiempo hasta el primer byte).
 - D3: el status HTTP va en `metadata`, no como métrica.
-- D4: sin `session_id` explícito se usa un UUID v5 estable derivado del target.
+- D4: sin `session_id` explícito se usa un UUID v5 estable derivado del
+  TENANT y el target (`uuid5(hash(api_key), target)`), no solo del target.
 
 Un evento que la política rechaza se pierde COMPLETO, no por métrica: por eso
 `build_batch` no emite `TTFB` cuando la latencia medida queda fuera del rango de
@@ -65,16 +66,31 @@ def sanitize_target_url(url: str) -> str:
     path: la URL cruda puede traer un token en el query string (o `user:pass@`)
     y quedaría guardada en claro. La sesión sintética se sigue derivando de la
     URL completa: va hasheada dentro de un UUID, no se expone.
+
+    El saneo es el MISMO en los dos caminos: una URL que `urlsplit` no entiende
+    no puede terminar menos saneada que una que sí, porque el userinfo es
+    justamente lo que la función existe para no persistir.
     """
     try:
         parts = urlsplit(url)
         host = parts.hostname or ""
         port = parts.port
     except ValueError:
-        # URL que ni urlsplit entiende: se recorta lo mínimo, nunca la cruda.
-        return url.split("?", 1)[0].split("#", 1)[0]
-    netloc = host if port is None else f"{host}:{port}"
-    return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
+        parts = None
+        host, port = "", None
+
+    if parts is not None and host:
+        netloc = host if port is None else f"{host}:{port}"
+        return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
+
+    # Sin authority parseable: se recorta a mano, descartando query, fragmento
+    # y cualquier userinfo. Nunca se devuelve la URL cruda.
+    without_query = url.split("?", 1)[0].split("#", 1)[0]
+    scheme, sep, rest = without_query.partition("://")
+    if not sep:
+        return without_query.rsplit("@", 1)[-1]
+    authority, slash, path = rest.partition("/")
+    return f"{scheme}://{authority.rsplit('@', 1)[-1]}{slash}{path}"
 
 
 def _metric_metadata(result: ProbeResult) -> dict[str, Any]:
