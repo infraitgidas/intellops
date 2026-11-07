@@ -80,17 +80,22 @@ def sanitize_target_url(url: str) -> str:
         host, port = "", None
 
     if parts is not None and host:
-        netloc = host if port is None else f"{host}:{port}"
+        # IPv6: `hostname` viene sin corchetes y `urlunsplit` no los repone.
+        netloc_host = f"[{host}]" if ":" in host else host
+        netloc = netloc_host if port is None else f"{netloc_host}:{port}"
         return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
 
-    # Sin authority parseable: se recorta a mano, descartando query, fragmento
-    # y cualquier userinfo. Nunca se devuelve la URL cruda.
-    without_query = url.split("?", 1)[0].split("#", 1)[0]
-    scheme, sep, rest = without_query.partition("://")
+    # Sin authority parseable: el userinfo se quita PRIMERO, porque es lo único
+    # que puede contener un `?` o un `#`; recortarlo después dejaría un pedazo
+    # de la contraseña (user:pa?ss@host → "user:pa"). Recién entonces query y
+    # fragmento.
+    scheme, sep, rest = url.partition("://")
     if not sep:
-        return without_query.rsplit("@", 1)[-1]
-    authority, slash, path = rest.partition("/")
-    return f"{scheme}://{authority.rsplit('@', 1)[-1]}{slash}{path}"
+        return url.rsplit("@", 1)[-1].split("?", 1)[0].split("#", 1)[0]
+    authority, slash, tail = rest.partition("/")
+    authority = authority.rsplit("@", 1)[-1]
+    path = f"{slash}{tail}".split("?", 1)[0].split("#", 1)[0]
+    return f"{scheme}://{authority}{path}"
 
 
 def _metric_metadata(result: ProbeResult) -> dict[str, Any]:

@@ -181,3 +181,11 @@ forman parte de esta issue.» y «Depende de: B.1».
   (6) docstring D4 — R2-001: decía "derivado del target" cuando la sesión se
   deriva de (tenant, target).
   Doc de arquitectura actualizada en los cuatro comportamientos observables.
+  Endurecimiento posterior del mismo slice (hallado al atacar el arreglo 1 con
+  URLs adversariales): en el fallback el userinfo se quita PRIMERO, porque
+  recortar el query antes partía el userinfo (`user:pa?ss@host` quedaba como
+  `https://user:pa`, un pedazo de la contraseña persistido), y el camino
+  principal repone los corchetes de IPv6 (`hostname` viene sin ellos y
+  `urlunsplit` no los agrega). 15/15 casos adversariales sin fuga; 45/45 en
+  sonda + read path, suite completa **475 passed + 1 xpassed**; differential
+  contra `e28b04b`: único diff, el arreglo IPv6.

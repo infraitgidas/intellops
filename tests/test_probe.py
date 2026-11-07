@@ -618,6 +618,28 @@ def test_sanitize_target_url_strips_userinfo_in_the_main_path():
     assert sanitized == "https://piloto.example.com/health"
 
 
+def test_sanitize_target_url_strips_userinfo_before_query_in_fallback():
+    """R1-002: en el fallback el userinfo se quita PRIMERO. Recortar el query
+    antes parte el userinfo: `user:pa?ss@host/p` quedaba como `https://user:pa`,
+    o sea un pedazo de la contraseña persistido."""
+    for raw in (
+        "https://user:pa?ss@piloto.example.com:bad/health",
+        "https://user:pa#ss@piloto.example.com:bad/health",
+    ):
+        sanitized = sanitize_target_url(raw)
+        assert "pa" not in sanitized, sanitized
+        assert sanitized == "https://piloto.example.com:bad/health"
+
+
+def test_sanitize_target_url_keeps_ipv6_brackets():
+    """R1-002: `hostname` viene sin corchetes y `urlunsplit` no los repone: un
+    target IPv6 se persistía como `https://::1:8080/p`, que no es una URL."""
+    assert (
+        sanitize_target_url("https://[::1]:8080/health?token=secreto")
+        == "https://[::1]:8080/health"
+    )
+
+
 def test_settings_reject_url_without_host():
     """R4-001/R3-003: validar solo el prefijo deja pasar `http://`, que no es
     una URL medible: la sonda arranca y pierde cada corrida con
