@@ -28,7 +28,7 @@ Dependencias: ISS-S2-01 (auth y aplicaciones) e ISS-S2-03 (la ingesta crea `user
 - [x] 3.1 `openspec/specs/openapi.yaml`: paths `/sessions` y `/sessions/{session_id}`, schema `Session` y descripción del scheme `apiKey` (OAS-S303).
 - [x] 3.2 `tests/test_contract.py`: contrato de paths, sin escritura, schema sin campos muertos, y `/sessions` dentro del subconjunto de schemathesis.
 - [x] 3.3 Suite unitaria y lint en verde: `pytest -m unit`, `flake8 src/ tests/` y `pylint src/ --fail-under=9.0`.
-- [ ] 3.4 Suite de integración en el entorno reproducible (`make test` o `make ci`, con Postgres). Pendiente: correrla en una máquina con Docker antes del PR.
+- [x] 3.4 Suite completa en el entorno reproducible (`make test`, Postgres efímero): todo en verde, incluidos los 11 tests de integración de `tests/test_sessions.py`, más 1 xpassed. El xpassed es `test_schemathesis_live_contract_scoped`, un xfail no estricto (OAS-9/ADR-24) que ya pasaba en todas las issues anteriores y ahora también recorre `/sessions*`.
 
 ## Fase 4 — Documentación
 
