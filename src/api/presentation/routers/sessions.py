@@ -70,13 +70,15 @@ async def list_sessions(
             "Máximo 7 días desde start."
         ),
     ),
+    # Sin ge/le a propósito: el rango lo valida SessionService para responder
+    # 422 `invalid_query_range` con el contrato ErrorResponse, igual que
+    # `bucket_seconds` en /metrics/query (review de la PR de ISS-S3-03).
     limit: int = Query(
         default=DEFAULT_SESSION_LIMIT,
-        ge=MIN_SESSION_LIMIT,
-        le=MAX_SESSION_LIMIT,
         description=(
-            "Máximo de sesiones a devolver (1..500, default 50). "
-            "Fuera de rango → 422 (sin clamp silencioso)."
+            f"Máximo de sesiones a devolver ({MIN_SESSION_LIMIT}.."
+            f"{MAX_SESSION_LIMIT}, default {DEFAULT_SESSION_LIMIT}). Fuera de "
+            "rango → 422 invalid_query_range (sin clamp silencioso)."
         ),
     ),
 ) -> list[SessionOut]:
