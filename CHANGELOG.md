@@ -85,6 +85,16 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   validado por evento (`invalid_range` si no es finito o sale de 0..1) y
   persistido en `js_exception` (migración 0005 y espejo en `ddl_v1.0.sql`)
   para ponderar el análisis por `1 / sample_rate`.
+- Pruebas unitarias de módulos críticos (ISS-S3-06, #45): tests sin Postgres
+  para la lógica de negocio (`application_service`, `user_service`,
+  `auth_service`) con `FakeSession` y repositorios en memoria, los guards de
+  acceso (`get_current_user`, `require_role`, `require_api_key`) y los
+  handlers de error, los casos límite de `ingest_policy`,
+  `ingest_normalizer` y `query_service`, y la transformación `_build_rows`.
+  Cada módulo crítico queda en ≥ 95 % de cobertura unitaria (antes, 24-97 %)
+  y el total unitario pasa de 80 % a 89 %. Sin cambios de producción; el bug
+  de `is_active` ignorado al crear aplicaciones queda fijado con un test
+  `xfail` estricto para corregirlo aparte.
 
 ### Changed
 - CI (ISS-S2-04, #38): pylint `--fail-under` sube de 7.0 a 9.0; gate de
