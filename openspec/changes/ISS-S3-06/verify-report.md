@@ -38,9 +38,11 @@ En `queue.py` quedan sin cubrir el corte de chunk dentro del loop del worker (l�
 |---|---|
 | `pytest -m unit` | **522 passed, 1 xfailed** (antes: 385 passed). 137 tests nuevos más el xfail del bug. |
 | `flake8 src/ tests/` | Sin errores |
-| `make test-cov` (suite completa, Postgres) | Pendiente de correr en una máquina con Docker |
+| `make test-cov` (suite completa, Postgres efímero) | **660 passed, 1 xfailed, 1 xpassed** en 71 s. Cobertura total **95,45 %** (gate: 70 %). |
 
 El `xfailed` es `test_create_application_honours_is_active_false` (QA-U5): documenta el bug de `is_active` en el alta de aplicaciones. Es esperado.
+
+El `xpassed` de la suite completa es `test_schemathesis_live_contract_scoped`, marcado `xfail(strict=False)` desde antes de este cambio. Pasar es su resultado habitual y no lo toca esta PR.
 
 ## Hallazgos
 
@@ -52,4 +54,4 @@ El `xfailed` es `test_create_application_honours_is_active_false` (QA-U5): docum
 
 ## Veredicto
 
-Los criterios de #45 (normalización, lógica de negocio, transformaciones y validaciones) quedan cubiertos con la capa unitaria por encima del mínimo de QA-U1, sin cambios de producción. Falta registrar la corrida completa con cobertura (`make test-cov`) antes del PR.
+Los criterios de #45 (normalización, lógica de negocio, transformaciones y validaciones) quedan cubiertos con la capa unitaria por encima del mínimo de QA-U1, sin cambios de producción. La suite completa pasa en el entorno reproducible con 95,45 % de cobertura total.
