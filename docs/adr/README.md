@@ -48,3 +48,4 @@ Cada ADR sigue el formato [Nygard](https://cognitect.com/blog/2011/11/15/documen
 | 0008 | [Dataset operativo para ML — pull HTTP del read path y anomalía anclada a la serie](0008-ml-dataset-http-pull-series-anchor.md) | Aceptado | 2026-10-14 |
 | 0009 | [PostgreSQL 16 como base de datos del MVP (reemplazo de SQLite WAL)](0009-postgresql-16-como-base-de-datos.md) | Aceptado | 2026-09-11 |
 | 0010 | [Arquitectura de 4 contenedores para el MVP (monolito modular desacoplado)](0010-arquitectura-de-4-contenedores.md) | Aceptado | 2026-08-12 |
+| 0011 | [Sesiones RUM — creadas por la ingesta, expuestas en solo lectura y sin campos muertos](0011-sesiones-rum-solo-lectura.md) | Aceptado | 2026-11-08 |
