@@ -253,15 +253,75 @@ paths:
     get:
       summary: Listado de anomalías detectadas
       operationId: listAnomalies
+      description: "Read path app-scoped (ISS-B-03, ADR-0012): anomalías de la aplicación autenticada detectadas en la ventana [start, end), de la más nueva a la más vieja. Requiere X-API-Key; el tenant se deriva EXCLUSIVAMENTE de la key. Ventana default 24 h, máximo 7 días; limit 1..500 (default 50). En la v1 no hay detector que escriba anomalías (la detección ML es M3), así que la lista suele estar vacía."
+      security:
+        - apiKey: []
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "Inicio de la ventana sobre detected_at (ISO 8601 UTC). Default: end - 24 h."
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "Fin de la ventana, exclusivo (ISO 8601 UTC). Default: ahora. La ventana no puede superar 7 días."
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          description: "Máximo de anomalías a devolver (1..500, default 50). Un valor fuera de rango se rechaza con 422 invalid_query_range (sin clamp silencioso)."
+        - name: metric_type
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: "Filtro opcional por metric_type_id del catálogo (OAS-13)."
       responses:
         '200':
-          description: Listado de anomalías
-  /anomalies/{id}:
+          description: "Anomalías de la aplicación autenticada, de la más nueva a la más vieja"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Anomaly'
+        '401':
+          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Aplicación autenticada inactiva (app_inactive)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Parámetro de consulta inválido (invalid_query_range: start >= end, ventana > 7 días o limit fuera de 1..500; la consulta no se ejecuta)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /anomalies/{anomaly_id}:
     get:
       summary: Detalle de una anomalía específica
       operationId: getAnomaly
+      description: "Detalle de una anomalía de la aplicación autenticada (ISS-B-03). Filtra por anomaly_id AND application_id: una anomalía de otra aplicación responde 404 anomaly_not_found, igual que una inexistente (ADR-0003)."
+      security:
+        - apiKey: []
       parameters:
-        - name: id
+        - name: anomaly_id
           in: path
           required: true
           schema:
@@ -269,7 +329,29 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Detalle de la anomalía
+          description: "Anomalía de la aplicación autenticada"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Anomaly'
+        '401':
+          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Aplicación autenticada inactiva (app_inactive)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: "Anomalía inexistente o de otra aplicación (anomaly_not_found)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /predictions:
     get:
       summary: Predicciones actuales
@@ -288,9 +370,67 @@ paths:
     get:
       summary: Listado de alertas
       operationId: listAlerts
+      description: "Read path app-scoped (ISS-B-03, ADR-0012): alertas de la aplicación autenticada creadas en la ventana [start, end), de la más nueva a la más vieja. Requiere X-API-Key; el tenant se deriva EXCLUSIVAMENTE de la key. Ventana default 24 h, máximo 7 días; limit 1..500 (default 50); filtro opcional por estado. Las alertas las crea el motor de reglas (B.14) y las despacha B.10."
+      security:
+        - apiKey: []
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "Inicio de la ventana sobre created_at (ISO 8601 UTC). Default: end - 24 h."
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "Fin de la ventana, exclusivo (ISO 8601 UTC). Default: ahora. La ventana no puede superar 7 días."
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          description: "Máximo de alertas a devolver (1..500, default 50). Un valor fuera de rango se rechaza con 422 invalid_query_range (sin clamp silencioso)."
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, sent, failed]
+          description: "Filtro opcional por estado. Otro valor → 422 invalid_query_range."
       responses:
         '200':
-          description: Listado de alertas
+          description: "Alertas de la aplicación autenticada, de la más nueva a la más vieja"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Alert'
+        '401':
+          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Aplicación autenticada inactiva (app_inactive)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Parámetro de consulta inválido (invalid_query_range: start >= end, ventana > 7 días, limit fuera de 1..500 o status desconocido; la consulta no se ejecuta)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /alerts/config:
     post:
       summary: Configurar regla de alerta
@@ -1304,51 +1444,86 @@ components:
             description: "Acciones recomendadas"
     Anomaly:
       type: object
+      description: "Anomalía anclada a la serie (application_id, metric_type_id) y al bucket (ADR-0008). Los scores se exponen tal como los escribe el detector, sin mapearlos a una severidad (ADR-0012)."
+      required: [anomaly_id, application_id, metric_type_id, metric_name, model_id, bucket_start, bucket_seconds, expected_value, actual_value, severity_score, confidence_score, detected_at]
       properties:
-        id:
+        anomaly_id:
           type: string
           format: uuid
+        application_id:
+          type: string
+          format: uuid
+          description: "Aplicación dueña de la anomalía (tenant de la key)"
+        metric_type_id:
+          type: integer
+          description: "metric_type_id del catálogo (OAS-13)"
         metric_name:
           type: string
+          description: "Nombre del tipo de métrica en el catálogo (ej. TTFB)"
+        model_id:
+          type: string
+          format: uuid
+          description: "Modelo que detectó la anomalía"
+        bucket_start:
+          type: string
+          format: date-time
+          description: "Inicio del bucket de la serie en el que se detectó"
+        bucket_seconds:
+          type: integer
+          minimum: 60
+          description: "Tamaño del bucket en segundos"
+        expected_value:
+          type: number
+          description: "Valor esperado por el modelo para el bucket"
+        actual_value:
+          type: number
+          description: "Valor observado en el bucket"
+        severity_score:
+          type: number
+          description: "Score de severidad del detector"
+        confidence_score:
+          type: number
+          description: "Score de confianza del detector"
         detected_at:
           type: string
           format: date-time
-        score:
-          type: number
-          description: "Puntaje de anomalía (0-1), > 0.8 es anómalo"
-        severity:
-          type: string
-          enum: [low, medium, high, critical]
-        detector:
-          type: string
-          enum: [isolation_forest, zscore, seasonal, ensemble]
-        description:
-          type: string
-        metrics_snapshot:
-          type: object
-          description: "Métrica y ventana temporal del contexto"
+          description: "Instante de detección (la lista viene ordenada por este campo, de más nueva a más vieja)"
     Alert:
       type: object
+      description: "Alerta de una aplicación, independiente de la anomalía (ADR-0012). No expone el destinatario (recipient)."
+      required: [alert_id, application_id, anomaly_id, severity, message, status, channel, created_at, sent_at]
       properties:
-        id:
+        alert_id:
           type: string
           format: uuid
-        message:
+        application_id:
           type: string
+          format: uuid
+          description: "Aplicación dueña de la alerta (tenant de la key)"
+        anomaly_id:
+          type: [string, "null"]
+          format: uuid
+          description: "Anomalía que disparó la alerta; null en las alertas de reglas de umbral (v1)"
         severity:
           type: string
           enum: [low, medium, high, critical]
+        message:
+          type: string
         status:
           type: string
           enum: [pending, sent, failed]
-        sent_at:
-          type: string
-          format: date-time
-          description: "Cuándo se despachó la alerta"
+        channel:
+          type: [string, "null"]
+          enum: [telegram, email, null]
+          description: "Canal por el que se despachó; null hasta que el dispatcher (B.10) la envía"
         created_at:
           type: string
           format: date-time
-          description: "Cuándo se creó la alerta"
+          description: "Cuándo se creó la alerta (la lista viene ordenada por este campo, de más nueva a más vieja)"
+        sent_at:
+          type: [string, "null"]
+          format: date-time
+          description: "Cuándo se despachó la alerta; null mientras está pendiente"
   securitySchemes:
     apiKey:
       type: apiKey
