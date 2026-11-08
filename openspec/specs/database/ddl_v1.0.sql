@@ -347,10 +347,7 @@ VALUES
     ('FCP', 'First Contentful Paint'),
     ('XHR_LATENCY', 'Latencia de peticiones XHR/Fetch'),
     ('JS_EXCEPTION_RATE', 'Tasa de excepciones JavaScript'),
-    ('RAGE_CLICK', 'Frecuencia de clics de frustración'),
-    -- Fila agregada por la migración 0006 (ISS-B-13, B.13/D1): disponibilidad
-    -- medida por la sonda HTTP, unidad `count`, valor 1 disponible / 0 no.
-    ('AVAILABILITY', 'Disponibilidad medida por la sonda HTTP (1 disponible, 0 no disponible)');
+    ('RAGE_CLICK', 'Frecuencia de clics de frustración');
 
 INSERT INTO user_role (name, description)
 VALUES

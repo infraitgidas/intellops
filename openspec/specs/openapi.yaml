@@ -205,50 +205,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /metrics/probes:
-    get:
-      summary: Ejecuciones de la sonda HTTP de disponibilidad
-      operationId: listProbeRuns
-      description: "Corridas de la sonda HTTP por tenant (B.13/T6, S2/S3, D3): una fila por ejecución con timestamp, target, http_status, outcome, latency_ms y available (value == 1). Requiere X-API-Key; el tenant se deriva EXCLUSIVAMENTE de la key. Orden: la más nueva primero. limit 1..500 (default 50); fuera de rango → 422."
-      security:
-        - apiKey: []
-      parameters:
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 500
-            default: 50
-          description: "Máximo de corridas a devolver (1..500, default 50). Un valor fuera de rango se rechaza con 422 (sin clamp silencioso)."
-      responses:
-        '200':
-          description: "Corridas de la sonda de la aplicación autenticada, de la más nueva a la más vieja"
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ProbeRun'
-        '401':
-          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: "Aplicación autenticada inactiva (app_inactive)"
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: "Parámetro de consulta inválido (limit fuera de 1..500, contrato ErrorResponse)"
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /anomalies:
     get:
       summary: Listado de anomalías detectadas
@@ -962,12 +918,12 @@ components:
       properties:
         type:
           type: string
-          enum: [TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK, AVAILABILITY]
-          description: "Tipo de métrica RUM. AVAILABILITY (B.13) es la disponibilidad medida por la sonda HTTP: valor 1 = disponible, 0 = no disponible, en los valores enteros 1 y 0"
+          enum: [TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK]
+          description: "Tipo de métrica RUM"
         value:
           type: number
           minimum: 0
-          description: "ms para TTFB/FCP/XHR_LATENCY; count para JS_EXCEPTION_RATE/RAGE_CLICK; 1 o 0 para AVAILABILITY (disponible o no disponible)"
+          description: "ms para TTFB/FCP/XHR_LATENCY; count para JS_EXCEPTION_RATE/RAGE_CLICK"
         unit:
           type: string
           enum: [ms, count, s, sec, secs, msec, millis, counts]
@@ -1108,33 +1064,10 @@ components:
           description: "Id del tipo de métrica"
         name:
           type: string
-          description: "Nombre canónico del tipo (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK, AVAILABILITY)"
+          description: "Nombre canónico del tipo (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK)"
         description:
           type: string
           description: "Descripción del tipo de métrica"
-    ProbeRun:
-      type: object
-      required: [timestamp, available]
-      properties:
-        timestamp:
-          type: string
-          format: date-time
-          description: "Momento de la ejecución de la sonda (la respuesta viene ordenada de más nueva a más vieja)"
-        target:
-          type: [string, "null"]
-          description: "URL sondeada (metadata.probe_target); null si la corrida no la registró"
-        http_status:
-          type: [integer, "null"]
-          description: "Código de estado HTTP observado (metadata.http_status); null en timeout, error de conexión o clave ausente"
-        outcome:
-          type: [string, "null"]
-          description: "Resultado de la ejecución (metadata.outcome: ok, http_error, timeout, connection_error); null si no se registró"
-        latency_ms:
-          type: [number, "null"]
-          description: "Latencia observada en milisegundos (metadata.latency_ms); null si no se registró"
-        available:
-          type: boolean
-          description: "true si value == 1 (sitio disponible), false si 0 (indisponible)"
     LoginRequest:
       type: object
       required: [email, password]

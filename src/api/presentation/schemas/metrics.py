@@ -2,8 +2,7 @@
 
 `MetricAggregateOut` es el shape ML C6 serializable de `GET /metrics/query`
 (application_id, metric_type_id, timestamp, value, session_count);
-`MetricTypeInfoOut` la entrada del catálogo de `GET /metrics/list`;
-`ProbeRunOut` una ejecución de la sonda HTTP de `GET /metrics/probes` (B.13).
+`MetricTypeInfoOut` la entrada del catálogo de `GET /metrics/list`.
 """
 
 from datetime import datetime
@@ -28,18 +27,3 @@ class MetricTypeInfoOut(BaseModel):
     metric_type_id: int
     name: str
     description: str | None = None
-
-
-class ProbeRunOut(BaseModel):
-    """Una ejecución de la sonda HTTP de disponibilidad (B.13/T6, D3).
-
-    `target`/`http_status`/`outcome`/`latency_ms` vienen de `metadata` (null
-    cuando la clave falta) y `available` es `value == 1` (D1).
-    """
-
-    timestamp: datetime
-    target: str | None = None
-    http_status: int | None = None
-    outcome: str | None = None
-    latency_ms: float | None = None
-    available: bool

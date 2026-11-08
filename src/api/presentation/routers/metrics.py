@@ -1,13 +1,10 @@
-"""Read path de telemetría — GET /metrics/query, GET /metrics/list y
-GET /metrics/probes (ISS-S3-01, ISS-B-13).
+"""Read path de telemetría — GET /metrics/query y GET /metrics/list (ISS-S3-01).
 
-Los tres aplican `Depends(require_api_key)` (OAS-14): el tenant se deriva
+Ambos aplican `Depends(require_api_key)` (OAS-14): el tenant se deriva
 EXCLUSIVAMENTE de la key; no existe parámetro de aplicación en el request.
 `QueryService` acota la ventana (default 15 min, ≤ 7 d, bucket ≥ 60 s,
 start < end → 422 `invalid_query_range`, TQ-2) antes de delegar en
-`SQLAlchemyQueryRepository` (agregación EN SQL, DD-9). `/metrics/probes`
-(B.13/T6) expone las corridas de la sonda HTTP por ejecución con
-`limit` 1..500 (default 50, fuera de rango → 422, sin clamp silencioso).
+`SQLAlchemyQueryRepository` (agregación EN SQL, DD-9).
 """
 
 from datetime import datetime
@@ -17,22 +14,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.domain.entities.application import Application
-from api.domain.services.query_service import (
-    DEFAULT_PROBE_LIMIT,
-    MAX_PROBE_LIMIT,
-    MIN_PROBE_LIMIT,
-    QueryService,
-)
+from api.domain.services.query_service import QueryService
 from api.infrastructure.db.repositories.sqlalchemy_query_repository import (
     SQLAlchemyQueryRepository,
 )
 from api.infrastructure.db.session import get_session
 from api.presentation.dependencies import require_api_key
-from api.presentation.schemas.metrics import (
-    MetricAggregateOut,
-    MetricTypeInfoOut,
-    ProbeRunOut,
-)
+from api.presentation.schemas.metrics import MetricAggregateOut, MetricTypeInfoOut
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
@@ -107,42 +95,4 @@ async def list_metrics(
             description=row.description,
         )
         for row in types
-    ]
-
-
-@router.get(
-    "/probes",
-    response_model=list[ProbeRunOut],
-    operation_id="listProbeRuns",
-)
-async def list_probe_runs(
-    application: Annotated[Application, Depends(require_api_key)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-    limit: int = Query(
-        default=DEFAULT_PROBE_LIMIT,
-        ge=MIN_PROBE_LIMIT,
-        le=MAX_PROBE_LIMIT,
-        description=(
-            "Máximo de corridas a devolver (1..500, default 50). "
-            "Fuera de rango → 422 (sin clamp silencioso)."
-        ),
-    ),
-) -> list[ProbeRunOut]:
-    """Corridas de la sonda HTTP de la app autenticada (B.13/T6).
-
-    Devuelve una fila por ejecución, de la más nueva a la más vieja; el tenant
-    sale EXCLUSIVAMENTE de la API key (OAS-14).
-    """
-    service = QueryService(SQLAlchemyQueryRepository(session))
-    runs = await service.list_probe_runs(app_id=application.app_id, limit=limit)
-    return [
-        ProbeRunOut(
-            timestamp=run.timestamp,
-            target=run.target,
-            http_status=run.http_status,
-            outcome=run.outcome,
-            latency_ms=run.latency_ms,
-            available=run.available,
-        )
-        for run in runs
     ]

@@ -279,67 +279,6 @@ def test_oas13_metric_aggregate_shape_ml():
     }
 
 
-# -- B.13/D1: tipo AVAILABILITY en el catálogo de métricas -------------------
-
-def test_b13_metric_type_enum_includes_availability():
-    """B.13/D1: `RumMetric.type` DEBE aceptar `AVAILABILITY` (unidad `count`,
-    valor 1/0) para que la sonda HTTP registre disponibilidad por el camino de
-    ingesta RUM (S2, S3)."""
-    doc = _contract()
-    metric_type = doc["components"]["schemas"]["RumMetric"]["properties"]["type"]
-    assert "AVAILABILITY" in metric_type["enum"]
-
-
-def test_b13_availability_unit_and_range_are_documented():
-    """B.13/D1: el contrato DEBE documentar que `AVAILABILITY` usa la unidad
-    `count` con valor 1 (disponible) o 0 (no disponible), para que el ingest y
-    el read path no queden como un acuerdo tácito."""
-    doc = _contract()
-    metric_type = doc["components"]["schemas"]["RumMetric"]["properties"]["type"]
-    description = metric_type["description"].lower()
-    assert "availability" in description
-    assert "1" in description and "0" in description
-
-
-def test_b13_metrics_probes_endpoint_contract():
-    """B.13/T6: `GET /metrics/probes` DEBE declarar `security: [apiKey]` (el
-    tenant sale de la key, OAS-14), `operationId: listProbeRuns`, el parámetro
-    `limit` acotado 1..500 con default 50, las respuestas 200/401/403/422 y un
-    schema `ProbeRun` con los campos por ejecución (S2, S3, D3)."""
-    doc = _contract()
-    operation = doc["paths"]["/metrics/probes"]["get"]
-
-    assert operation["operationId"] == "listProbeRuns"
-    assert operation["security"] == [{"apiKey": []}], (
-        "/metrics/probes DEBE exigir apiKey (OAS-14)"
-    )
-    assert {"200", "401", "403", "422"} <= set(operation["responses"])
-
-    limit = next(
-        param for param in operation["parameters"] if param["name"] == "limit"
-    )
-    assert limit["in"] == "query"
-    assert limit["schema"]["minimum"] == 1
-    assert limit["schema"]["maximum"] == 500
-    assert limit["schema"]["default"] == 50
-
-    items = operation["responses"]["200"]["content"]["application/json"][
-        "schema"
-    ]["items"]
-    assert items["$ref"] == "#/components/schemas/ProbeRun"
-
-    probe_run = doc["components"]["schemas"]["ProbeRun"]
-    assert set(probe_run["properties"]) == {
-        "timestamp",
-        "target",
-        "http_status",
-        "outcome",
-        "latency_ms",
-        "available",
-    }
-    assert set(probe_run["required"]) == {"timestamp", "available"}
-
-
 # -- OAS-14 (ISS-S3-02/ARCH-6): enum unit ampliado + nota error_type ---------
 
 def test_oas14_metric_unit_accepts_alias_family():

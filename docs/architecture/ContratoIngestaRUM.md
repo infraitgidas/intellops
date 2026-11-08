@@ -12,7 +12,7 @@ La ingesta RUM se compone de dos endpoints, ambos de aceptación asíncrona (202
 
 | Endpoint | Payload | Propósito |
 |----------|---------|-----------|
-| `POST /telemetry/metrics` | `RumEventBatch` | Métricas RUM (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) y disponibilidad de la sonda (AVAILABILITY) |
+| `POST /telemetry/metrics` | `RumEventBatch` | Métricas RUM (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
 | `POST /telemetry/exceptions` | `JsExceptionBatch` | Excepciones JavaScript no manejadas |
 
 Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 y los envía con `schema_version: "1.0"`. Ambas respuestas son idénticas (202 / 400 / 401 / 403 / 503) y están definidas en `openspec/specs/openapi.yaml`. El 202 se responde al **encolar** (semántica §3.4 del pipeline); el 503 `queue_full` es backpressure de la cola llena. La nomenclatura `/telemetry/*` es la definitiva (ADR-0002).
@@ -26,7 +26,6 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 | XHR_LATENCY | Sí | number | ms | 0–60000 | Contexto por request en metadata |
 | JS_EXCEPTION_RATE | Sí | number (entero) | count | ≥ 0 | Tasa calculada en query-time |
 | RAGE_CLICK | Sí | number (entero) | count | ≥ 0 | — |
-| AVAILABILITY | Sí | number (entero) | count | 0–1 | 1 = disponible, 0 = no disponible; `AVG` por bucket en el read path es la razón de uptime (B.13) |
 
 > **ACLARACIÓN IMPORTANTE**: el rango del contrato es un rango de CORdura, es decir, de rechazo de valores absurdos (ej. TTFB negativo o mayor a 60s). NO es un rango de calidad: un TTFB de 9000ms es un dato legítimo que el sistema acepta — es justamente el valor que el sistema debe detectar como anomalía. Los ratings good/poor son referencia para dashboard y alertas, no criterio de rechazo en el ingest.
 
@@ -65,7 +64,7 @@ Ningún evento se envía suelto: el agente agrupa eventos en lotes de hasta 500 
 
 | Campo del contrato | Columna | Notas |
 |--------------------|---------|-------|
-| `metrics[].type` | `metric_type_id` | Se resuelve contra el catálogo `metric_type` (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK, AVAILABILITY) |
+| `metrics[].type` | `metric_type_id` | Se resuelve contra el catálogo `metric_type` (TTFB, FCP, XHR_LATENCY, JS_EXCEPTION_RATE, RAGE_CLICK) |
 | `session_id` | `session_id` | FK a `user_session` |
 | `metrics[].value` | `value` | `DOUBLE PRECISION` |
 | `metrics[].unit` | `unit` | `TEXT` |

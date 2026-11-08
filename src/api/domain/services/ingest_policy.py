@@ -32,7 +32,7 @@ REJECTION_CODES = frozenset(
 )
 
 METRIC_TYPES = frozenset(
-    {"TTFB", "FCP", "XHR_LATENCY", "JS_EXCEPTION_RATE", "RAGE_CLICK", "AVAILABILITY"}
+    {"TTFB", "FCP", "XHR_LATENCY", "JS_EXCEPTION_RATE", "RAGE_CLICK"}
 )
 VALID_UNITS = frozenset({"ms", "count"})
 UNIT_BY_TYPE = {
@@ -41,8 +41,6 @@ UNIT_BY_TYPE = {
     "XHR_LATENCY": "ms",
     "JS_EXCEPTION_RATE": "count",
     "RAGE_CLICK": "count",
-    # B.13/D1: disponibilidad medida por la sonda HTTP — 1 disponible, 0 no.
-    "AVAILABILITY": "count",
 }
 
 # -- Registros compartidos con el normalizador (ISS-S3-02, R7) ----------------
@@ -74,8 +72,6 @@ METRIC_TYPE_ALIASES: dict[str, str] = {
     "jsexceptionrate": "JS_EXCEPTION_RATE",
     "rage_click": "RAGE_CLICK",
     "rageclick": "RAGE_CLICK",
-    # B.13: la sonda reporta disponibilidad por ejecución.
-    "availability": "AVAILABILITY",
 }
 
 # Catálogo de `error_type` canónico: built-ins de ECMAScript + ejemplos del
@@ -104,7 +100,7 @@ ERROR_TYPE_ALIASES: dict[str, str] = {
 }
 
 # Tipos de métrica cuyos valores DEBEN ser enteros (sin redondeo; NORM-6/f).
-COUNT_TYPES = frozenset({"JS_EXCEPTION_RATE", "RAGE_CLICK", "AVAILABILITY"})
+COUNT_TYPES = frozenset({"JS_EXCEPTION_RATE", "RAGE_CLICK"})
 # (min, max|None) sanity bounds per metric type.
 RANGE_BY_TYPE = {
     "TTFB": (0, 60_000),
@@ -112,9 +108,6 @@ RANGE_BY_TYPE = {
     "XHR_LATENCY": (0, 60_000),
     "JS_EXCEPTION_RATE": (0, None),
     "RAGE_CLICK": (0, None),
-    # B.13/D1: 1 = disponible, 0 = no disponible; cualquier otro valor se
-    # rechaza con invalid_range porque rompe el AVG como razón de uptime.
-    "AVAILABILITY": (0, 1),
 }
 
 MAX_BATCH_EVENTS = 500

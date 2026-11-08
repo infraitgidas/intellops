@@ -10,7 +10,6 @@ Autocontenido: corre Alembic contra Postgres real vía la API de Alembic
 """
 
 import os
-import re
 from uuid import uuid4
 
 import pytest
@@ -30,7 +29,6 @@ REV_0002 = "0002"
 REV_0003 = "0003"
 REV_0004 = "0004"
 REV_0005 = "0005"
-REV_0006 = "0006"
 
 DDL_PATH = "openspec/specs/database/ddl_v1.0.sql"
 
@@ -139,7 +137,7 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
 
     lab_user_columns = _column_names(conn, "lab_user")
     assert "password_hash" in lab_user_columns
@@ -169,36 +167,11 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
     )
 
 
-def test_upgrade_head_seeds_availability_metric_type(alembic_cfg, conn):
-    """B.13/D1: la migración `0006` siembra `AVAILABILITY` en el catálogo
-    `metric_type` para que la sonda pueda ingestar disponibilidad por el
-    camino RUM y quede agregable en el read path (S2, S3)."""
-    command.upgrade(alembic_cfg, "head")
-
-    assert _current_revision(conn) == REV_0006
-
-    rows = conn.execute(
-        text("SELECT name, is_active FROM metric_type ORDER BY name")
-    ).all()
-    names = {row[0] for row in rows}
-    assert "AVAILABILITY" in names
-    # Los cinco tipos originales de 0001 siguen presentes (sin regresión).
-    assert {
-        "TTFB",
-        "FCP",
-        "XHR_LATENCY",
-        "JS_EXCEPTION_RATE",
-        "RAGE_CLICK",
-    } <= names
-    availability = next(row for row in rows if row[0] == "AVAILABILITY")
-    assert availability[1] is True
-
-
 def test_downgrade_0001_removes_credentials_and_seed(alembic_cfg, conn):
     """DATA-4: downgrade 0001 elimina columnas, índices y seed; 0001 intacto."""
     command.upgrade(alembic_cfg, "head")
-    # Precondición: head (0006) aplicada (evita falso verde).
-    assert _current_revision(conn) == REV_0006
+    # Precondición: head (0005) aplicada (evita falso verde).
+    assert _current_revision(conn) == REV_0005
 
     command.downgrade(alembic_cfg, REV_0001)
 
@@ -222,7 +195,7 @@ def test_upgrade_restores_state_after_downgrade(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
     assert "password_hash" in _column_names(conn, "lab_user")
     application_columns = _column_names(conn, "application")
     assert "api_token_hash" in application_columns
@@ -261,7 +234,7 @@ def test_upgrade_head_adds_is_active_default_true_for_existing_rows(
     )
 
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
 
     application_columns = _column_names(conn, "application")
     assert "is_active" in application_columns
@@ -285,7 +258,7 @@ def test_downgrade_0002_removes_is_active_only(alembic_cfg, conn):
     """DATA-8: downgrade 0002 elimina solo is_active; api_token_hash y el
     índice único parcial quedan intactos (rollback plan)."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
     assert "is_active" in _column_names(conn, "application")
 
     command.downgrade(alembic_cfg, REV_0002)
@@ -298,7 +271,7 @@ def test_downgrade_0002_removes_is_active_only(alembic_cfg, conn):
 
     # Dejar la DB en head para no contaminar el resto de la suite.
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
 
 
 def test_ddl_v1_0_sql_synced_with_0003(alembic_cfg, conn):
@@ -394,7 +367,7 @@ def seeded(alembic_cfg, conn):
 def test_0004_replaces_metric_id_with_series_anchor(alembic_cfg, conn):
     """DB-ANOM-2.1 / DB-MIG-1.1: columnas nuevas, sin metric_id ni su FK."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
     columns = _column_names(conn, "anomaly")
     assert {
         "application_id", "metric_type_id", "bucket_start",
@@ -465,7 +438,7 @@ def test_downgrade_0004_empty_table_restores_metric_id(alembic_cfg, conn):
     assert _index_exists(conn, "idx_anomaly_series_bucket_model") is False
 
     command.upgrade(alembic_cfg, "head")  # DB-MIG-1.4: upgrade sin datos
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
 
 
 def test_downgrade_0004_with_rows_fails_and_stays_at_head(seeded, alembic_cfg, conn):
@@ -476,7 +449,7 @@ def test_downgrade_0004_with_rows_fails_and_stays_at_head(seeded, alembic_cfg, c
     with pytest.raises((RuntimeError, DBAPIError)):
         command.downgrade(alembic_cfg, REV_0003)
 
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
     assert "application_id" in _column_names(conn, "anomaly")
     # El rollback también deshace el downgrade de 0005, previo al guard.
     assert "sample_rate" in _column_names(conn, "js_exception")
@@ -509,7 +482,7 @@ def test_0005_adds_sample_rate_to_js_exception(alembic_cfg, conn):
     """OD-03/DB-MIG-1.5: 0005 agrega sample_rate DOUBLE PRECISION nullable;
     el downgrade la retira sin tocar el resto de la tabla."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
     assert "sample_rate" in _column_names(conn, "js_exception")
     assert _column_nullable(conn, "js_exception", "sample_rate") is True
 
@@ -521,7 +494,7 @@ def test_0005_adds_sample_rate_to_js_exception(alembic_cfg, conn):
     )
 
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_0005
 
 
 def test_ddl_v1_0_sql_synced_with_0005():
@@ -530,96 +503,3 @@ def test_ddl_v1_0_sql_synced_with_0005():
         ddl = handle.read()
     block = ddl.split("CREATE TABLE js_exception", 1)[1].split("-- 8. ML_MODEL", 1)[0]
     assert "sample_rate DOUBLE PRECISION" in block
-
-
-# -- DB-MIG / DB-DDL: migración 0006 (ISS-B-13, B.13/D1) --------------------
-
-DDL_METRIC_TYPE_SEED_HEADER = "INSERT INTO metric_type (name, description)"
-
-
-def _ddl_metric_type_names() -> set[str]:
-    """Nombres sembrados en el bloque `INSERT INTO metric_type` del DDL."""
-    with open(DDL_PATH, encoding="utf-8") as handle:
-        ddl = handle.read()
-    seed = ddl.split(DDL_METRIC_TYPE_SEED_HEADER, 1)[1].split(";", 1)[0]
-    return set(re.findall(r"\('([A-Z_]+)'", seed))
-
-
-def test_ddl_v1_0_sql_metric_type_seed_matches_catalog(alembic_cfg, conn):
-    """B.13/D1: `0001` declara el DDL como fuente de verdad del catálogo, así
-    que el seed de `ddl_v1.0.sql` tiene que nombrar exactamente los mismos
-    tipos de métrica que quedan sembrados en head (0001 + 0003/0005 + 0006)."""
-    command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
-
-    catalog = {
-        row[0] for row in conn.execute(text("SELECT name FROM metric_type")).all()
-    }
-    seeded_in_ddl = _ddl_metric_type_names()
-
-    assert "AVAILABILITY" in seeded_in_ddl
-    assert seeded_in_ddl == catalog
-
-
-def test_downgrade_0006_with_probe_metrics_fails_and_stays_at_head(
-    alembic_cfg, conn
-):
-    """B.13/D1: el downgrade de `0006` no puede borrar `AVAILABILITY` si hay
-    métricas de la sonda: `fk_rum_metric_type` es ON DELETE RESTRICT. Como
-    0004, aborta con un guard explícito y deja la DB en la revisión previa."""
-    command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
-
-    app_id, session_id, metric_id = str(uuid4()), str(uuid4()), str(uuid4())
-    conn.execute(
-        text(
-            "INSERT INTO application (app_id, name, description) "
-            "VALUES (:id, :name, 'test 0006')"
-        ),
-        {"id": app_id, "name": f"app-{app_id}"},
-    )
-    conn.execute(
-        text(
-            "INSERT INTO user_session (session_id, app_id, start_timestamp) "
-            "VALUES (:sid, :aid, :ts)"
-        ),
-        {"sid": session_id, "aid": app_id, "ts": "2026-11-03T12:00:00Z"},
-    )
-    metric_type_id = conn.execute(
-        text("SELECT metric_type_id FROM metric_type WHERE name = 'AVAILABILITY'")
-    ).scalar()
-    conn.execute(
-        text(
-            "INSERT INTO rum_metric (metric_id, session_id, metric_type_id, "
-            "value, unit, timestamp) "
-            "VALUES (:mid, :sid, :tid, 1, 'count', :ts)"
-        ),
-        {
-            "mid": metric_id,
-            "sid": session_id,
-            "tid": metric_type_id,
-            "ts": "2026-11-03T12:00:01Z",
-        },
-    )
-
-    try:
-        # 0004 es el precedente: el guard explícito aborta con RuntimeError y
-        # un mensaje accionable, en lugar de dejar que el FK RESTRICT reviente
-        # con un RestrictViolation opaco a mitad del downgrade.
-        with pytest.raises(RuntimeError, match="0006 downgrade abortado"):
-            command.downgrade(alembic_cfg, REV_0005)
-
-        # Sin downgrade a medias: la revisión y el catálogo quedan intactos.
-        assert _current_revision(conn) == REV_0006
-        assert conn.execute(
-            text("SELECT 1 FROM metric_type WHERE name = 'AVAILABILITY'")
-        ).first() is not None
-        # El rollback también deshace el downgrade de 0005, previo al guard.
-        assert "sample_rate" in _column_names(conn, "js_exception")
-    finally:
-        conn.execute(text("DELETE FROM rum_metric WHERE metric_id = :id"), {"id": metric_id})
-        conn.execute(
-            text("DELETE FROM user_session WHERE session_id = :id"), {"id": session_id}
-        )
-        conn.execute(text("DELETE FROM application WHERE app_id = :id"), {"id": app_id})
-        command.upgrade(alembic_cfg, "head")
