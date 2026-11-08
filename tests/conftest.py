@@ -292,3 +292,33 @@ async def make_researcher(
         )
 
     return _make
+
+
+# -- Dobles para tests unitarios de servicios (ISS-S3-06) ---------------------
+#
+# Los servicios de dominio coordinan commit/rollback (ADR-10) sobre una
+# AsyncSession. `FakeSession` registra esas llamadas en orden para que los
+# tests unitarios verifiquen la invariante sin Postgres: un caso feliz
+# commitea, un DomainError hace rollback y nunca deja un commit a medias.
+
+
+class FakeSession:
+    """AsyncSession mínima en memoria: registra commit/rollback/refresh."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def commit(self) -> None:
+        self.calls.append("commit")
+
+    async def rollback(self) -> None:
+        self.calls.append("rollback")
+
+    async def refresh(self, _instance) -> None:
+        self.calls.append("refresh")
+
+
+@pytest.fixture
+def fake_session() -> FakeSession:
+    """Sesión en memoria para tests unitarios de servicios (sin Postgres)."""
+    return FakeSession()
