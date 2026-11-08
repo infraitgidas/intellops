@@ -779,6 +779,57 @@ class _FakeQueue:
         pass
 
 
+# -- ISS-S3-06: gauge de profundidad de cola en IngestService -----------------
+
+class _SizedQueue(_FakeQueue):
+    """Cola fake que expone `qsize()` (o lo hace fallar) para el gauge."""
+
+    def __init__(self, size: int = 0, fail: bool = False) -> None:
+        super().__init__()
+        self._size = size
+        self._fail = fail
+
+    def qsize(self) -> int:
+        if self._fail:
+            raise RuntimeError("qsize no disponible")
+        return self._size + len(self.enqueued)
+
+
+async def test_service_reports_queue_depth_when_queue_exposes_qsize():
+    """Si la cola expone `qsize()`, el gauge `ingest.queue_depth` DEBE
+    reflejar la ocupación después de encolar (RUM-8, ISS-S3-06)."""
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    counters = IngestCounters()
+    service = IngestService(queue=_SizedQueue(size=3), counters=counters)
+    batch = RumEventBatch(schema_version="1.0", events=[_rum_event_model()])
+
+    await service.process_batch(batch, tenant_app_id=uuid4())
+
+    assert counters.snapshot()["ingest.queue_depth"] == 4
+
+
+async def test_service_queue_depth_falls_back_to_zero_on_error_or_absence():
+    """Si `qsize()` falla o la cola no lo expone, el gauge DEBE quedar en 0 y
+    el batch DEBE procesarse igual: la observabilidad nunca rompe la ingesta
+    (ISS-S3-06)."""
+    from api.domain.services.ingest_service import IngestService
+    from api.infrastructure.ingest.counters import IngestCounters
+    from api.presentation.schemas.ingest import RumEventBatch
+
+    for queue in (_SizedQueue(size=7, fail=True), _FakeQueue()):
+        counters = IngestCounters()
+        service = IngestService(queue=queue, counters=counters)
+        batch = RumEventBatch(schema_version="1.0", events=[_rum_event_model()])
+
+        result = await service.process_batch(batch, tenant_app_id=uuid4())
+
+        assert result.accepted == 1
+        assert counters.snapshot()["ingest.queue_depth"] == 0
+
+
 def _queued_event(**overrides):
     """QueuedEvent válido base para tests de cola."""
     from api.infrastructure.ingest.queue import QueuedEvent

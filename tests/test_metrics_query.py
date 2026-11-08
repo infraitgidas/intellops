@@ -12,7 +12,10 @@ from uuid import uuid4
 
 import pytest
 
-from api.infrastructure.db.repositories.sqlalchemy_query_repository import _as_float
+from api.infrastructure.db.repositories.sqlalchemy_query_repository import (
+    _as_float,
+    _as_int,
+)
 
 
 def _ts(dt: datetime) -> str:
@@ -610,3 +613,92 @@ async def test_service_rejects_out_of_bounds_probe_limit_without_calling_repo():
         # si no, el cliente no sabe si mandó 0 o 501.
         assert str(bad_limit) in excinfo.value.message
     assert repo.called is False
+
+
+# -- ISS-S3-06: casos unitarios faltantes de QueryService ----------------------
+
+class _RecordingQueryRepo:
+    """Repo de consulta en memoria que registra con qué se lo llama."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict]] = []
+
+    async def query_metrics(self, **kwargs):
+        self.calls.append(("query_metrics", kwargs))
+        return []
+
+    async def list_metric_types(self):
+        self.calls.append(("list_metric_types", {}))
+        return ["catalogo"]
+
+    async def list_probe_runs(self, **kwargs):
+        self.calls.append(("list_probe_runs", kwargs))
+        return ["corrida"]
+
+
+async def test_service_list_metric_types_delegates_to_repo():
+    """`list_metric_types` DEBE delegar en el repo y devolver su resultado tal
+    cual (sin filtrar ni reordenar el catálogo)."""
+    from api.domain.services.query_service import QueryService
+
+    repo = _RecordingQueryRepo()
+    assert await QueryService(repo).list_metric_types() == ["catalogo"]
+    assert repo.calls == [("list_metric_types", {})]
+
+
+async def test_service_list_probe_runs_applies_default_and_forwards_valid_limit():
+    """Sin `limit` el servicio DEBE pedir 50; con un `limit` válido (incluidos
+    los bordes 1 y 500) DEBE pasarlo intacto junto con el tenant."""
+    from api.domain.services.query_service import QueryService
+
+    repo = _RecordingQueryRepo()
+    service = QueryService(repo)
+    app_id = uuid4()
+
+    assert await service.list_probe_runs(app_id=app_id) == ["corrida"]
+    for limit in (1, 500):
+        await service.list_probe_runs(app_id=app_id, limit=limit)
+
+    assert [kwargs["limit"] for _, kwargs in repo.calls] == [50, 1, 500]
+    assert all(kwargs["app_id"] == app_id for _, kwargs in repo.calls)
+
+
+async def test_service_query_normalizes_naive_and_offset_datetimes_to_utc():
+    """Un `start`/`end` naive DEBE asumirse UTC y uno con otro offset DEBE
+    convertirse a UTC antes de delegar (ventana comparable con la BD)."""
+    from datetime import timedelta as _td
+
+    from api.domain.services.query_service import QueryService
+
+    repo = _RecordingQueryRepo()
+    naive_start = datetime(2026, 11, 8, 12, 0)
+    offset_end = datetime(2026, 11, 8, 10, 0, tzinfo=timezone(_td(hours=-3)))
+
+    await QueryService(repo).query(
+        app_id=uuid4(), start=naive_start, end=offset_end, bucket_seconds=60
+    )
+
+    (_, kwargs), = repo.calls
+    assert kwargs["start"] == naive_start.replace(tzinfo=timezone.utc)
+    assert kwargs["end"] == datetime(2026, 11, 8, 13, 0, tzinfo=timezone.utc)
+    assert kwargs["end"].utcoffset() == _td(0)
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("200", 200),
+        ("-1", -1),
+        (503, 503),
+        (None, None),
+        ("", None),
+        ("abc", None),
+        ("2.5", None),
+        ([], None),
+    ],
+)
+def test_as_int_parses_metadata_text_or_returns_none(raw, expected):
+    """`_as_int` convierte el texto de `metadata ->> 'key'` a int y devuelve
+    None si no es interpretable: un `http_status` corrupto no DEBE romper
+    `/metrics/probes` (B.13/T6, ISS-S3-06)."""
+    assert _as_int(raw) == expected
