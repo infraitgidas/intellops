@@ -298,6 +298,25 @@ def test_reader_422_includes_status_and_code(monkeypatch):
     assert exc.value.code == "invalid_query_range"
 
 
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(422, text="no es json"),
+        httpx.Response(422, json={"detail": [{"msg": "validation"}]}),
+        httpx.Response(401, json=["lista", "inesperada"]),
+    ],
+)
+def test_reader_error_without_error_response_body_keeps_status(monkeypatch, response):
+    """Un 4xx cuyo cuerpo no es ErrorResponse (texto, el `{"detail": ...}` de
+    FastAPI o JSON con otra forma) DEBE seguir levantando DatasetReadError con
+    el status y `code` en None, nunca lanzar otra excepción (ISS-S3-06)."""
+    s = _settings(monkeypatch)
+    with pytest.raises(DatasetReadError) as exc:
+        read_dataset(s, client=_client(lambda r: response), now=NOW)
+    assert exc.value.status == response.status_code
+    assert exc.value.code is None
+
+
 @pytest.mark.parametrize("status", [500, 503])
 def test_reader_5xx_is_unavailable(monkeypatch, status):
     s = _settings(monkeypatch)
