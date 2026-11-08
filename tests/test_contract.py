@@ -39,9 +39,9 @@ except ImportError:
     _OPEN_API_3_1_EXPERIMENTAL = False
 
 # Paths implementados en la app (ISS-S2-03 agrega /telemetry/*; ISS-S3-01
-# agrega /metrics/*; dashboard/ML viven en slices posteriores; OAS-10 los
-# declara en el documento).
-_SCOPED_PATH_RE = r"/(health|ready|auth|users|applications|telemetry|metrics)"
+# agrega /metrics/*; ISS-S3-03 agrega /sessions*; dashboard/ML viven en slices
+# posteriores; OAS-10 los declara en el documento).
+_SCOPED_PATH_RE = r"/(health|ready|auth|users|applications|telemetry|metrics|sessions)"
 
 
 def _contract() -> dict:
@@ -338,6 +338,68 @@ def test_b13_metrics_probes_endpoint_contract():
         "available",
     }
     assert set(probe_run["required"]) == {"timestamp", "available"}
+
+
+# -- ISS-S3-03: lectura de sesiones RUM (ADR-0011) ---------------------------
+
+def test_s303_sessions_paths_contract():
+    """GET /sessions (listSessions) y GET /sessions/{session_id} (getSession)
+    DEBEN exigir apiKey (el tenant sale de la key, ADR-0003), declarar sus
+    respuestas y devolver el schema Session; el detalle declara 404 para la
+    sesión inexistente o de otra aplicación."""
+    doc = _contract()
+    listing = doc["paths"]["/sessions"]["get"]
+    detail = doc["paths"]["/sessions/{session_id}"]["get"]
+
+    assert listing["operationId"] == "listSessions"
+    assert detail["operationId"] == "getSession"
+    for operation in (listing, detail):
+        assert operation["security"] == [{"apiKey": []}]
+    assert set(listing["responses"]) == {"200", "401", "403", "422"}
+    assert set(detail["responses"]) == {"200", "401", "403", "404", "422"}
+
+    params = {param["name"]: param for param in listing["parameters"]}
+    assert set(params) == {"start", "end", "limit"}
+    assert params["limit"]["schema"]["minimum"] == 1
+    assert params["limit"]["schema"]["maximum"] == 500
+    assert params["limit"]["schema"]["default"] == 50
+
+    list_200 = listing["responses"]["200"]["content"]["application/json"]["schema"]
+    assert list_200["items"]["$ref"] == "#/components/schemas/Session"
+    detail_200 = detail["responses"]["200"]["content"]["application/json"]["schema"]
+    assert detail_200["$ref"] == "#/components/schemas/Session"
+
+
+def test_s303_sessions_are_read_only():
+    """No DEBE existir POST /sessions ni POST /sessions/{id}/finish: la sesión
+    la crea la ingesta en el primer evento (ADR-0002) y el agente no reporta
+    su fin (ADR-0011)."""
+    paths = _contract()["paths"]
+    assert set(paths["/sessions"]) == {"get"}
+    assert set(paths["/sessions/{session_id}"]) == {"get"}
+    assert not any(path.endswith("/finish") for path in paths)
+
+
+def test_s303_session_schema_has_no_dead_fields():
+    """El schema Session NO DEBE declarar user_id, ip_address, os_version,
+    end_timestamp ni duration_ms: en v1 siempre son NULL (ADR-0011)."""
+    schema = _contract()["components"]["schemas"]["Session"]
+    assert set(schema["properties"]) == {
+        "session_id",
+        "application_id",
+        "start_timestamp",
+        "last_activity_at",
+        "user_agent",
+        "metric_count",
+        "exception_count",
+    }
+    assert set(schema["required"]) == {
+        "session_id",
+        "application_id",
+        "start_timestamp",
+        "metric_count",
+        "exception_count",
+    }
 
 
 # -- OAS-14 (ISS-S3-02/ARCH-6): enum unit ampliado + nota error_type ---------

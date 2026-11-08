@@ -30,6 +30,12 @@ El agente genera un `session_id` UUID v4 opaco (sin user ID) y lo conserva en `s
 
 El servidor no recibe un fin de sesión: `end_timestamp` y `duration_ms` existen en el DDL (`src/api/infrastructure/db/migrations/versions/0001_initial_schema.py:147-148`) pero el ingest solo inserta `session_id`, `app_id`, `user_agent` y `start_timestamp` (`queue.py:258-263`). La sesión termina por inactividad del lado del agente, sin reporte.
 
+Política de campos y lectura (ADR-0011, ISS-S3-03):
+
+- `user_id`, `ip_address` y `os_version` quedan **siempre NULL** en la ingesta y nunca se toman del payload, aunque `metadata` traiga claves con esos nombres.
+- `end_timestamp` y `duration_ms` quedan NULL en v1. El cierre por inactividad del lado del servidor va en una issue aparte. Un cierre reportado por el cliente exige `schema_version` 1.1.
+- Las sesiones se leen con `GET /sessions` y `GET /sessions/{session_id}`, autenticados con la misma `X-API-Key` y filtrados por la aplicación de la key. No hay `POST /sessions`.
+
 ### 2.2 Evento de métricas (`RumEventBatch` → `RumEvent`)
 
 Un `RumEvent` por page view, con TTFB y FCP en el mismo `metrics[]`. Si FCP no ocurre (por ejemplo, pestaña oculta), se envía solo TTFB; nunca se inventa un valor 0. `JS_EXCEPTION_RATE` no se envía: la tasa se calcula en query-time (`docs/architecture/ContratoIngestaRUM.md:27`).

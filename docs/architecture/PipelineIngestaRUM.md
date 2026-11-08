@@ -94,7 +94,7 @@ Para S1 se adopta una **cola en proceso (`asyncio.Queue`) acotada** (ISS-S2-03),
 
 ### 3.2. Secuencia de persistencia por chunk
 
-1. **Resolver sesión**: `INSERT INTO user_session (session_id, app_id, start_timestamp, user_agent) VALUES (...) ON CONFLICT (session_id) DO NOTHING` — `app_id` sale de la **aplicación autenticada por la API key** (IAUTH-2/D2; el `application_id` del payload nunca es autoridad); `user_agent` del metadata si viene.
+1. **Resolver sesión**: `INSERT INTO user_session (session_id, app_id, start_timestamp, user_agent) VALUES (...) ON CONFLICT (session_id) DO NOTHING` — `app_id` sale de la **aplicación autenticada por la API key** (IAUTH-2/D2; el `application_id` del payload nunca es autoridad); `user_agent` del metadata si viene. `user_id`, `ip_address`, `os_version`, `end_timestamp` y `duration_ms` no se escriben: quedan NULL y nunca se toman del payload (ADR-0011). Las sesiones se leen con `GET /sessions` y `GET /sessions/{session_id}`, filtrados por la aplicación de la key (ISS-S3-03).
 2. **Bulk insert `rum_metric`**: filas desde `RumEvent.metrics[]` (type → `metric_type_id` resuelto contra el catálogo).
 3. **Bulk insert `js_exception`**: filas desde `JsExceptionEvent` (`metric_id` se persiste si viene y existe; si viene y no existe → NULL + contador `ingest.metric_id_unknown_total`, es correlación blanda).
 

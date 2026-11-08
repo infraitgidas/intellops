@@ -539,6 +539,13 @@ GET /sessions
 GET /sessions/{id}
 ```
 
+> **Redefinido por ADR-0011 (ISS-S3-03, #42, 08/11/2026):**
+>
+> - No se implementan `POST /sessions` ni `POST /sessions/{id}/finish`. La ingesta crea la sesión en el primer evento (ADR-0002) y el agente no reporta su fin.
+> - Se implementan `GET /sessions` y `GET /sessions/{id}`, filtrados por la aplicación de la API key.
+> - La asociación con usuario, la IP y el sistema operativo quedan NULL en v1.
+> - `end_timestamp` y el cálculo de duración quedan para una issue de cierre por inactividad del lado del servidor.
+
 ### 3.2. `USER_FAVORITE_METRIC`
 
 Implementar:
