@@ -38,7 +38,15 @@ Dependencias: ISS-S2-01 (auth y aplicaciones) e ISS-S2-03 (la ingesta crea `user
 - [x] 4.4 `CHANGELOG.md`: entrada en Added.
 - [ ] 4.5 Actualizar el body de la issue #42 en GitHub con los criterios redefinidos (texto en `docs/business/issues-s2-s3.md`).
 
+## Fase 5 — Review de la PR
+
+- [x] 5.1 Corregir la diferencia que marcó la review (no bloqueante): para `limit` fuera de 1..500, el 422 lo emitía `Query(ge=1, le=500)` de FastAPI con el body `{"detail": [...]}`, y no el `ErrorResponse` con `invalid_query_range` que prometen SES-2, `openapi.yaml` y el CHANGELOG. Se quitó `ge`/`le` del router y el rango lo valida `SessionService`, igual que `bucket_seconds` en `/metrics/query`. El test de integración ahora fija `error.code` y que el mensaje incluya el valor rechazado.
+- [ ] 5.2 Volver a correr la suite completa (`make test`) sobre el fix.
+
 ## Seguimiento (fuera de alcance)
+
+- `/metrics/probes` conserva el patrón `Query(ge, le)`, con el mismo desfasaje entre lo documentado y la respuesta para `limit`. Conviene alinearlo en una issue aparte.
+- Algunos errores de tipo (un `limit` que no es entero, un `start` que no es fecha o un `session_id` que no es UUID) los sigue rechazando FastAPI con `{"detail": [...]}`, aunque los 422 de `openapi.yaml` declaran `ErrorResponse` en todo el documento. Es un desfasaje general del contrato, no de esta issue.
 
 - Issue nueva: cierre de sesiones por inactividad del lado del servidor (completar `end_timestamp` y `duration_ms` y agregarlos al schema `Session` cuando tengan datos).
 - Evaluar el índice `(app_id, start_timestamp DESC)` si el volumen del piloto lo justifica.
