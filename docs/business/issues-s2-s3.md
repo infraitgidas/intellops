@@ -209,6 +209,15 @@ Raw → Validation → Normalization → Storage
 
 **Descripción**: Implementar la gestión de sesiones necesaria para relacionar actividad RUM con aplicaciones y usuarios cuando corresponda.
 
+> **Redefinida (08/11/2026, ADR-0011):** lectura app-scoped de las sesiones que la ingesta ya persiste, y política de campos de `user_session`. No se implementan `POST /sessions` ni `POST /sessions/{id}/finish`: la sesión se crea en el primer evento de ingesta (ADR-0002) y el contrato del agente no reporta fin de sesión (`ContratoAgenteRUM.md` §2.1).
+
+**Criterios de aceptación**:
+- [ ] `GET /sessions` con ventana temporal y `limit`, filtrado por la aplicación de la X-API-Key, igual que `GET /metrics/query` (ADR-0003).
+- [ ] `GET /sessions/{id}` filtra por `session_id` AND `app_id`; una sesión de otra aplicación responde 404, no 403.
+- [ ] La respuesta no expone `user_id`, `ip_address` ni `os_version`.
+- [ ] ADR-0011: `user_id`, `ip_address` y `os_version` siempre NULL en la ingesta, nunca desde el payload. `end_timestamp` y `duration_ms` quedan NULL en v1; el cierre por inactividad va en otra issue.
+- [ ] OpenAPI, tests de contrato y de aislamiento, y docs actualizados.
+
 ---
 
 ### ISS-S3-04 — Dataset operativo para ML
