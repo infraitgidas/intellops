@@ -85,6 +85,18 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   validado por evento (`invalid_range` si no es finito o sale de 0..1) y
   persistido en `js_exception` (migración 0005 y espejo en `ddl_v1.0.sql`)
   para ponderar el análisis por `1 / sample_rate`.
+- Lectura de sesiones RUM (ISS-S3-03, #42): endpoints `GET /sessions`
+  (`listSessions`) y `GET /sessions/{session_id}` (`getSession`) con
+  `require_api_key`. El tenant sale solo de la key y el detalle filtra por
+  `session_id` AND `app_id`: una sesión de otra aplicación responde 404
+  `session_not_found`, igual que una inexistente. El listado filtra por
+  `start_timestamp` en `[start, end)` (default 24 h, máximo 7 días), ordena de
+  la más nueva a la más vieja y acota con `limit` 1..500 (default 50). Fuera de
+  rango → 422 `invalid_query_range`. Cada sesión trae `metric_count`,
+  `exception_count` y `last_activity_at`, calculados en SQL. Sin POST: la
+  sesión la sigue creando la ingesta. `user_id`, `ip_address`, `os_version`,
+  `end_timestamp` y `duration_ms` quedan NULL y fuera de la respuesta.
+  ADR-0011 registra la decisión; sin migración.
 
 ### Changed
 - CI (ISS-S2-04, #38): pylint `--fail-under` sube de 7.0 a 9.0; gate de
