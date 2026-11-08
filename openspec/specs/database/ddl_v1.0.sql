@@ -302,18 +302,37 @@ CREATE INDEX idx_anomaly_timestamp
 CREATE INDEX idx_anomaly_model_id
     ON anomaly(model_id);
 
+-- Read path de GET /anomalies, newest-first (migración 0007, ISS-B-03).
+CREATE INDEX idx_anomaly_app_timestamp
+    ON anomaly(application_id, timestamp DESC);
+
 -- ============================================================
 -- 10. ALERT
 -- ============================================================
 
 CREATE TABLE alert (
     alert_id UUID PRIMARY KEY,
-    anomaly_id UUID NOT NULL,
-    recipient TEXT NOT NULL,
-    channel_id SMALLINT NOT NULL,
+    -- Alerta independiente de la anomalía (migración 0007, ISS-B-03, ADR-0012):
+    -- application_id es el tenant; anomaly_id es NULL en las alertas de reglas
+    -- de umbral (v1) y recipient/channel_id los completa el dispatcher (B.10)
+    -- al despachar.
+    application_id UUID NOT NULL,
+    anomaly_id UUID,
+    severity TEXT NOT NULL,
+    recipient TEXT,
+    channel_id SMALLINT,
     message TEXT NOT NULL,
     status_id SMALLINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     sent_at TIMESTAMPTZ,
+
+    CONSTRAINT ck_alert_severity
+        CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+
+    CONSTRAINT fk_alert_application
+        FOREIGN KEY (application_id)
+        REFERENCES application(app_id)
+        ON DELETE RESTRICT,
 
     CONSTRAINT fk_alert_anomaly
         FOREIGN KEY (anomaly_id)
@@ -336,6 +355,10 @@ CREATE INDEX idx_alert_status
 
 CREATE INDEX idx_alert_channel
     ON alert(channel_id);
+
+-- Read path de GET /alerts, newest-first (migración 0007, ISS-B-03).
+CREATE INDEX idx_alert_app_created
+    ON alert(application_id, created_at DESC);
 
 -- ============================================================
 -- 11. DATOS INICIALES DE CATÁLOGOS

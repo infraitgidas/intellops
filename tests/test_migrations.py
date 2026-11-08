@@ -31,6 +31,9 @@ REV_0003 = "0003"
 REV_0004 = "0004"
 REV_0005 = "0005"
 REV_0006 = "0006"
+REV_0007 = "0007"
+# Head actual de la cadena: cada migración nueva solo actualiza esta línea.
+REV_HEAD = REV_0007
 
 DDL_PATH = "openspec/specs/database/ddl_v1.0.sql"
 
@@ -139,7 +142,7 @@ def test_upgrade_head_adds_columns_indexes_and_seed(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
 
     lab_user_columns = _column_names(conn, "lab_user")
     assert "password_hash" in lab_user_columns
@@ -175,7 +178,7 @@ def test_upgrade_head_seeds_availability_metric_type(alembic_cfg, conn):
     camino RUM y quede agregable en el read path (S2, S3)."""
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
 
     rows = conn.execute(
         text("SELECT name, is_active FROM metric_type ORDER BY name")
@@ -197,8 +200,8 @@ def test_upgrade_head_seeds_availability_metric_type(alembic_cfg, conn):
 def test_downgrade_0001_removes_credentials_and_seed(alembic_cfg, conn):
     """DATA-4: downgrade 0001 elimina columnas, índices y seed; 0001 intacto."""
     command.upgrade(alembic_cfg, "head")
-    # Precondición: head (0006) aplicada (evita falso verde).
-    assert _current_revision(conn) == REV_0006
+    # Precondición: head aplicada (evita falso verde).
+    assert _current_revision(conn) == REV_HEAD
 
     command.downgrade(alembic_cfg, REV_0001)
 
@@ -222,7 +225,7 @@ def test_upgrade_restores_state_after_downgrade(alembic_cfg, conn):
 
     command.upgrade(alembic_cfg, "head")
 
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
     assert "password_hash" in _column_names(conn, "lab_user")
     application_columns = _column_names(conn, "application")
     assert "api_token_hash" in application_columns
@@ -261,7 +264,7 @@ def test_upgrade_head_adds_is_active_default_true_for_existing_rows(
     )
 
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
 
     application_columns = _column_names(conn, "application")
     assert "is_active" in application_columns
@@ -285,7 +288,7 @@ def test_downgrade_0002_removes_is_active_only(alembic_cfg, conn):
     """DATA-8: downgrade 0002 elimina solo is_active; api_token_hash y el
     índice único parcial quedan intactos (rollback plan)."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
     assert "is_active" in _column_names(conn, "application")
 
     command.downgrade(alembic_cfg, REV_0002)
@@ -298,7 +301,7 @@ def test_downgrade_0002_removes_is_active_only(alembic_cfg, conn):
 
     # Dejar la DB en head para no contaminar el resto de la suite.
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
 
 
 def test_ddl_v1_0_sql_synced_with_0003(alembic_cfg, conn):
@@ -394,7 +397,7 @@ def seeded(alembic_cfg, conn):
 def test_0004_replaces_metric_id_with_series_anchor(alembic_cfg, conn):
     """DB-ANOM-2.1 / DB-MIG-1.1: columnas nuevas, sin metric_id ni su FK."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
     columns = _column_names(conn, "anomaly")
     assert {
         "application_id", "metric_type_id", "bucket_start",
@@ -465,7 +468,7 @@ def test_downgrade_0004_empty_table_restores_metric_id(alembic_cfg, conn):
     assert _index_exists(conn, "idx_anomaly_series_bucket_model") is False
 
     command.upgrade(alembic_cfg, "head")  # DB-MIG-1.4: upgrade sin datos
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
 
 
 def test_downgrade_0004_with_rows_fails_and_stays_at_head(seeded, alembic_cfg, conn):
@@ -476,7 +479,7 @@ def test_downgrade_0004_with_rows_fails_and_stays_at_head(seeded, alembic_cfg, c
     with pytest.raises((RuntimeError, DBAPIError)):
         command.downgrade(alembic_cfg, REV_0003)
 
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
     assert "application_id" in _column_names(conn, "anomaly")
     # El rollback también deshace el downgrade de 0005, previo al guard.
     assert "sample_rate" in _column_names(conn, "js_exception")
@@ -509,7 +512,7 @@ def test_0005_adds_sample_rate_to_js_exception(alembic_cfg, conn):
     """OD-03/DB-MIG-1.5: 0005 agrega sample_rate DOUBLE PRECISION nullable;
     el downgrade la retira sin tocar el resto de la tabla."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
     assert "sample_rate" in _column_names(conn, "js_exception")
     assert _column_nullable(conn, "js_exception", "sample_rate") is True
 
@@ -521,7 +524,7 @@ def test_0005_adds_sample_rate_to_js_exception(alembic_cfg, conn):
     )
 
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
 
 
 def test_ddl_v1_0_sql_synced_with_0005():
@@ -550,7 +553,7 @@ def test_ddl_v1_0_sql_metric_type_seed_matches_catalog(alembic_cfg, conn):
     que el seed de `ddl_v1.0.sql` tiene que nombrar exactamente los mismos
     tipos de métrica que quedan sembrados en head (0001 + 0003/0005 + 0006)."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
 
     catalog = {
         row[0] for row in conn.execute(text("SELECT name FROM metric_type")).all()
@@ -568,7 +571,7 @@ def test_downgrade_0006_with_probe_metrics_fails_and_stays_at_head(
     métricas de la sonda: `fk_rum_metric_type` es ON DELETE RESTRICT. Como
     0004, aborta con un guard explícito y deja la DB en la revisión previa."""
     command.upgrade(alembic_cfg, "head")
-    assert _current_revision(conn) == REV_0006
+    assert _current_revision(conn) == REV_HEAD
 
     app_id, session_id, metric_id = str(uuid4()), str(uuid4()), str(uuid4())
     conn.execute(
@@ -610,7 +613,7 @@ def test_downgrade_0006_with_probe_metrics_fails_and_stays_at_head(
             command.downgrade(alembic_cfg, REV_0005)
 
         # Sin downgrade a medias: la revisión y el catálogo quedan intactos.
-        assert _current_revision(conn) == REV_0006
+        assert _current_revision(conn) == REV_HEAD
         assert conn.execute(
             text("SELECT 1 FROM metric_type WHERE name = 'AVAILABILITY'")
         ).first() is not None
@@ -623,3 +626,153 @@ def test_downgrade_0006_with_probe_metrics_fails_and_stays_at_head(
         )
         conn.execute(text("DELETE FROM application WHERE app_id = :id"), {"id": app_id})
         command.upgrade(alembic_cfg, "head")
+
+
+# -- DB-MIG / DB-DDL: migración 0007 (ISS-B-03, ADR-0012) -------------------
+
+ALERT_INSERT = text(
+    "INSERT INTO alert (alert_id, application_id, severity, message, status_id) "
+    "VALUES (:alert_id, :app_id, :severity, 'TTFB p75 > 800 ms', "
+    "(SELECT status_id FROM alert_status WHERE name = 'Pending'))"
+)
+
+
+def _constraint_names(conn: Connection, table: str) -> set[str]:
+    rows = conn.execute(
+        text(
+            "SELECT conname FROM pg_constraint "
+            "WHERE conrelid = CAST(:table AS regclass)"
+        ),
+        {"table": table},
+    )
+    return {row[0] for row in rows}
+
+
+@pytest.fixture
+def alert_app(alembic_cfg, conn):
+    """DB en head con una aplicación; limpia alert y la aplicación al final."""
+    command.upgrade(alembic_cfg, "head")
+    app_id = str(uuid4())
+    conn.execute(
+        text(
+            "INSERT INTO application (app_id, name, description) "
+            "VALUES (:id, :name, 'test 0007')"
+        ),
+        {"id": app_id, "name": f"app-{app_id}"},
+    )
+    yield app_id
+    conn.execute(text("DELETE FROM alert"))
+    conn.execute(text("DELETE FROM application WHERE app_id = :id"), {"id": app_id})
+    command.upgrade(alembic_cfg, "head")
+
+
+def test_0007_makes_alert_standalone(alembic_cfg, conn):
+    """ADR-0012: alert tiene tenant, severidad y created_at; anomaly_id,
+    recipient y channel_id pasan a ser opcionales; índices del read path."""
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_HEAD
+
+    assert {"application_id", "severity", "created_at"} <= _column_names(conn, "alert")
+    for column in ("application_id", "severity", "created_at", "message", "status_id"):
+        assert _column_nullable(conn, "alert", column) is False, column
+    for column in ("anomaly_id", "recipient", "channel_id", "sent_at"):
+        assert _column_nullable(conn, "alert", column) is True, column
+
+    constraints = _constraint_names(conn, "alert")
+    assert {"ck_alert_severity", "fk_alert_application", "fk_alert_anomaly"} <= constraints
+    assert _index_exists(conn, "idx_alert_app_created") is True
+    assert _index_exists(conn, "idx_anomaly_app_timestamp") is True
+
+
+def test_alert_without_anomaly_or_destination_gets_created_at(alert_app, conn):
+    """Una alerta de umbral (sin anomalía, sin destino todavía) DEBE poder
+    crearse en Pending, con created_at por default."""
+    alert_id = str(uuid4())
+    conn.execute(ALERT_INSERT, {"alert_id": alert_id, "app_id": alert_app, "severity": "low"})
+    row = conn.execute(
+        text(
+            "SELECT anomaly_id, recipient, channel_id, created_at "
+            "FROM alert WHERE alert_id = :id"
+        ),
+        {"id": alert_id},
+    ).one()
+    assert (row.anomaly_id, row.recipient, row.channel_id) == (None, None, None)
+    assert row.created_at is not None
+
+
+@pytest.mark.parametrize("severity", ["urgent", "HIGH", ""])
+def test_alert_rejects_unknown_severity(alert_app, conn, severity):
+    """ck_alert_severity: solo low/medium/high/critical, en minúsculas."""
+    with pytest.raises(IntegrityError, match="ck_alert_severity"):
+        conn.execute(
+            ALERT_INSERT,
+            {"alert_id": str(uuid4()), "app_id": alert_app, "severity": severity},
+        )
+
+
+def test_alert_rejects_unknown_application(alert_app, conn):
+    """fk_alert_application: el tenant DEBE existir."""
+    with pytest.raises(IntegrityError, match="fk_alert_application"):
+        conn.execute(
+            ALERT_INSERT,
+            {"alert_id": str(uuid4()), "app_id": str(uuid4()), "severity": "high"},
+        )
+
+
+def test_downgrade_0007_empty_table_restores_original_alert(alembic_cfg, conn):
+    """Con alert vacía, bajar a 0006 restaura la forma de 0001 (NOT NULL
+    incluidos) y quita los índices; volver a head reaplica 0007."""
+    command.upgrade(alembic_cfg, "head")
+    conn.execute(text("DELETE FROM alert"))
+
+    command.downgrade(alembic_cfg, REV_0006)
+
+    assert _current_revision(conn) == REV_0006
+    columns = _column_names(conn, "alert")
+    assert not {"application_id", "severity", "created_at"} & columns
+    for column in ("anomaly_id", "recipient", "channel_id"):
+        assert _column_nullable(conn, "alert", column) is False, column
+    assert _index_exists(conn, "idx_alert_app_created") is False
+    assert _index_exists(conn, "idx_anomaly_app_timestamp") is False
+
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_HEAD
+
+
+def test_downgrade_0007_with_rows_fails_and_stays_at_head(alert_app, alembic_cfg, conn):
+    """Como 0004: con filas en alert el downgrade aborta con un mensaje claro
+    (no con el error crudo del SET NOT NULL) y la DB queda en head."""
+    conn.execute(
+        ALERT_INSERT, {"alert_id": str(uuid4()), "app_id": alert_app, "severity": "high"}
+    )
+
+    with pytest.raises(RuntimeError, match="0007 downgrade abortado"):
+        command.downgrade(alembic_cfg, REV_0006)
+
+    assert _current_revision(conn) == REV_HEAD
+    assert "application_id" in _column_names(conn, "alert")
+
+
+def test_ddl_v1_0_sql_synced_with_0007():
+    """ddl_v1.0.sql §10 refleja el estado final de alert (0007) y §9 el
+    índice del read path de anomaly."""
+    with open(DDL_PATH, encoding="utf-8") as handle:
+        ddl = handle.read()
+    anomaly_block = ddl.split("CREATE TABLE anomaly", 1)[1].split("-- 10. ALERT", 1)[0]
+    assert "idx_anomaly_app_timestamp" in anomaly_block
+
+    block = ddl.split("CREATE TABLE alert (", 1)[1].split("-- 11.", 1)[0]
+    assert "0007" in block
+    for fragment in (
+        "application_id UUID NOT NULL",
+        "anomaly_id UUID,",
+        "severity TEXT NOT NULL",
+        "recipient TEXT,",
+        "channel_id SMALLINT,",
+        "created_at TIMESTAMPTZ NOT NULL DEFAULT now()",
+        "ck_alert_severity",
+        "fk_alert_application",
+        "idx_alert_app_created",
+    ):
+        assert fragment in block, fragment
+    assert "anomaly_id UUID NOT NULL" not in block

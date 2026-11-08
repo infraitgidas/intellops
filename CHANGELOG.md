@@ -85,8 +85,27 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   validado por evento (`invalid_range` si no es finito o sale de 0..1) y
   persistido en `js_exception` (migración 0005 y espejo en `ddl_v1.0.sql`)
   para ponderar el análisis por `1 / sample_rate`.
+- API de lectura de anomalías y alertas (B.3, ISS-B-03, #68): `GET /anomalies`,
+  `GET /anomalies/{anomaly_id}` y `GET /alerts` con `Depends(require_api_key)`
+  (tenant solo de la key). Ventana `[start, end)` con default de 24 h y máximo
+  de 7 días, `limit` 1..500 (default 50) y filtros opcionales `metric_type` y
+  `status`; cualquier violación responde 422 `invalid_query_range` con
+  `ErrorResponse`. El detalle de otra aplicación responde 404
+  `anomaly_not_found`, igual que uno inexistente. Las respuestas exponen las
+  columnas reales, sin campos muertos y sin `recipient`.
+- Migración 0007 (ISS-B-03, ADR-0012): la alerta pasa a ser independiente de
+  la anomalía para las reglas de umbral de B.14. Agrega `application_id`,
+  `severity` (`ck_alert_severity`) y `created_at`; `anomaly_id`, `recipient` y
+  `channel_id` pasan a nullable; índices `idx_alert_app_created` e
+  `idx_anomaly_app_timestamp`. Aborta si `alert` tiene filas. Espejo en
+  `ddl_v1.0.sql`.
 
 ### Changed
+
+- Contrato OpenAPI de `Anomaly` y `Alert` (ISS-B-03, #68): se reemplazan los
+  campos del borrador (`score`, `detector`, `description`,
+  `metrics_snapshot`) por las columnas reales de las tablas, y el path
+  `/anomalies/{id}` pasa a `/anomalies/{anomaly_id}`.
 - CI (ISS-S2-04, #38): pylint `--fail-under` sube de 7.0 a 9.0; gate de
   cobertura único (70%) en `pyproject.toml` con `source = ["src"]`; cache de
   pip, `concurrency` con cancelación, timeouts y `workflow_dispatch`.

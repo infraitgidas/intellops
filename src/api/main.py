@@ -25,7 +25,15 @@ from api.presentation.errors import (
     domain_error_handler,
     validation_error_handler,
 )
-from api.presentation.routers import applications, auth, metrics, telemetry, users
+from api.presentation.routers import (
+    alerts,
+    anomalies,
+    applications,
+    auth,
+    metrics,
+    telemetry,
+    users,
+)
 
 # ADR-23: redacción global de API keys (IAUTH-4) — el plaintext de una key
 # de ingesta nunca aparece en access logs ni tracebacks.
@@ -98,6 +106,8 @@ app.include_router(users.router)
 app.include_router(applications.router)
 app.include_router(telemetry.router)
 app.include_router(metrics.router)
+app.include_router(anomalies.router)
+app.include_router(alerts.router)
 
 
 @app.get("/health")
