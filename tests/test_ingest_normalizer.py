@@ -273,6 +273,56 @@ def test_normalize_does_not_mutate_input():
     assert event["metrics"][0]["value"] == 2
 
 
+@pytest.mark.parametrize("raw_type", [42, None, ["TTFB"], {"name": "TTFB"}])
+def test_normalize_passes_non_string_metric_type_through(raw_type):
+    """Un `type` que no es string NO DEBE convertirse ni lanzar: pasa intacto
+    y la validación lo rechaza con invalid_metric_type (ISS-S3-06)."""
+    event = _rum(metrics=[_metric(type=raw_type)])
+    assert normalize_rum_event(event)["metrics"][0]["type"] == raw_type
+
+
+@pytest.mark.parametrize("raw_error_type", [42, None, ["TypeError"]])
+def test_normalize_passes_non_string_error_type_through(raw_error_type):
+    """Un `error_type` que no es string NO DEBE agruparse en `Other`: pasa
+    intacto para que la validación lo rechace (oversized_event) (ISS-S3-06)."""
+    event = _js(error_type=raw_error_type)
+    assert normalize_js_exception(event)["error_type"] == raw_error_type
+
+
+@pytest.mark.parametrize("raw_metric", ["TTFB", 120, None])
+def test_normalize_passes_non_dict_metric_through(raw_metric):
+    """Un elemento de `metrics` que no es objeto pasa intacto (sin heredar
+    timestamp ni lanzar) y el resto del array se normaliza igual (ISS-S3-06)."""
+    event = _rum(metrics=[raw_metric, _metric(unit="s", value=2)])
+    normalized = normalize_rum_event(event)["metrics"]
+    assert normalized[0] == raw_metric
+    assert normalized[1]["unit"] == "ms"
+    assert normalized[1]["value"] == 2000
+
+
+def test_normalize_leaves_non_list_metrics_untouched():
+    """Si `metrics` no es una lista, el normalizador no lo toca ni lanza: la
+    validación lo rechaza con missing_required_field (ISS-S3-06)."""
+    event = _rum(metrics="TTFB")
+    assert normalize_rum_event(event)["metrics"] == "TTFB"
+
+
+def test_normalize_trims_unknown_unit_but_keeps_it():
+    """Una unidad desconocida con espacios se recorta pero no se inventa una
+    canónica: la validación la rechaza con invalid_unit (ISS-S3-06)."""
+    event = _rum(metrics=[_metric(unit="  furlongs  ")])
+    assert normalize_rum_event(event)["metrics"][0]["unit"] == "furlongs"
+
+
+def test_normalize_skips_conversion_when_value_is_not_finite():
+    """Con un alias conocido pero valor no numérico, la conversión se omite
+    (la unidad declarada queda) para no multiplicar basura (ISS-S3-06)."""
+    event = _rum(metrics=[_metric(unit="s", value="abc")])
+    metric = normalize_rum_event(event)["metrics"][0]
+    assert metric["unit"] == "s"
+    assert metric["value"] == "abc"
+
+
 def test_normalize_is_deterministic():
     """Dos pasadas sobre la misma entrada DEBEN dar el mismo resultado
     (NORM-7: puro, CPU-only, sin estado)."""
