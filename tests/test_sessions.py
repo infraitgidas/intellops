@@ -309,8 +309,9 @@ async def test_list_sessions_filters_by_start_window(client, make_admin, db_sess
 
 
 async def test_list_sessions_limit_bounds_and_newest_first(client, make_admin, db_session):
-    """limit fuera de 1..500 DEBE responder 422 (sin clamp) y limit=1 DEBE
-    devolver solo la sesión más nueva."""
+    """limit fuera de 1..500 DEBE responder 422 invalid_query_range con el
+    contrato ErrorResponse (sin clamp) y limit=1 DEBE devolver solo la sesión
+    más nueva."""
     app_id, key, _ = await _make_app_with_key(client, make_admin, "limit-app")
     ref = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(hours=2)
     for offset in (0, 10, 20):
@@ -323,6 +324,11 @@ async def test_list_sessions_limit_bounds_and_newest_first(client, make_admin, d
             "/sessions", headers={"X-API-Key": key}, params={"limit": bad_limit}
         )
         assert rejected.status_code == 422, f"limit={bad_limit} DEBE dar 422"
+        # Contrato ErrorResponse del servicio, no el {"detail": [...]} de la
+        # validación de FastAPI (review de la PR de ISS-S3-03).
+        error = rejected.json()["error"]
+        assert error["code"] == "invalid_query_range"
+        assert str(bad_limit) in error["message"]
 
     one = await client.get("/sessions", headers={"X-API-Key": key}, params={"limit": 1})
     assert one.status_code == 200
