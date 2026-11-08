@@ -43,7 +43,7 @@ Dependencias: ISS-S2-04 (capas `unit`/`integration` en `conftest.py`) e ISS-S2-0
 - [x] 5.1 Cobertura unitaria antes/después por módulo en `verify-report.md`.
 - [x] 5.2 `pytest -m unit` y `flake8 src/ tests/` en verde.
 - [x] 5.3 `CHANGELOG.md`.
-- [ ] 5.4 Suite completa con cobertura en el entorno reproducible (`make test-cov`, Postgres efímero). Pendiente: correrla en una máquina con Docker antes del PR.
+- [x] 5.4 Suite completa con cobertura en el entorno reproducible (`make test-cov`, Postgres efímero): 660 passed, 1 xfailed, 1 xpassed; cobertura total 95,45 %.
 
 ## Seguimiento (fuera de alcance)
 
