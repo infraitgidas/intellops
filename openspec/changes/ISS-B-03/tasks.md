@@ -42,12 +42,24 @@ Dependencias: ISS-S3-01 (read path) y A.2. Lo consumen B.5, B.10 y B.14.
 - [x] 5.1 `test_read_window.py`, `test_anomalies.py` y `test_alerts.py`.
 - [x] 5.2 `test_migrations.py`: tests de la `0007` y `REV_HEAD`.
 - [x] 5.3 `test_contract.py`: tests de B.3 y `_SCOPED_PATH_RE`.
-- [x] 5.4 `pytest -m unit`, `flake8 src/ tests/` y `pylint src/` en verde.
-- [ ] 5.5 Suite completa en el entorno reproducible (`make test-cov`, Postgres efímero): integración, migraciones y schemathesis. Pendiente de correrla en una máquina con Docker.
+- [ ] 5.4 `pytest -m unit`, `flake8 src/ tests/` y `pylint src/ --fail-under=9.0`. La marca anterior era incorrecta: en el CI de la PR, pylint dio **8.95/10** (el gate es 9.0 y develop está en 9.36). Los espejos nuevos `alert.py` y `anomaly.py` solo desactivaban `too-few-public-methods` y sumaban 21 `E1136 unsubscriptable-object`, más un `R0801` entre `AnomalyRecord` y `AnomalyOut`. Corregido en 7.1. Salida local después del fix (Python 3.11.18, `requirements/dev.lock`): `pytest -m unit` 425 passed, `flake8` sin warnings, pylint 9.81/10. Localmente no se reproducen los E1136 ni antes del fix, así que la casilla se marca cuando el job Lint & Format quede en verde en CI.
+- [ ] 5.5 Suite completa en el entorno reproducible (`make ci`, Postgres efímero): integración, migraciones, schemathesis y cobertura. En CI quedaron skipped porque el lint falló primero. Pendiente de correrla en una máquina con Docker.
 
 ## Fase 6 — Documentación
 
 - [x] 6.1 `CHANGELOG.md`, `brief-v1.md` y `Trazabilidad HU-DER.md`.
+
+## Fase 7 — Review de la PR
+
+- [x] 7.1 Lint: `alert.py` y `anomaly.py` desactivan también `unsubscriptable-object`, como los espejos existentes (`application.py`, `lab_user.py`, `user_role.py`).
+- [x] 7.2 DB-ALERT-2: test de la guarda en upgrade. Baja a `0006`, inserta una alerta con forma de 0001 y espera el `RuntimeError` en `upgrade head`, con la DB en `0006`.
+- [x] 7.3 RD-1 y RD-3: tests de desempate con tres eventos en el mismo instante (orden por `anomaly_id` / `alert_id` descendente, también con `limit=1`).
+- [x] 7.4 RD-4: la spec, el ADR-0012 y el CHANGELOG dejan escrita la excepción de los errores de tipo (`limit=abc`, fecha o UUID mal formados → 422 `{"detail"}` de FastAPI), igual que en `/sessions` y `/metrics/*`. Unificarlo es el follow-up general abierto en ISS-S3-03.
+- [x] 7.5 `AlertOut.status` y `channel` pasan a `str` (y sin `enum` en el OpenAPI): sus catálogos no tienen CHECK, y un canal nuevo dejaba `GET /alerts` en 500. `severity` sigue cerrado por `ck_alert_severity`. Test de integración con un canal agregado al catálogo.
+- [x] 7.6 OAS-B3-1: test unitario que afirma qué paths incluye y excluye el subset de schemathesis.
+- [x] 7.7 Se quita `ALERT_SEVERITIES`: solo lo usaba un test que lo comparaba consigo mismo. El dominio lo cubren `ck_alert_severity` y el `Literal` de `AlertOut`.
+- [x] 7.8 Nits: el filtro opcional (`metric_type_id` / `status`) se aplica antes de `order_by`/`limit` en los dos repositorios. `brief-v1.md` marca B.3 como "En revisión" hasta el merge.
+- [ ] 7.9 `make ci` en verde sobre estos cambios (ver 5.5).
 
 ## Seguimiento (fuera de alcance)
 
