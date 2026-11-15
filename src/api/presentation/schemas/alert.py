@@ -4,6 +4,12 @@
 chat id del dispatcher, ADR-0012). `anomaly_id` es null en las alertas de
 reglas de umbral (v1) y `channel`/`sent_at` son null hasta que B.10 despacha
 la alerta.
+
+`severity` es un Literal cerrado porque la base lo garantiza con
+`ck_alert_severity` (0007). `status` y `channel` son `str`: salen de los
+catálogos `alert_status` y `alert_channel`, que no tienen CHECK. Si se
+agrega un canal (p. ej. Slack) con un INSERT, un Literal cerrado haría
+fallar la validación de la respuesta y `GET /alerts` respondería 500.
 """
 
 from datetime import datetime
@@ -21,7 +27,7 @@ class AlertOut(BaseModel):
     anomaly_id: UUID | None = None
     severity: Literal["low", "medium", "high", "critical"]
     message: str
-    status: Literal["pending", "sent", "failed"]
-    channel: Literal["telegram", "email"] | None = None
+    status: str  # nombre de alert_status en minúsculas
+    channel: str | None = None  # nombre de alert_channel en minúsculas
     created_at: datetime
     sent_at: datetime | None = None
