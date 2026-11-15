@@ -4,7 +4,7 @@ Solo tipa la tabla para la capa de repositorios; las migraciones se
 escriben a mano (env.py target_metadata=None).
 """
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods,unsubscriptable-object
 
 from datetime import datetime
 from uuid import UUID
