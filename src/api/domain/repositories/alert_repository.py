@@ -16,8 +16,6 @@ from uuid import UUID
 
 # pylint: disable=too-many-instance-attributes,too-few-public-methods  # DTO plano
 
-# Dominio cerrado de severidad (`ck_alert_severity`, migración 0007).
-ALERT_SEVERITIES = ("low", "medium", "high", "critical")
 # Catálogo `alert_status` (DDL 0001) en minúsculas, como lo expone la API.
 ALERT_STATUSES = ("pending", "sent", "failed")
 
