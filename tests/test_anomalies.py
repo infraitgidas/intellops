@@ -339,6 +339,30 @@ async def test_list_anomalies_limit_and_422_contract(client, make_admin, db_sess
         assert resp.json()["error"]["code"] == "invalid_query_range"
 
 
+async def test_list_anomalies_same_instant_breaks_tie_by_anomaly_id(
+    client, make_admin, db_session
+):
+    """RD-1: dos anomalías detectadas en el mismo instante DEBEN ordenarse
+    por anomaly_id descendente, de forma estable entre llamadas y con limit."""
+    app_id, key, _ = await _make_app_with_key(client, make_admin, "anom-tie")
+    same_instant = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(hours=1)
+    ids = []
+    for _ in range(3):
+        # Un modelo por fila: idx_anomaly_series_bucket_model es único por
+        # serie, bucket y modelo.
+        model = await _seed_model(db_session)
+        ids.append(
+            await _seed_anomaly(db_session, app_id, model, detected_at=same_instant)
+        )
+    expected = [str(anomaly_id) for anomaly_id in sorted(ids, reverse=True)]
+
+    full = await client.get("/anomalies", headers={"X-API-Key": key})
+    assert [row["anomaly_id"] for row in full.json()] == expected
+
+    first = await client.get("/anomalies", headers={"X-API-Key": key}, params={"limit": 1})
+    assert [row["anomaly_id"] for row in first.json()] == expected[:1]
+
+
 # -- Integration: GET /anomalies/{anomaly_id} ----------------------------------
 
 async def test_get_anomaly_own_and_other_tenant(client, make_admin, db_session):
