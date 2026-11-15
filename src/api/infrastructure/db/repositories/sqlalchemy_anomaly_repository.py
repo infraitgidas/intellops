@@ -66,18 +66,16 @@ class SQLAlchemyAnomalyRepository(AnomalyRepository):
     ) -> list[AnomalyRecord]:
         """Anomalías de `app_id` detectadas en `[start, end)`, la más nueva
         primero; filtro, orden y `LIMIT` se resuelven EN SQL."""
-        stmt = (
-            _anomaly_columns()
-            .where(
-                Anomaly.application_id == app_id,
-                Anomaly.timestamp >= start,
-                Anomaly.timestamp < end,
-            )
-            .order_by(Anomaly.timestamp.desc(), Anomaly.anomaly_id.desc())
-            .limit(limit)
+        stmt = _anomaly_columns().where(
+            Anomaly.application_id == app_id,
+            Anomaly.timestamp >= start,
+            Anomaly.timestamp < end,
         )
         if metric_type_id is not None:
             stmt = stmt.where(Anomaly.metric_type_id == metric_type_id)
+        stmt = stmt.order_by(Anomaly.timestamp.desc(), Anomaly.anomaly_id.desc()).limit(
+            limit
+        )
         result = await self._session.execute(stmt)
         return [_to_record(row) for row in result]
 
