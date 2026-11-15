@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy import text
 
 from api.domain.exceptions import QueryRangeError
-from api.domain.repositories.alert_repository import ALERT_SEVERITIES, ALERT_STATUSES
+from api.domain.repositories.alert_repository import ALERT_STATUSES
 from api.domain.services.alert_service import AlertService
 
 ALERT_FIELDS = {
@@ -110,9 +110,11 @@ async def test_service_delegates_defaults_and_status(status):
     assert repo.kwargs["end"] - repo.kwargs["start"] == timedelta(hours=24)
 
 
-def test_alert_out_has_no_recipient_and_closed_enums():
-    """AlertOut NO DEBE exponer recipient (ADR-0012) y DEBE rechazar una
-    severidad o un estado fuera del dominio."""
+def test_alert_out_has_no_recipient_and_only_severity_is_closed():
+    """AlertOut NO DEBE exponer recipient (ADR-0012). `severity` DEBE ser
+    cerrado (lo garantiza ck_alert_severity); `status` y `channel` NO, porque
+    sus catálogos no tienen CHECK y un valor nuevo no puede romper la
+    respuesta."""
     from pydantic import ValidationError
 
     from api.presentation.schemas.alert import AlertOut
@@ -132,14 +134,10 @@ def test_alert_out_has_no_recipient_and_closed_enums():
     assert pending.anomaly_id is None
     assert pending.channel is None
     assert pending.sent_at is None
-    for field, bad in (("severity", "urgent"), ("status", "Pending"), ("channel", "sms")):
-        with pytest.raises(ValidationError):
-            AlertOut(**{**base, field: bad})
-
-
-def test_alert_severities_match_migration_check():
-    """El dominio de severidad DEBE ser el de ck_alert_severity (0007)."""
-    assert ALERT_SEVERITIES == ("low", "medium", "high", "critical")
+    with pytest.raises(ValidationError):
+        AlertOut(**{**base, "severity": "urgent"})
+    assert AlertOut(**{**base, "status": "acked"}).status == "acked"
+    assert AlertOut(**{**base, "channel": "slack"}).channel == "slack"
 
 
 # -- Integration: helpers ------------------------------------------------------
@@ -343,6 +341,67 @@ async def test_list_alerts_limit_and_422_contract(client, make_admin, db_session
         resp = await client.get("/alerts", headers={"X-API-Key": key}, params=params)
         assert resp.status_code == 422, params
         assert resp.json()["error"]["code"] == "invalid_query_range"
+
+
+async def test_list_alerts_same_instant_breaks_tie_by_alert_id(
+    client, make_admin, db_session
+):
+    """RD-3: dos alertas creadas en el mismo instante DEBEN ordenarse por
+    alert_id descendente, de forma estable entre llamadas y con limit."""
+    app_id, key, _ = await _make_app_with_key(client, make_admin, "alert-tie")
+    same_instant = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(hours=1)
+    ids = [
+        await _seed_alert(db_session, app_id, created_at=same_instant) for _ in range(3)
+    ]
+    expected = [str(alert_id) for alert_id in sorted(ids, reverse=True)]
+
+    full = await client.get("/alerts", headers={"X-API-Key": key})
+    assert [row["alert_id"] for row in full.json()] == expected
+
+    first = await client.get("/alerts", headers={"X-API-Key": key}, params={"limit": 1})
+    assert [row["alert_id"] for row in first.json()] == expected[:1]
+
+
+async def test_list_alerts_tolerates_new_catalog_channel(client, make_admin, db_session):
+    """Un canal agregado al catálogo con un INSERT (sin CHECK) NO DEBE dejar
+    GET /alerts en 500 por la validación de la respuesta."""
+    app_id, key, _ = await _make_app_with_key(client, make_admin, "alert-slack")
+    channel = f"Slack-{uuid4().hex[:8]}"
+    await db_session.execute(
+        text("INSERT INTO alert_channel (name, description) VALUES (:n, 'test B.3')"),
+        {"n": channel},
+    )
+    await db_session.commit()
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    try:
+        await _seed_alert(
+            db_session,
+            app_id,
+            created_at=now - timedelta(minutes=5),
+            status="Sent",
+            channel=channel,
+            recipient="#ops",
+            sent_at=now - timedelta(minutes=4),
+        )
+
+        resp = await client.get("/alerts", headers={"X-API-Key": key})
+
+        assert resp.status_code == 200, resp.text
+        (row,) = resp.json()
+        assert row["channel"] == channel.lower()
+    finally:
+        # El catálogo no se trunca entre tests: borrar la alerta y el canal.
+        await db_session.execute(
+            text(
+                "DELETE FROM alert WHERE channel_id = "
+                "(SELECT channel_id FROM alert_channel WHERE name = :n)"
+            ),
+            {"n": channel},
+        )
+        await db_session.execute(
+            text("DELETE FROM alert_channel WHERE name = :n"), {"n": channel}
+        )
+        await db_session.commit()
 
 
 # -- Integration: autenticación ------------------------------------------------
