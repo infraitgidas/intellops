@@ -44,7 +44,7 @@
 
 `GET /alerts` MUST exigir `X-API-Key` y MUST devolver solo alertas de la aplicación de la key, creadas en `[start, end)`, ordenadas por `created_at` descendente (desempate por `alert_id`), como máximo `limit`. El filtro opcional `status` (`pending`, `sent`, `failed`) MUST dejar solo ese estado.
 
-`status` y `channel` MUST exponerse en minúsculas. `channel` y `sent_at` MUST ser null mientras la alerta no se despachó, y `anomaly_id` MUST ser null en las alertas sin anomalía. La respuesta MUST NOT incluir `recipient`.
+`status` y `channel` MUST exponerse en minúsculas, como texto abierto: salen de los catálogos `alert_status` y `alert_channel`, que no tienen CHECK, así que un valor nuevo del catálogo MUST NOT romper la respuesta. `severity` sí es un dominio cerrado (`ck_alert_severity`). `channel` y `sent_at` MUST ser null mientras la alerta no se despachó, y `anomaly_id` MUST ser null en las alertas sin anomalía. La respuesta MUST NOT incluir `recipient`.
 
 #### Scenario: Alerta de umbral pendiente
 
@@ -56,7 +56,15 @@
 
 ### Requirement: RD-4 (ventana y limit acotados)
 
-Los listados MUST usar una ventana default de 24 h hasta ahora, MUST rechazar `start >= end` y ventanas de más de 7 días, y MUST aceptar `limit` de 1 a 500 (default 50) sin clamp silencioso. `GET /alerts` MUST rechazar un `status` fuera del catálogo. Toda violación MUST responder 422 `invalid_query_range` con `ErrorResponse {error: {code, message}}`, sin ejecutar la consulta. Los datetimes naive MUST asumirse UTC.
+Los listados MUST usar una ventana default de 24 h hasta ahora, MUST rechazar `start >= end` y ventanas de más de 7 días, y MUST aceptar `limit` de 1 a 500 (default 50) sin clamp silencioso. `GET /alerts` MUST rechazar un `status` fuera del catálogo. Toda violación de estos límites MUST responder 422 `invalid_query_range` con `ErrorResponse {error: {code, message}}`, sin ejecutar la consulta. Los datetimes naive MUST asumirse UTC.
+
+**Excepción: errores de tipo.** Un `limit` que no es entero, un `start` o `end` que no es fecha, un `metric_type` que no es entero o un `anomaly_id` que no es UUID no llegan al servicio: los rechaza la validación de FastAPI con 422 y cuerpo `{"detail": [...]}`, no con `ErrorResponse`. Es el mismo comportamiento que `/sessions` y `/metrics/*`. Unificarlo en toda la API es un follow-up general del contrato, abierto en ISS-S3-03, no de este cambio.
+
+#### Scenario: limit que no es entero
+
+- GIVEN `limit=abc`
+- WHEN se lista
+- THEN la respuesta es 422 de FastAPI con `{"detail": [...]}`, sin ejecutar la consulta
 
 #### Scenario: limit fuera de rango
 
