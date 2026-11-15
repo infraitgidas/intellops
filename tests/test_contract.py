@@ -416,9 +416,23 @@ def test_b03_anomaly_and_alert_schemas_match_response_models():
     assert set(alert["properties"]) == set(AlertOut.model_fields)
     assert "recipient" not in alert["properties"]
     assert alert["properties"]["severity"]["enum"] == ["low", "medium", "high", "critical"]
-    assert alert["properties"]["status"]["enum"] == ["pending", "sent", "failed"]
+    # status y channel salen de catálogos sin CHECK: sin enum cerrado, para
+    # que un valor nuevo del catálogo no rompa la respuesta.
+    for open_field in ("status", "channel"):
+        assert "enum" not in alert["properties"][open_field], open_field
     for nullable in ("anomaly_id", "channel", "sent_at"):
         assert "null" in alert["properties"][nullable]["type"], nullable
+
+
+def test_b03_schemathesis_subset_includes_reads_and_excludes_unimplemented():
+    """OAS-B3-1: el subset de schemathesis DEBE incluir los tres endpoints de
+    lectura y excluir `/alerts/config` y `/alerts/{id}/ack`, que no están
+    implementados."""
+    scoped = from_path(OPENAPI_PATH).include(path_regex=_SCOPED_PATH_RE)
+    paths = {operation.ok().path for operation in scoped.get_all_operations()}
+
+    assert {"/anomalies", "/anomalies/{anomaly_id}", "/alerts"} <= paths
+    assert not {"/alerts/config", "/alerts/{id}/ack"} & paths
 
 
 # -- OAS-14 (ISS-S3-02/ARCH-6): enum unit ampliado + nota error_type ---------
