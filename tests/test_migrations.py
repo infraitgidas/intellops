@@ -753,6 +753,37 @@ def test_downgrade_0007_with_rows_fails_and_stays_at_head(alert_app, alembic_cfg
     assert "application_id" in _column_names(conn, "alert")
 
 
+def test_upgrade_0007_with_rows_fails_and_stays_at_0006(seeded, alembic_cfg, conn):
+    """DB-ALERT-2: con filas en alert (forma de 0001) el upgrade aborta con un
+    mensaje claro, sin el error crudo del ADD COLUMN NOT NULL, y la DB queda
+    en 0006."""
+    app_id, model_a, _ = seeded
+    conn.execute(text("DELETE FROM alert"))
+    command.downgrade(alembic_cfg, REV_0006)
+    anomaly_id = str(uuid4())
+    _insert_anomaly(conn, app_id, model_a, anomaly_id=anomaly_id)
+    conn.execute(
+        text(
+            "INSERT INTO alert (alert_id, anomaly_id, recipient, channel_id, "
+            "message, status_id) VALUES (:alert_id, :anomaly_id, 'ops@example.org', "
+            "(SELECT channel_id FROM alert_channel WHERE name = 'Email'), "
+            "'TTFB p75 > 800 ms', "
+            "(SELECT status_id FROM alert_status WHERE name = 'Pending'))"
+        ),
+        {"alert_id": str(uuid4()), "anomaly_id": anomaly_id},
+    )
+    try:
+        with pytest.raises(RuntimeError, match="0007 upgrade abortado"):
+            command.upgrade(alembic_cfg, "head")
+
+        assert _current_revision(conn) == REV_0006
+        assert "application_id" not in _column_names(conn, "alert")
+    finally:
+        # La alerta referencia la anomalía (RESTRICT): borrarla antes del
+        # teardown de `seeded`, que limpia anomaly y vuelve a head.
+        conn.execute(text("DELETE FROM alert"))
+
+
 def test_ddl_v1_0_sql_synced_with_0007():
     """ddl_v1.0.sql §10 refleja el estado final de alert (0007) y §9 el
     índice del read path de anomaly."""
