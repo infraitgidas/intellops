@@ -31,6 +31,7 @@ from api.presentation.routers import (
     applications,
     auth,
     metrics,
+    sessions,
     telemetry,
     users,
 )
@@ -108,6 +109,7 @@ app.include_router(telemetry.router)
 app.include_router(metrics.router)
 app.include_router(anomalies.router)
 app.include_router(alerts.router)
+app.include_router(sessions.router)
 
 
 @app.get("/health")
