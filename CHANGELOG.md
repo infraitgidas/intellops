@@ -89,8 +89,10 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `GET /anomalies/{anomaly_id}` y `GET /alerts` con `Depends(require_api_key)`
   (tenant solo de la key). Ventana `[start, end)` con default de 24 h y máximo
   de 7 días, `limit` 1..500 (default 50) y filtros opcionales `metric_type` y
-  `status`; cualquier violación responde 422 `invalid_query_range` con
-  `ErrorResponse`. El detalle de otra aplicación responde 404
+  `status`; un valor fuera de esos límites responde 422
+  `invalid_query_range` con `ErrorResponse` (los errores de tipo, como
+  `limit=abc`, siguen con el 422 `{"detail"}` de FastAPI, igual que en
+  `/sessions`). El detalle de otra aplicación responde 404
   `anomaly_not_found`, igual que uno inexistente. Las respuestas exponen las
   columnas reales, sin campos muertos y sin `recipient`.
 - Migración 0007 (ISS-B-03, ADR-0012): la alerta pasa a ser independiente de
