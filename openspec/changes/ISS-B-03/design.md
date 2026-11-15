@@ -53,9 +53,9 @@ flowchart LR
 | Archivo | Capa | Casos |
 |---------|------|-------|
 | `test_read_window.py` | unit | Default de 24 h, naive → UTC, `start >= end`, ventana de 7 días exactos y de más, bordes de `limit` y mensaje con el valor |
-| `test_anomalies.py` | unit + integration | Límites antes del repo, delegación, 404; aislamiento, orden, ventana, `metric_type`, `limit`, 404 entre tenants, 401/403/422 |
-| `test_alerts.py` | unit + integration | `status` desconocido, enums cerrados, sin `recipient`; aislamiento, orden, ventana, `status`, canal null, alerta con anomalía, 401/403/422 |
-| `test_migrations.py` | integration | Forma de `alert` después de la `0007`, `ck_alert_severity`, `fk_alert_application`, downgrade con tabla vacía, guarda con filas, DDL sincronizado; head pasa a `REV_HEAD` |
+| `test_anomalies.py` | unit + integration | Límites antes del repo, delegación, 404; aislamiento, orden y desempate por `anomaly_id`, ventana, `metric_type`, `limit`, 404 entre tenants, 401/403/422 |
+| `test_alerts.py` | unit + integration | `status` desconocido, `severity` cerrado y `status`/`channel` abiertos, sin `recipient`; aislamiento, orden y desempate por `alert_id`, ventana, `status`, canal null, canal nuevo del catálogo, alerta con anomalía, 401/403/422 |
+| `test_migrations.py` | integration | Forma de `alert` después de la `0007`, `ck_alert_severity`, `fk_alert_application`, downgrade con tabla vacía, guarda con filas en upgrade y en downgrade, DDL sincronizado; head pasa a `REV_HEAD` |
 | `test_contract.py` | unit | Paths, parámetros y respuestas; schemas iguales a los modelos Pydantic; subset de schemathesis |
 
 ## Trade-offs de recursos
