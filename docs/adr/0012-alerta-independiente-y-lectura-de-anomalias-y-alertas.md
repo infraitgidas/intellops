@@ -30,10 +30,10 @@ La tabla `alert` está vacía en todos los entornos (nada escribe alertas todav�
    - `GET /anomalies`, `GET /anomalies/{anomaly_id}` y `GET /alerts` con `Depends(require_api_key)`. El tenant sale exclusivamente de la key.
    - El detalle filtra por `anomaly_id` **AND** `application_id`: una anomalía de otro tenant da **404** `anomaly_not_found`, igual que una inexistente.
    - Los listados filtran por ventana `[start, end)` (anomalías sobre `detected_at`, alertas sobre `created_at`), con default de 24 h y máximo de 7 días. Ordenan de la más nueva a la más vieja y acotan con `limit` de 1 a 500 (default 50). Filtros opcionales: `metric_type` en anomalías y `status` en alertas.
-   - El servicio valida `limit`, la ventana y `status`: cualquier violación responde 422 `invalid_query_range` con el contrato `ErrorResponse`, sin ejecutar la consulta.
+   - El servicio valida `limit`, la ventana y `status`: un valor fuera de rango responde 422 `invalid_query_range` con el contrato `ErrorResponse`, sin ejecutar la consulta. Los errores de tipo (`limit=abc`, una fecha o un UUID mal formados) los rechaza FastAPI con su 422 `{"detail"}`, como en el resto de la API.
 5. **La respuesta expone lo que la tabla guarda, sin campos muertos.**
    - `Anomaly`: columnas reales (ancla a la serie y al bucket, ADR-0008) más `metric_name` del catálogo. Los scores se exponen tal como los escribe el detector, sin inventar un mapeo de score a severidad.
-   - `Alert`: `status` y `channel` en minúsculas desde los catálogos. **`recipient` no se expone**: es un mail o un chat id, un dato de configuración del dispatcher.
+   - `Alert`: `status` y `channel` en minúsculas desde los catálogos, como texto abierto: los catálogos no tienen CHECK y un canal nuevo no puede dejar el endpoint en 500. `severity` sí es cerrado (`ck_alert_severity`). **`recipient` no se expone**: es un mail o un chat id, un dato de configuración del dispatcher.
 6. **Fuera de alcance:** `/alerts/config` (la configuración de umbrales es de B.14), `/alerts/{id}/ack`, `/predictions*` y `GET /alerts/{id}`, que el contrato no tiene.
 
 ## Consecuencias
