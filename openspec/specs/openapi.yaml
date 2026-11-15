@@ -1511,11 +1511,10 @@ components:
           type: string
         status:
           type: string
-          enum: [pending, sent, failed]
+          description: "Nombre del catálogo alert_status en minúsculas (hoy pending, sent o failed). Sin enum cerrado: el catálogo no tiene CHECK y puede sumar estados sin romper la respuesta"
         channel:
           type: [string, "null"]
-          enum: [telegram, email, null]
-          description: "Canal por el que se despachó; null hasta que el dispatcher (B.10) la envía"
+          description: "Nombre del catálogo alert_channel en minúsculas (hoy telegram o email); null hasta que el dispatcher (B.10) la envía. Sin enum cerrado: el catálogo no tiene CHECK y puede sumar canales sin romper la respuesta"
         created_at:
           type: string
           format: date-time
