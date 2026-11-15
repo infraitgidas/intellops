@@ -249,6 +249,109 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /sessions:
+    get:
+      summary: Listado de sesiones RUM de la aplicación
+      operationId: listSessions
+      description: "Lectura app-scoped de user_session (ISS-S3-03, ADR-0011): sesiones de la aplicación autenticada cuyo start_timestamp cae en [start, end), la más nueva primero, con conteos de métricas y excepciones y last_activity_at. Requiere X-API-Key; el tenant se deriva EXCLUSIVAMENTE de la key (ADR-0003). Ventana default 24 h, máximo 7 días; limit 1..500 (default 50). No existe POST: la sesión la crea la ingesta en el primer evento (ADR-0002)."
+      security:
+        - apiKey: []
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "Inicio de la ventana sobre start_timestamp (ISO 8601 UTC). Default: end - 24 h."
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "Fin de la ventana, exclusivo (ISO 8601 UTC). Default: ahora. La ventana no puede superar 7 días."
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          description: "Máximo de sesiones a devolver (1..500, default 50). Un valor fuera de rango se rechaza con 422 (sin clamp silencioso)."
+      responses:
+        '200':
+          description: "Sesiones de la aplicación autenticada, de la más nueva a la más vieja"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+        '401':
+          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Aplicación autenticada inactiva (app_inactive)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Parámetros fuera de límite (invalid_query_range: start >= end, ventana > 7 días o limit fuera de 1..500; la consulta no se ejecuta)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /sessions/{session_id}:
+    get:
+      summary: Detalle de una sesión RUM de la aplicación
+      operationId: getSession
+      description: "Detalle de una sesión de la aplicación autenticada (ISS-S3-03, ADR-0011). Filtra por session_id AND app_id (ADR-0003): una sesión de otra aplicación responde 404 session_not_found, igual que una inexistente. Requiere X-API-Key."
+      security:
+        - apiKey: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: "Sesión de la aplicación autenticada"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: "X-API-Key ausente o inválida (invalid_api_key + WWW-Authenticate)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Aplicación autenticada inactiva (app_inactive)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: "Sesión inexistente o de otra aplicación (session_not_found; no se distingue para no revelar sesiones ajenas)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "session_id no es un UUID válido"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /anomalies:
     get:
       summary: Listado de anomalías detectadas
@@ -1135,6 +1238,36 @@ components:
         available:
           type: boolean
           description: "true si value == 1 (sitio disponible), false si 0 (indisponible)"
+    Session:
+      type: object
+      description: "Sesión RUM de la aplicación autenticada (ISS-S3-03). No expone user_id, ip_address, os_version, end_timestamp ni duration_ms: existen en el DDL pero en v1 siempre son NULL (ADR-0011)."
+      required: [session_id, application_id, start_timestamp, metric_count, exception_count]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          description: "Identificador opaco generado por el agente RUM"
+        application_id:
+          type: string
+          format: uuid
+          description: "Aplicación autenticada (tenant derivado de la key, OAS-14)"
+        start_timestamp:
+          type: string
+          format: date-time
+          description: "Timestamp del primer evento persistido de la sesión"
+        last_activity_at:
+          type: [string, "null"]
+          format: date-time
+          description: "Timestamp más reciente entre las métricas y excepciones de la sesión; null si no tiene filas. Es una observación, no un cierre de sesión (ADR-0011)"
+        user_agent:
+          type: [string, "null"]
+          description: "User agent informado por el agente en metadata.user_agent; null si no se envió"
+        metric_count:
+          type: integer
+          description: "Cantidad de filas rum_metric de la sesión"
+        exception_count:
+          type: integer
+          description: "Cantidad de filas js_exception de la sesión"
     LoginRequest:
       type: object
       required: [email, password]
@@ -1354,7 +1487,7 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
-      description: "Credencial de ingesta (ISS-S2-02): key ilp_ emitida por POST /applications/{id}/api-key; se persiste solo su hash SHA-256. Aplicado a los paths de ingesta POST /telemetry/metrics y POST /telemetry/exceptions (OAS-6, ISS-S2-03): 401 invalid_api_key + WWW-Authenticate, 403 app_inactive."
+      description: "Credencial de ingesta (ISS-S2-02): key ilp_ emitida por POST /applications/{id}/api-key; se persiste solo su hash SHA-256. Aplicado a los paths de ingesta POST /telemetry/metrics y POST /telemetry/exceptions (OAS-6, ISS-S2-03) y a los read paths app-scoped GET /metrics/* y GET /sessions* (ADR-0003, ISS-S3-03): 401 invalid_api_key + WWW-Authenticate, 403 app_inactive."
     bearerAuth:
       type: http
       scheme: bearer
