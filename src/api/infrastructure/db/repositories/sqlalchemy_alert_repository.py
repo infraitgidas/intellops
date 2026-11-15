@@ -70,11 +70,10 @@ class SQLAlchemyAlertRepository(AlertRepository):
                 Alert.created_at >= start,
                 Alert.created_at < end,
             )
-            .order_by(Alert.created_at.desc(), Alert.alert_id.desc())
-            .limit(limit)
         )
         if status is not None:
             stmt = stmt.where(status_name == status)
+        stmt = stmt.order_by(Alert.created_at.desc(), Alert.alert_id.desc()).limit(limit)
         result = await self._session.execute(stmt)
         return [
             AlertRecord(
