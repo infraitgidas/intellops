@@ -38,6 +38,10 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+# ISS-B-14: ningún test arranca el evaluador periódico por accidente (Settings
+# se lee de forma perezosa, así que alcanza con fijarlo antes del primer uso).
+os.environ.setdefault("ALERT_RULES_ENABLED", "false")
+
 # Tablas de datos (no catálogos) que clean_db trunca por test (design §7).
 DATA_TABLES = (
     "rum_metric",

@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     ingest_queue_maxsize: int = 10000
     ingest_workers: int = 2
     ingest_shutdown_timeout: float = 10.0
+
+    # Evaluador de reglas de umbral (ISS-B-14): tarea periódica en el lifespan.
+    # Env: ALERT_RULES_*. Worker único (sin coordinación entre procesos).
+    alert_rules_enabled: bool = True
+    alert_rules_interval_seconds: float = Field(60.0, gt=0)
 
     @field_validator("jwt_secret")
     @classmethod
