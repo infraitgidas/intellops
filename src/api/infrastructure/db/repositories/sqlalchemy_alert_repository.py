@@ -13,25 +13,14 @@ alerta), en minúsculas. `recipient` no se lee (ADR-0012).
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Column, SmallInteger, Text, func, select, table
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.domain.entities.alert import Alert
 from api.domain.repositories.alert_repository import AlertRecord, AlertRepository
+from api.infrastructure.db.catalogs import ALERT_CHANNEL, ALERT_STATUS
 
 # pylint: disable=too-few-public-methods  # repositorio con un solo método público
-
-# Catálogos sin entidad ORM: TableClause liviano para los JOIN por id.
-_ALERT_STATUS = table(
-    "alert_status",
-    Column("status_id", SmallInteger),
-    Column("name", Text),
-)
-_ALERT_CHANNEL = table(
-    "alert_channel",
-    Column("channel_id", SmallInteger),
-    Column("name", Text),
-)
 
 
 class SQLAlchemyAlertRepository(AlertRepository):
@@ -50,7 +39,7 @@ class SQLAlchemyAlertRepository(AlertRepository):
     ) -> list[AlertRecord]:
         """Alertas de `app_id` creadas en `[start, end)`, la más nueva
         primero; filtro, orden y `LIMIT` se resuelven EN SQL."""
-        status_name = func.lower(_ALERT_STATUS.c.name)
+        status_name = func.lower(ALERT_STATUS.c.name)
         stmt = (
             select(
                 Alert.alert_id,
@@ -59,12 +48,12 @@ class SQLAlchemyAlertRepository(AlertRepository):
                 Alert.severity,
                 Alert.message,
                 status_name.label("status"),
-                func.lower(_ALERT_CHANNEL.c.name).label("channel"),
+                func.lower(ALERT_CHANNEL.c.name).label("channel"),
                 Alert.created_at,
                 Alert.sent_at,
             )
-            .join(_ALERT_STATUS, _ALERT_STATUS.c.status_id == Alert.status_id)
-            .outerjoin(_ALERT_CHANNEL, _ALERT_CHANNEL.c.channel_id == Alert.channel_id)
+            .join(ALERT_STATUS, ALERT_STATUS.c.status_id == Alert.status_id)
+            .outerjoin(ALERT_CHANNEL, ALERT_CHANNEL.c.channel_id == Alert.channel_id)
             .where(
                 Alert.application_id == app_id,
                 Alert.created_at >= start,

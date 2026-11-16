@@ -23,18 +23,7 @@ from math import isfinite
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import (
-    Column,
-    DateTime,
-    Float,
-    SmallInteger,
-    Text,
-    bindparam,
-    func,
-    select,
-    table,
-    text,
-)
+from sqlalchemy import DateTime, Float, bindparam, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.domain.entities.rum_metric import RumMetric
@@ -45,17 +34,10 @@ from api.domain.repositories.query_repository import (
     ProbeRun,
     QueryRepository,
 )
+from api.infrastructure.db.catalogs import METRIC_TYPE
 
 # B.13/D1: nombre del tipo de métrica que registra cada corrida de la sonda.
 PROBE_METRIC_TYPE_NAME = "AVAILABILITY"
-
-# `metric_type` no tiene entidad ORM (es un catálogo sin DDL propio de la capa
-# de dominio): se referencia como TableClause liviano para el JOIN por nombre.
-_METRIC_TYPE = table(
-    "metric_type",
-    Column("metric_type_id", SmallInteger),
-    Column("name", Text),
-)
 
 
 def _as_int(raw: Any) -> int | None:
@@ -198,13 +180,13 @@ class SQLAlchemyQueryRepository(QueryRepository):
                 RumMetric.value.label("value"),
             )
             .join(
-                _METRIC_TYPE,
-                _METRIC_TYPE.c.metric_type_id == RumMetric.metric_type_id,
+                METRIC_TYPE,
+                METRIC_TYPE.c.metric_type_id == RumMetric.metric_type_id,
             )
             .join(UserSession, UserSession.session_id == RumMetric.session_id)
             .where(
                 UserSession.app_id == bindparam("app_id"),
-                _METRIC_TYPE.c.name == PROBE_METRIC_TYPE_NAME,
+                METRIC_TYPE.c.name == PROBE_METRIC_TYPE_NAME,
             )
             .order_by(RumMetric.timestamp.desc())
             .limit(bindparam("limit"))
