@@ -77,6 +77,7 @@ async def test_created_alert_is_a_pending_row_visible_through_the_api(
     assert body["alert_id"] == str(row.alert_id)
     assert body["status"] == "pending"
     assert set(body) == ALERT_FIELDS
+    assert body["channel"] is None and body["sent_at"] is None
     assert RULE_COLUMNS.isdisjoint(body)
 
 
