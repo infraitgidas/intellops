@@ -8,7 +8,9 @@ reinicio) con `created_at > now - cooldown`: una alerta creada exactamente hace
 (DT-8) para que el reloj inyectado sea el mismo en la ventana y en el cooldown.
 
 Un error al evaluar una regla se registra y no impide evaluar las demás
-(AR-8). El servicio no hace commit: la transacción es del evaluador.
+(AR-8): cada regla corre en `rule_transaction` (savepoint), así un error SQL
+no aborta la transacción de la aplicación ni descarta las alertas ya creadas.
+El servicio no hace commit: la transacción es del evaluador.
 """
 
 import logging
@@ -43,7 +45,8 @@ class AlertRuleService:
         created: list[NewAlert] = []
         for rule in rules:
             try:
-                alert = await self._evaluate_rule(app_id, rule, now)
+                async with self._repository.rule_transaction():
+                    alert = await self._evaluate_rule(app_id, rule, now)
             except Exception:  # pylint: disable=broad-exception-caught
                 logger.exception(
                     "Falló la regla %s de la aplicación %s", rule.rule_id, app_id

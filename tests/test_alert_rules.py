@@ -5,6 +5,7 @@ Unit: lógica pura (`effective_rules`, `breaches`, `build_message`) y
 SQLAlchemy contra Postgres real.
 """
 
+from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
@@ -164,6 +165,17 @@ class StubRepository:
         self.fail_on = fail_on or set()  # rule_id cuya observación lanza
         self.observe_calls: list[tuple[str, datetime, datetime]] = []
         self.created: list[NewAlert] = []
+        self.transactions: list[tuple[str, bool]] = []  # (evento, con error)
+
+    @asynccontextmanager
+    async def rule_transaction(self):
+        self.transactions.append(("enter", False))
+        try:
+            yield
+        except BaseException:
+            self.transactions.append(("exit", True))
+            raise
+        self.transactions.append(("exit", False))
 
     async def list_rule_overrides(self, app_id):
         return list(self.overrides)
@@ -304,6 +316,19 @@ async def test_service_a_failing_rule_does_not_stop_the_others(caplog, monkeypat
 
     assert [alert.rule_id for alert in created] == ["availability"]
     assert "latency" in caplog.text and "error_rate" in caplog.text
+
+
+async def test_service_isolates_each_rule_in_its_own_transaction():
+    """AR-8: cada regla corre en un `rule_transaction`; el error lo hace fallar."""
+    repo = StubRepository(
+        {"availability": Observation(0.2, 10)}, fail_on={"latency"}
+    )
+
+    await AlertRuleService(repo).evaluate_application(uuid4(), NOW)
+
+    assert repo.transactions.count(("enter", False)) == 3
+    assert repo.transactions.count(("exit", True)) == 1
+    assert repo.transactions.count(("exit", False)) == 2
 
 
 # -- Integración: SQLAlchemyAlertRuleRepository (AR-2..AR-4, AR-6, AR-7) -----

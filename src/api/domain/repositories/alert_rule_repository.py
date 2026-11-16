@@ -3,10 +3,12 @@
 `AlertRuleRepository` abstrae lo que el servicio necesita de la base: las
 aplicaciones activas, los overrides de reglas, un agregado por regla y ventana,
 el chequeo de cooldown por consulta a `alert` y la inserción de la alerta
-Pending. No hace commit: la transacción es del caller (el evaluador). El
+Pending. No hace commit: la transacción es del caller (el evaluador);
+`rule_transaction` aísla cada regla (savepoint) dentro de ella. El
 tenant es SIEMPRE parámetro (ADR-0003).
 """
 
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -41,6 +43,11 @@ class NewAlert:
 
 class AlertRuleRepository(Protocol):
     """Lecturas acotadas por tenant e inserción de alertas de regla."""
+
+    def rule_transaction(self) -> AbstractAsyncContextManager[None]:
+        """Aísla la evaluación de UNA regla: si el bloque lanza, se deshace solo
+        lo hecho dentro y la transacción del caller sigue utilizable."""
+        ...
 
     async def list_active_application_ids(self) -> list[UUID]:
         """Aplicaciones con `is_active = TRUE`."""

@@ -5,6 +5,7 @@ con reloj inyectado contra Postgres (AR-1.3, AR-8.1).
 """
 
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -61,6 +62,10 @@ class FakeRepository:
         self.apps = apps
         self.failing = failing
         self.created: list = []
+
+    @asynccontextmanager
+    async def rule_transaction(self):
+        yield
 
     async def list_active_application_ids(self):
         return list(self.apps)
@@ -361,3 +366,31 @@ async def test_evaluate_once_failure_in_one_app_does_not_affect_others(
 
     assert await _count_alerts(db_session, bad) == 0
     assert await _count_alerts(db_session, good, "latency") == 1
+
+
+async def test_evaluate_once_keeps_earlier_alerts_when_a_later_rule_fails(
+    db_session, test_engine, monkeypatch
+):
+    """AR-8: un error SQL en una regla no descarta las alertas ya creadas de la
+    misma aplicación (cada regla corre en un savepoint)."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    app_id = await _seed_slow_app(db_session)
+
+    class FlakyRepository(SQLAlchemyAlertRuleRepository):
+        async def observe(self, app_id, rule_id, start, end):
+            if rule_id == "error_rate":
+                # Error SQL real: aborta la transacción si no hay savepoint.
+                await self._session.execute(text("SELECT * FROM missing_table"))
+            return await super().observe(app_id, rule_id, start, end)
+
+    evaluator = AlertEvaluator(
+        session_factory=async_sessionmaker(test_engine, expire_on_commit=False),
+        repository_factory=FlakyRepository,
+        interval_seconds=60,
+    )
+
+    await evaluator.evaluate_once(NOW)
+
+    assert await _count_alerts(db_session, app_id, "latency") == 1
+    assert await _count_alerts(db_session, app_id, "error_rate") == 0

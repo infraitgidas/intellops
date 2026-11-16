@@ -14,9 +14,11 @@ Cada agregado es UNA sentencia acotada por tenant y por la ventana `[start, end)
   y deja afuera a la sesión sintética de la sonda sin conocer su id. Sin
   ponderar por `js_exception.sample_rate`.
 
-El repositorio NO hace commit: la transacción es del evaluador (DT-5).
+El repositorio NO hace commit: la transacción es del evaluador (DT-5); cada
+regla corre en un SAVEPOINT (`rule_transaction`, AR-8).
 """
 
+from contextlib import AbstractAsyncContextManager
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -53,6 +55,12 @@ class SQLAlchemyAlertRuleRepository(AlertRuleRepository):
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    def rule_transaction(self) -> AbstractAsyncContextManager[None]:
+        """SAVEPOINT por regla: un error SQL deja abortado solo el savepoint
+        (rollback al salir) y no la transacción de la aplicación, que conserva
+        las alertas ya creadas de las reglas anteriores."""
+        return self._session.begin_nested()
 
     async def list_active_application_ids(self) -> list[UUID]:
         """Aplicaciones con `is_active = TRUE`."""
