@@ -123,6 +123,22 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `channel_id` pasan a nullable; índices `idx_alert_app_created` e
   `idx_anomaly_app_timestamp`. Aborta si `alert` tiene filas. Espejo en
   `ddl_v1.0.sql`.
+- Reglas de umbral para alertas (B.14, ISS-B-14, #74): un evaluador periódico
+  en el lifespan de `intellops-core` recorre las aplicaciones activas y crea
+  alertas Pending (con `anomaly_id`, `recipient` y `channel_id` en NULL) para
+  que las despache B.10. Reglas por defecto sobre una ventana de 5 minutos con
+  mínimo de 3 muestras y cooldown de 15 minutos por aplicación y regla:
+  latencia (promedio de `TTFB` RUM > 2000 ms, severidad medium), tasa de
+  errores (excepciones JS por sesión > 0,5, high) y disponibilidad (promedio
+  de `AVAILABILITY` < 0,9, critical). La latencia excluye las métricas de la
+  sonda y la comparación es estricta. Migración 0008: tabla `alert_rule`
+  (override completo por aplicación y regla, `enabled = false` desactiva) y
+  columnas `rule_id`, `threshold` y `observed_value` en `alert`; sin
+  endpoints ni cambios en el contrato OpenAPI. Variables `ALERT_RULES_ENABLED`
+  (default `true`) y `ALERT_RULES_INTERVAL_SECONDS` (default 60, mayor que 0).
+  Espejo en `ddl_v1.0.sql` y nota en `containers.md`.
+- Limitaciones de B.14: la tasa de errores no pondera por
+  `js_exception.sample_rate` y el cooldown asume un único worker uvicorn.
 
 ### Changed
 

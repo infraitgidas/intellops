@@ -30,8 +30,8 @@ C4Container
 
     Rel(rum, core, "HTTP POST", "Telemetría (RUM_METRIC, JS_EXCEPTION)")
     Rel(admin, core, "HTTP/REST", "Gestión, auth, dashboards")
-    Rel(core, db, "Insert/Update", "APPLICATION, LAB_USER, USER_SESSION,\nRUM_METRIC, JS_EXCEPTION, USER_FAVORITE_METRIC")
-    Rel(ai, db, "Read batch / CRUD", "RUM_METRIC (read), ML_MODEL, ANOMALY,\nALERT (insert, estado Pending)")
+    Rel(core, db, "Insert/Update", "APPLICATION, LAB_USER, USER_SESSION,\nRUM_METRIC, JS_EXCEPTION, USER_FAVORITE_METRIC,\nALERT (insert, estado Pending), ALERT_RULE")
+    Rel(ai, db, "Read batch / CRUD", "RUM_METRIC (read), ML_MODEL, ANOMALY,\nALERT (insert, estado Pending, desde M3)")
     Rel(comms, db, "Read/Update", "ALERT, ANOMALY (read)")
     Rel(comms, notif, "Webhook/API", "Despacho de alertas")
 ```
@@ -49,7 +49,8 @@ C4Container
 | **Límite de memoria** | 250 MB (`mem_limit`) |
 | **Red** | `intellops-net` |
 | **Dependencias** | `intellops-db` (espera `service_healthy`) |
-| **Entidades (DER)** | CRUD completo: APPLICATION, LAB_USER, USER_FAVORITE_METRIC. Insert/Update: USER_SESSION. Insert intensivo: RUM_METRIC (prohibido delete), JS_EXCEPTION |
+| **Entidades (DER)** | CRUD completo: APPLICATION, LAB_USER, USER_FAVORITE_METRIC. Insert/Update: USER_SESSION. Insert intensivo: RUM_METRIC (prohibido delete), JS_EXCEPTION. Insert: ALERT (estado Pending, reglas de umbral de la v1). Read: ALERT_RULE |
+| **Alertas (v1)** | El motor determinista de reglas de umbral (B.14, ISS-B-14) corre en el lifespan del core, evalúa cada aplicación activa y escribe ALERT en estado Pending; `intellops-comms` las despacha. Requiere worker único (`ALERT_RULES_ENABLED`, `ALERT_RULES_INTERVAL_SECONDS`). Desde M3 el mismo rol lo toma `intellops-ai-engine` |
 | **Healthcheck** | `GET /health` (cada 30s) |
 
 ### 2.2. intellops-db
@@ -62,7 +63,7 @@ C4Container
 | **Volumen** | `intellops-db-data:/var/lib/postgresql/data` (persistencia) |
 | **Red** | `intellops-net` |
 | **Credenciales** | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` vía `.env` (ver `.env.example`) |
-| **Entidades** | 100% del esquema (APPLICATION, LAB_USER, USER_FAVORITE_METRIC, USER_SESSION, RUM_METRIC, JS_EXCEPTION, ML_MODEL, ANOMALY, ALERT) |
+| **Entidades** | 100% del esquema (APPLICATION, LAB_USER, USER_FAVORITE_METRIC, USER_SESSION, RUM_METRIC, JS_EXCEPTION, ML_MODEL, ANOMALY, ALERT, ALERT_RULE) |
 | **Healthcheck** | `pg_isready` (cada 10s) |
 
 ### 2.3. intellops-ai-engine
@@ -76,7 +77,7 @@ C4Container
 | **Límite de memoria** | 1000 MB (`mem_limit`) |
 | **Red** | `intellops-net` |
 | **Dependencias** | `intellops-db` (espera `service_healthy`) |
-| **Entidades (DER)** | CRUD completo: ML_MODEL. Read batch (prohibido escribir): RUM_METRIC. Insert: ANOMALY, ALERT (estado Pending) |
+| **Entidades (DER)** | CRUD completo: ML_MODEL. Read batch (prohibido escribir): RUM_METRIC. Insert: ANOMALY, ALERT (estado Pending) desde M3; en la v1 las alertas Pending las escribe `intellops-core` |
 | **Estado actual** | Placeholder (`entrypoint.py` sin lógica de negocio) — la detección de anomalías y la inferencia LLM se implementan en issues posteriores |
 
 ### 2.4. intellops-comms
