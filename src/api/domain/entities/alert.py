@@ -1,4 +1,4 @@
-"""Entity Alert — mirror de alert (DDL 0001 + 0007).
+"""Entity Alert — mirror de alert (DDL 0001 + 0007 + 0008).
 
 Solo tipa la tabla para la capa de repositorios; las migraciones se
 escriben a mano (env.py target_metadata=None).
@@ -10,6 +10,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, SmallInteger, Text, text
+from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -48,3 +49,7 @@ class Alert(Base):
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Migración 0008 (B.14): NULL en las alertas previas y en las de ML (M3).
+    rule_id: Mapped[str | None] = mapped_column(Text)
+    threshold: Mapped[float | None] = mapped_column(DOUBLE_PRECISION)
+    observed_value: Mapped[float | None] = mapped_column(DOUBLE_PRECISION)

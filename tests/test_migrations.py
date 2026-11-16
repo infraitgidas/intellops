@@ -32,8 +32,9 @@ REV_0004 = "0004"
 REV_0005 = "0005"
 REV_0006 = "0006"
 REV_0007 = "0007"
+REV_0008 = "0008"
 # Head actual de la cadena: cada migración nueva solo actualiza esta línea.
-REV_HEAD = REV_0007
+REV_HEAD = REV_0008
 
 DDL_PATH = "openspec/specs/database/ddl_v1.0.sql"
 
@@ -807,3 +808,190 @@ def test_ddl_v1_0_sql_synced_with_0007():
     ):
         assert fragment in block, fragment
     assert "anomaly_id UUID NOT NULL" not in block
+
+
+# -- DB-MIG / DB-DDL: migración 0008 (ISS-B-14, reglas de umbral) -----------
+
+ALERT_RULE_INSERT = text(
+    "INSERT INTO alert_rule (application_id, rule_id, threshold, severity, "
+    "window_seconds, min_samples, cooldown_seconds) "
+    "VALUES (:app_id, :rule_id, :threshold, :severity, :window, :min_samples, "
+    ":cooldown)"
+)
+
+
+def _alert_rule_params(app_id: str, **overrides):
+    params = {
+        "app_id": app_id,
+        "rule_id": "latency",
+        "threshold": 1000.0,
+        "severity": "medium",
+        "window": 300,
+        "min_samples": 3,
+        "cooldown": 1800,
+    }
+    params.update(overrides)
+    return params
+
+
+@pytest.fixture
+def rule_app(alembic_cfg, conn):
+    """DB en head con una aplicación; limpia alert, alert_rule y la aplicación."""
+    command.upgrade(alembic_cfg, "head")
+    app_id = str(uuid4())
+    conn.execute(
+        text(
+            "INSERT INTO application (app_id, name, description) "
+            "VALUES (:id, :name, 'test 0008')"
+        ),
+        {"id": app_id, "name": f"app-{app_id}"},
+    )
+    yield app_id
+    conn.execute(text("DELETE FROM alert"))
+    conn.execute(text("DELETE FROM alert_rule"))
+    conn.execute(text("DELETE FROM application WHERE app_id = :id"), {"id": app_id})
+    command.upgrade(alembic_cfg, "head")
+
+
+def test_0008_creates_alert_rule_and_alert_columns(alembic_cfg, conn):
+    """AR-10.1: 0008 crea alert_rule y agrega tres columnas nullable a alert."""
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_0008
+
+    assert _column_names(conn, "alert_rule") == {
+        "application_id", "rule_id", "threshold", "severity", "window_seconds",
+        "min_samples", "cooldown_seconds", "enabled",
+    }
+    for column in _column_names(conn, "alert_rule"):
+        assert _column_nullable(conn, "alert_rule", column) is False, column
+
+    assert {"rule_id", "threshold", "observed_value"} <= _column_names(conn, "alert")
+    for column in ("rule_id", "threshold", "observed_value"):
+        assert _column_nullable(conn, "alert", column) is True, column
+    assert {
+        "pk_alert_rule", "ck_alert_rule_rule_id", "ck_alert_rule_severity",
+        "ck_alert_rule_window", "ck_alert_rule_min_samples",
+        "ck_alert_rule_cooldown", "fk_alert_rule_application",
+    } <= _constraint_names(conn, "alert_rule")
+    assert "ck_alert_rule_id" in _constraint_names(conn, "alert")
+
+
+def test_alert_rule_enabled_defaults_to_true(rule_app, conn):
+    conn.execute(ALERT_RULE_INSERT, _alert_rule_params(rule_app))
+    enabled = conn.execute(text("SELECT enabled FROM alert_rule")).scalar()
+    assert enabled is True
+
+
+def test_alert_rule_one_row_per_application_and_rule(rule_app, conn):
+    """AR-10.2: PK (application_id, rule_id) rechaza el duplicado."""
+    conn.execute(ALERT_RULE_INSERT, _alert_rule_params(rule_app))
+    with pytest.raises(IntegrityError, match="pk_alert_rule"):
+        conn.execute(ALERT_RULE_INSERT, _alert_rule_params(rule_app, threshold=5.0))
+    # Otra regla de la misma aplicación sí entra.
+    conn.execute(ALERT_RULE_INSERT, _alert_rule_params(rule_app, rule_id="availability"))
+
+
+@pytest.mark.parametrize(
+    ("overrides", "constraint"),
+    [
+        ({"rule_id": "p99"}, "ck_alert_rule_rule_id"),
+        ({"severity": "urgent"}, "ck_alert_rule_severity"),
+        ({"window": 59}, "ck_alert_rule_window"),
+        ({"min_samples": 0}, "ck_alert_rule_min_samples"),
+        ({"cooldown": -1}, "ck_alert_rule_cooldown"),
+    ],
+)
+def test_alert_rule_check_constraints(rule_app, conn, overrides, constraint):
+    with pytest.raises(IntegrityError, match=constraint):
+        conn.execute(ALERT_RULE_INSERT, _alert_rule_params(rule_app, **overrides))
+
+
+def test_alert_rule_rejects_unknown_application(rule_app, conn):
+    with pytest.raises(IntegrityError, match="fk_alert_rule_application"):
+        conn.execute(ALERT_RULE_INSERT, _alert_rule_params(str(uuid4())))
+
+
+def test_alert_rule_cascades_on_application_delete(rule_app, conn):
+    conn.execute(ALERT_RULE_INSERT, _alert_rule_params(rule_app))
+    conn.execute(text("DELETE FROM application WHERE app_id = :id"), {"id": rule_app})
+    assert conn.execute(text("SELECT count(*) FROM alert_rule")).scalar() == 0
+
+
+def test_alert_rule_id_check_rejects_unknown_rule(rule_app, conn):
+    """ck_alert_rule_id acepta NULL (alertas previas) y las tres reglas."""
+    insert = text(
+        "INSERT INTO alert (alert_id, application_id, severity, message, status_id, "
+        "rule_id) VALUES (:id, :app_id, 'high', 'x', "
+        "(SELECT status_id FROM alert_status WHERE name = 'Pending'), :rule_id)"
+    )
+    for rule_id in ("latency", "error_rate", "availability", None):
+        conn.execute(insert, {"id": str(uuid4()), "app_id": rule_app, "rule_id": rule_id})
+    with pytest.raises(IntegrityError, match="ck_alert_rule_id"):
+        conn.execute(
+            insert, {"id": str(uuid4()), "app_id": rule_app, "rule_id": "p99"}
+        )
+
+
+def test_downgrade_0008_keeps_alerts_and_drops_rules(rule_app, alembic_cfg, conn):
+    """AR-10.1: el downgrade quita tabla y columnas sin invalidar las alertas."""
+    alert_id = str(uuid4())
+    conn.execute(
+        text(
+            "INSERT INTO alert (alert_id, application_id, severity, message, "
+            "status_id, rule_id, threshold, observed_value) VALUES (:id, :app_id, "
+            "'medium', 'TTFB promedio 2450 ms supera el umbral de 2000 ms', "
+            "(SELECT status_id FROM alert_status WHERE name = 'Pending'), "
+            "'latency', 2000, 2450)"
+        ),
+        {"id": alert_id, "app_id": rule_app},
+    )
+    conn.execute(ALERT_RULE_INSERT, _alert_rule_params(rule_app))
+
+    command.downgrade(alembic_cfg, REV_0007)
+
+    assert _current_revision(conn) == REV_0007
+    assert _column_names(conn, "alert_rule") == set()
+    assert not {"rule_id", "threshold", "observed_value"} & _column_names(conn, "alert")
+    assert "ck_alert_rule_id" not in _constraint_names(conn, "alert")
+    row = conn.execute(
+        text("SELECT message FROM alert WHERE alert_id = :id"), {"id": alert_id}
+    ).first()
+    assert row is not None and "2450" in row.message
+
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_HEAD
+
+
+def test_ddl_v1_0_sql_synced_with_0008():
+    """AR-10: §10 declara las columnas de regla en alert; §11 es ALERT_RULE y
+    los catálogos y el seed se renumeran a §12 y §13."""
+    with open(DDL_PATH, encoding="utf-8") as handle:
+        ddl = handle.read()
+    alert_block = ddl.split("CREATE TABLE alert (", 1)[1].split("-- 11.", 1)[0]
+    assert "0008" in alert_block
+    for fragment in (
+        "rule_id TEXT,",
+        "threshold DOUBLE PRECISION,",
+        "observed_value DOUBLE PRECISION,",
+        "ck_alert_rule_id",
+    ):
+        assert fragment in alert_block, fragment
+
+    assert "-- 11. ALERT_RULE" in ddl
+    section = ddl.split("-- 11. ALERT_RULE", 1)[1].split("-- 12.", 1)[0]
+    assert "0008" in section
+    for fragment in (
+        "CREATE TABLE alert_rule (",
+        "PRIMARY KEY (application_id, rule_id)",
+        "ck_alert_rule_rule_id",
+        "ck_alert_rule_severity",
+        "ck_alert_rule_window",
+        "ck_alert_rule_min_samples",
+        "ck_alert_rule_cooldown",
+        "fk_alert_rule_application",
+        "enabled BOOLEAN NOT NULL DEFAULT TRUE",
+        "ON DELETE CASCADE",
+    ):
+        assert fragment in section, fragment
+    assert "-- 12. DATOS INICIALES DE CATÁLOGOS" in ddl
+    assert "-- 13. SEED ADMIN" in ddl

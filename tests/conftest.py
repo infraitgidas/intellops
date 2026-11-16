@@ -44,6 +44,7 @@ DATA_TABLES = (
     "js_exception",
     "anomaly",
     "alert",
+    "alert_rule",
     "ml_model",
     "user_session",
     "user_favorite_metric",
@@ -119,9 +120,23 @@ async def db_session(test_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
 
 @pytest.fixture
 async def _truncate_data_tables(db_session: AsyncSession) -> None:
-    """TRUNCATE de tablas de datos; catálogos (user_role, ...) intactos."""
+    """TRUNCATE de tablas de datos; catálogos (user_role, ...) intactos.
+
+    Solo trunca las tablas que existen: test_migrations deja la base en una
+    revisión vieja (p. ej. 0001, sin `alert_rule`) entre test y test.
+    """
+    existing = [
+        table
+        for table in DATA_TABLES
+        if (
+            await db_session.execute(
+                text("SELECT to_regclass(:name)"), {"name": f"public.{table}"}
+            )
+        ).scalar()
+        is not None
+    ]
     await db_session.execute(
-        text(f"TRUNCATE {', '.join(DATA_TABLES)} RESTART IDENTITY CASCADE")
+        text(f"TRUNCATE {', '.join(existing)} RESTART IDENTITY CASCADE")
     )
     await db_session.commit()
 
