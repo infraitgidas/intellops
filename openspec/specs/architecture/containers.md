@@ -30,7 +30,7 @@ C4Container
 
     Rel(rum, core, "HTTP POST", "Telemetría (RUM_METRIC, JS_EXCEPTION)")
     Rel(admin, core, "HTTP/REST", "Gestión, auth, dashboards")
-    Rel(core, db, "Insert/Update", "APPLICATION, LAB_USER, USER_SESSION,\nRUM_METRIC, JS_EXCEPTION, USER_FAVORITE_METRIC,\nALERT (insert, estado Pending), ALERT_RULE")
+    Rel(core, db, "Insert/Update", "APPLICATION, LAB_USER, USER_SESSION,\nRUM_METRIC, JS_EXCEPTION, USER_FAVORITE_METRIC,\nALERT (insert, estado Pending), ALERT_RULE (solo lectura)")
     Rel(ai, db, "Read batch / CRUD", "RUM_METRIC (read), ML_MODEL, ANOMALY,\nALERT (insert, estado Pending, desde M3)")
     Rel(comms, db, "Read/Update", "ALERT, ANOMALY (read)")
     Rel(comms, notif, "Webhook/API", "Despacho de alertas")

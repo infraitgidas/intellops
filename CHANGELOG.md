@@ -127,7 +127,7 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   en el lifespan de `intellops-core` recorre las aplicaciones activas y crea
   alertas Pending (con `anomaly_id`, `recipient` y `channel_id` en NULL) para
   que las despache B.10. Reglas por defecto sobre una ventana de 5 minutos con
-  mínimo de 3 muestras y cooldown de 15 minutos por aplicación y regla:
+  mínimo de 3 muestras y cooldown de 30 minutos por aplicación y regla:
   latencia (promedio de `TTFB` RUM > 2000 ms, severidad medium), tasa de
   errores (excepciones JS por sesión > 0,5, high) y disponibilidad (promedio
   de `AVAILABILITY` < 0,9, critical). La latencia excluye las métricas de la
