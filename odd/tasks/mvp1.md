@@ -78,7 +78,7 @@ S35. B.10 se verifica contra canales reales con credenciales que aporta el usuar
 | T0 | Rama MVP1 + merges de las PRs abiertas de Santiago | S33 | inline | 7eb68a1 (merges) |
 | T1 | Motor determinístico de reglas de umbral y `ALERT` Pending | S1–S5 | inline + worker, test-first | cd7a182, bcf1e87, fbc50ee, 0061877, 955ba88, 5bbe050, 31ec509 |
 | T2 | Dispatcher de notificaciones mail + Telegram con retry/backoff | S6–S10, S5 | worker + inline, test-first | 6ad623b, 1814b2f, 98a7030, d11a64b (bloqueado: `.env.example` y verificación real de S6) |
-| T3 | Quality gates bloqueantes en CI (coverage, lint, contrato) | S11–S14 | inline | pendiente |
+| T3 | Quality gates bloqueantes en CI (coverage, lint, contrato) | S11–S14 | inline | 7ad824d, 1104d43, 00a936a, 196f424, 5430842, c237abf |
 | T4 | SPA React: vistas de latencias RUM y heatmap UX | S15–S19 | inline, test-first | pendiente |
 | T5 | Integración E2E del flujo completo | S20–S23 | inline | pendiente |
 | T6 | Suite E2E automatizada + escenario k6 ≤ 500 ms | S24–S27 | inline | pendiente |
@@ -135,3 +135,29 @@ intento y deja `sent_at` NULL; sin eso una alerta fallida no se podía diagnosti
 de una que nadie intentó despachar. Quedan abiertos dos puntos que dependen del usuario:
 `.env.example` está bloqueado por la política de rutas sensibles (el worker y el padre fueron
 rechazados), y S6 («envío por mail y Telegram operativo») necesita credenciales reales.
+
+L8 (2026-11-18, T3 cerrado): seis commits (árbol → workflow + Makefile → pin → documentación).
+Estado inicial medido en un worktree detached de `ac10991` montado en el contenedor de testing
+(versiones del lock, pylint 4.1.3/astroid 4.3.4), no supuesto: flake8 ya bloqueaba (exit 0 en la
+base, bloqueante por sí mismo); el `pylint src/ --fail-under=9.0` del CI salía **0 con un `W0613`
+en `metrics.py:97`** (score 9.91), es decir S12 no se cumplía; el gate de cobertura sí bloqueaba
+vía `fail_under` de `pyproject.toml` pero no estaba declarado en el job; el job de contrato ya
+era `needs` de `docker` y el test ya falla con un spec roto. Cambios: `--cov-fail-under=70`
+explícito, `--fail-on=W,E` en pylint **sin `--disable`**, y el árbol llevado a 0 warnings y 0
+errores con dos correcciones de código en vez de supresiones: `_application` en el catálogo
+`GET /metrics/list` (W0613 real) e imports `src.ml.*` → `ml.*`. La segunda corrige un bug real,
+no cosmético: el mismo archivo cargado como `src.ml.schemas` y `ml.schemas` producía dos clases
+`MetricBatchInput` y rompía `isinstance` entre el loader del dataset y sus tests (se vio rojo en
+la primera corrida de la suite), y `src.*` no resuelve con el `PYTHONPATH=/app/src` de las
+imágenes. Evidencia GREEN (entorno fijado, `docker-compose.test.yml`): 902 passed + 1 skipped +
+1 xfailed + 1 xpassed, cobertura total 92.59 % (gate 70), `flake8` exit 0 y `pylint --fail-on=W,E`
+exit 0 con 9.91/10 y cero mensajes W/E. Evidencia RED (los gates fallan de verdad): cobertura 35 %
+→ exit 1 («Required test coverage of 70.0% not reached»); un warning en un archivo → flake8 exit 1
+y pylint exit 20; `security` borrado de `POST /telemetry/metrics` en una copia del spec montada en
+el contenedor → `test_oas6_telemetry_paths_require_api_key` FAILED. Descartado en el camino:
+desactivar `unused-argument` globalmente en el CI (silencia futuros W0613 reales), agregar
+supresiones de `E1102`/`W2301` (el entorno fijado ya no los reporta) y el «PR de prueba» que pide
+S14 (MVP1 es local y no se pushea): se reemplaza por `tests/test_ci_gates.py` + la evidencia
+negativa de arriba; cuando haya PRs reales se puede hacer igual. Frontera de slice: los seis
+commits de T3 son la slice de este trabajo; los ~13k líneas que acumula `MVP1` sobre
+`origin/develop` siguen siendo, en su mayoría, los merges de Santiago (L5). Próxima task: T4 (SPA).
