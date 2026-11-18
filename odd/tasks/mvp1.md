@@ -80,7 +80,7 @@ S35. B.10 se verifica contra canales reales con credenciales que aporta el usuar
 | T2 | Dispatcher de notificaciones mail + Telegram con retry/backoff | S6–S10, S5 | worker + inline, test-first | 6ad623b, 1814b2f, 98a7030, d11a64b (bloqueado: `.env.example` y verificación real de S6) |
 | T3 | Quality gates bloqueantes en CI (coverage, lint, contrato) | S11–S14 | inline | 7ad824d, 1104d43, 00a936a, 196f424, 5430842, c237abf |
 | T4 | SPA React: vistas de latencias RUM y heatmap UX | S15–S19 | worker×2 + inline, test-first | 9e1ccc1, c934f78, 60c945f, 0ef44f3 |
-| T5 | Integración E2E del flujo completo | S20–S23 | inline | pendiente |
+| T5 | Integración E2E del flujo completo | S20–S23 | worker + inline | 10419a6, 6a58a3e, f8244b6, 63536d0, f9aea30, d86961f |
 | T6 | Suite E2E automatizada + escenario k6 ≤ 500 ms | S24–S27 | inline | pendiente |
 | T7 | Release v1.0: tag, compose, guía de despliegue y notes | S28–S32 | inline | pendiente |
 
@@ -180,3 +180,26 @@ quedó sin tocar (el heatmap y las dos vistas salen de `/metrics/{query,list,pro
 slice: los cuatro commits de T4 son la slice de este trabajo; el árbol de `src/frontend/` es
 greenfield (sólo `.gitkeep`), por eso no hay baseline diferencial de comandos previos. Próxima
 task: T5 (integración E2E del flujo completo).
+
+L10 (2026-11-18, T5 cerrado): seis commits (openspec → base URL de Telegram → smoke + stub en
+compose → runbook y demo → fix del ancla del compose → changelog/tasks). Estado previo verificado:
+ningún script recorría el flujo (`scripts/ci-tests.sh` corre pytest en el contenedor) y el tramo
+"notificación" nunca se había probado end-to-end porque sin credenciales la alerta queda en
+`Pending`. Se agregó `INTELLOPS_COMMS_TELEGRAM_API_BASE` (aditivo, default la constante actual) y
+`make smoke` recorre diez etapas sobre la stack real en ~6-10 s: health → login del admin → app +
+API key → catálogo → ingesta → lectura por `/metrics/query` → regla → alerta → `sent` + mensaje en
+el stub. Decisión que cambió a mitad de camino: el stub primero vivía en el host con
+`host.docker.internal`, pero el firewall de esta máquina dropea el tráfico contenedor→host (nftables
+con `input policy drop`; desde comms ningún puerto del host responde y a internet sí), así que el
+stub pasó a ser un servicio del compose bajo `profiles: ["smoke"]` en la red `intellops-net`: la
+stack por defecto sigue con cuatro servicios y el smoke no depende del sistema operativo. El
+rename del servicio a `intellops-telegram-stub` destapó un ancla frágil en
+`tests/test_comms_container.py` (cortaba el bloque de comms por el prefijo `intellops-`), que ahora
+corta en la próxima clave de servicio. Evidencia: `make smoke` verde 10/10 (alerta `sent` por
+telegram, mensaje `[CRITICAL] TTFB p95 1500,0 ms supera el umbral de 500,0 ms en los últimos 5
+min.`, total 6.3 s en la corrida final), suite Python 905 passed + 1 skipped + 1 xfailed + 1
+xpassed con 93.26 % de cobertura, `pytest tests/test_comms_dispatch.py` 36 passed,
+`pytest tests/test_comms_container.py` 8 passed + 1 skipped, y `git merge-tree --write-tree
+origin/develop HEAD` sin conflictos (S20/S21 como *mergeable*, porque MVP1 no se pushea).
+Frontera de slice: los seis commits de T5 son la slice de este trabajo. Próxima task: T6 (suite E2E
+en CI + escenario k6 ≤ 500 ms).
