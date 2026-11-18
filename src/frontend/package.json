@@ -10,8 +10,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:e2e": "VITE_API_BASE_URL=http://127.0.0.1:8099 vite build --outDir dist-e2e",
+    "preview:e2e": "vite preview --outDir dist-e2e --port 4173 --strictPort",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
+    "test:e2e": "npm run build:e2e && playwright test",
     "check-size": "node scripts/check-size.mjs"
   },
   "dependencies": {

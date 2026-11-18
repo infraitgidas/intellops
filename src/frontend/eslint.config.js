@@ -8,7 +8,7 @@ import tseslint from 'typescript-eslint';
 // `setState` de `useApi` al iniciar una request).
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**'],
+    ignores: ['dist/**', 'dist-e2e/**', 'playwright-report/**', 'test-results/**', 'node_modules/**', 'coverage/**'],
   },
   {
     files: ['**/*.{ts,tsx}'],
@@ -31,7 +31,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['vite.config.ts', 'scripts/**/*.mjs', 'eslint.config.js'],
+    files: ['vite.config.ts', 'playwright.config.ts', 'e2e/**/*.{ts,mjs}', 'scripts/**/*.mjs', 'eslint.config.js'],
     languageOptions: { globals: { ...globals.node } },
     rules: { 'no-console': 'off' },
   },

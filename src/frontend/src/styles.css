@@ -183,6 +183,106 @@ select {
   gap: 0.5rem;
 }
 
+/* Heatmap (QS-3): grilla de celdas + leyenda con texto. El color es
+   secundario: cada celda lleva su valor en `title`/`aria-label` y existe la
+   tabla alternativa. */
+.heatmap {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.heatmap-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.heatmap-scroll {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem;
+}
+
+.heatmap-grid {
+  display: grid;
+  gap: 2px;
+  min-width: max-content;
+}
+
+.heatmap-col-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  padding: 0 0.15rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.heatmap-row-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-right: 0.5rem;
+}
+
+.heatmap-row-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.heatmap-row-range {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.heatmap-cell {
+  border-radius: 4px;
+  min-height: 1.4rem;
+}
+
+.heatmap-cell-empty {
+  background: var(--cell-empty);
+}
+
+.heatmap-legend {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.6rem 0.8rem;
+}
+
+.heatmap-legend-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.heatmap-legend-ramp {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: flex;
+  height: 0.9rem;
+  overflow: hidden;
+}
+
+.heatmap-legend-swatch {
+  flex: 1;
+}
+
+.heatmap-legend-swatch-empty {
+  background: var(--cell-empty);
+}
+
+.heatmap-legend-help {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
 .series-chart {
   width: 100%;
   height: auto;
@@ -320,6 +420,10 @@ th {
   .app-main,
   .view {
     grid-template-columns: 1fr;
+  }
+
+  .heatmap-toolbar button {
+    width: 100%;
   }
 
   table {
