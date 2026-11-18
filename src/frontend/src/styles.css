@@ -1,0 +1,328 @@
+/* Estilos de la SPA (ISS-B-05). Sin framework CSS: layout propio y una sola
+   columna por debajo de 720 px (QS-4). */
+
+:root {
+  --bg: #0f172a;
+  --surface: #17223b;
+  --surface-alt: #1e2b47;
+  --border: #2b3a5c;
+  --text: #e6ecf7;
+  --text-muted: #9fb0cc;
+  --accent: #4ade80;
+  --accent-strong: #22c55e;
+  --error: #f87171;
+  --cell-empty: #26314a;
+  --radius: 10px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.4rem;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.6rem;
+}
+
+h2 {
+  font-size: 1.3rem;
+}
+
+h3 {
+  font-size: 1.05rem;
+  margin-top: 1.5rem;
+}
+
+code {
+  background: var(--surface-alt);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+}
+
+.app,
+.gate {
+  margin: 0 auto;
+  max-width: 960px;
+  padding: 1.5rem;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
+}
+
+.app-header .secondary {
+  margin-left: auto;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1rem 0;
+}
+
+button {
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.45rem 0.9rem;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button[aria-pressed="true"] {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #06210f;
+  font-weight: 600;
+}
+
+.secondary {
+  background: transparent;
+}
+
+.app-main,
+.view {
+  display: grid;
+  gap: 1rem;
+}
+
+.view-help {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+
+.controls label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+select {
+  font: inherit;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+  min-width: 9rem;
+}
+
+.notice {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin: 0;
+  padding: 0.75rem 1rem;
+}
+
+.notice-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.notice-detail {
+  color: var(--text-muted);
+  margin: 0.25rem 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.notice-error {
+  border-color: var(--error);
+}
+
+.notice-error p {
+  color: var(--error);
+}
+
+.notice-empty {
+  border-style: dashed;
+  color: var(--text-muted);
+}
+
+.series {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.series-chart {
+  width: 100%;
+  height: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.chart-line {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.chart-dot {
+  fill: var(--accent);
+}
+
+.chart-axis {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-label,
+.chart-value {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.chart-value {
+  fill: var(--text);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 34rem;
+}
+
+caption {
+  caption-side: top;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+th,
+td {
+  border-top: 1px solid var(--border);
+  padding: 0.45rem 0.75rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  background: var(--surface-alt);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.gate {
+  max-width: 30rem;
+  display: grid;
+  gap: 1rem;
+  align-content: center;
+  min-height: 100vh;
+}
+
+.gate-hint {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.gate-form {
+  display: grid;
+  gap: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.gate-form input {
+  font: inherit;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.5rem 0.65rem;
+}
+
+/* Una columna por debajo de 720 px (QS-4): los controles y las tablas se
+   apilan y la tabla scrollea en horizontal sin romper el ancho. */
+@media (max-width: 720px) {
+  .app,
+  .gate {
+    padding: 1rem;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .app-header .secondary {
+    margin-left: 0;
+  }
+
+  .controls,
+  .controls label,
+  .controls select,
+  .tabs button {
+    width: 100%;
+  }
+
+  .tabs {
+    flex-direction: column;
+  }
+
+  .app-main,
+  .view {
+    grid-template-columns: 1fr;
+  }
+
+  table {
+    min-width: 30rem;
+  }
+}
