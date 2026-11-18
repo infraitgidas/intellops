@@ -157,6 +157,23 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Gates de calidad bloqueantes en CI (B.9, ISS-B-09, #71): la suite declara
+  `--cov-fail-under=70` en el job (además de `fail_under = 70` en
+  `pyproject.toml`), pylint pasa a `--fail-under=9.0 --fail-on=W,E` sin ningún
+  `--disable`, el job `contract` corre `tests/test_contract.py` como `needs` de
+  `Docker Build` y `make lint` usa el mismo comando que el CI. El árbol quedó
+  con 0 warnings y 0 errores de lint sin mensajes desactivados: se corrigió el
+  `W0613` real de `GET /metrics/list` (`_application`, catálogo global) en vez
+  de desactivar `unused-argument`. `tests/test_ci_gates.py` fija umbral, orden
+  de `needs`, `--fail-on`, la paridad de `make lint` y la ausencia de
+  `continue-on-error`; `CONTRIBUTING.md` documenta cada gate y cómo
+  reproducir su fallo localmente.
+- Imports `src.ml.*` → `ml.*` (ISS-B-09, #71): `src/ml/` y los tests cargaban
+  el mismo archivo como dos módulos distintos (`src.ml.schemas` y
+  `ml.schemas` → dos clases `MetricBatchInput`), lo que rompía `isinstance`
+  entre el loader del dataset y sus tests y no resolvía con el
+  `PYTHONPATH=/app/src` de las imágenes.
+
 - Contrato OpenAPI de `Anomaly` y `Alert` (ISS-B-03, #68): se reemplazan los
   campos del borrador (`score`, `detector`, `description`,
   `metrics_snapshot`) por las columnas reales de las tablas, y el path
