@@ -28,8 +28,9 @@ La decisión S1 unificó el prefijo `/metrics/` para toda la ingesta. El criteri
 | GET | `/anomalies/{id}` | Detalle de una anomalía específica | ✅ Planificado |
 | GET | `/predictions` | Predicciones actuales | ✅ Planificado |
 | GET | `/predictions/forecast` | Forecasting conversacional | ✅ Planificado |
-| GET | `/alerts` | Listado de alertas | ✅ Planificado |
-| POST | `/alerts/config` | Configurar regla de alerta | ✅ Planificado |
+| GET | `/alerts` | Listado de alertas | ✅ Implementado (ISS-B-03) |
+| POST | `/alerts/config` | Configurar regla de umbral | ✅ Implementado (ISS-B-14) |
+| GET | `/alerts/config` | Listar reglas de umbral | ✅ Implementado (ISS-B-14) |
 | PUT | `/alerts/{id}/ack` | Acknowledge de alerta | ✅ Planificado |
 | GET | `/dashboard/summary` | Resumen para dashboard principal | ✅ Planificado |
 | GET | `/dashboard/heatmap` | Datos para mapa de calor | ✅ Planificado |

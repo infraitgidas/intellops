@@ -17,7 +17,8 @@ src/api/
 │   ├── metrics.py             ← GET /metrics/query, GET /metrics/list
 │   ├── anomalies.py           ← GET /anomalies, GET /anomalies/{id}
 │   ├── predictions.py         ← GET /predictions, GET /predictions/forecast
-│   ├── alerts.py              ← GET /alerts, POST /alerts/config, PUT /alerts/{id}/ack
+│   ├── alerts.py              ← GET /alerts (ISS-B-03)
+│   ├── alert_rule.py           ← POST /alerts/config, GET /alerts/config (ISS-B-14)
 │   ├── dashboard.py           ← GET /dashboard/summary, GET /dashboard/heatmap
 │   ├── assistant.py           ← POST /assistant/query (RAG + LLM)
 │   └── admin.py               ← GET/PUT /admin/config, GET /admin/status
