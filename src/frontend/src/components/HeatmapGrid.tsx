@@ -13,7 +13,7 @@
  * el botón "Ver como tabla" renderiza una `<table>` con los mismos números.
  */
 
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { formatClock, formatDateTime, formatNumber } from '../format';
 import type { MetricAggregate, MetricTypeInfo } from '../services/types';
 
@@ -120,6 +120,18 @@ export interface HeatmapGridProps {
 export function HeatmapGrid({ model }: HeatmapGridProps) {
   const [showTable, setShowTable] = useState(false);
 
+  // El bucket más reciente es el que interesa: con ventanas largas (1 h, 6 h,
+  // 24 h) la grilla no entra en pantalla y abrirla en la columna más vieja
+  // esconde justo el tramo que se está mirando. Se ancla a la derecha en cada
+  // cambio de datos; el usuario puede volver deslizando.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (node !== null) {
+      node.scrollLeft = node.scrollWidth;
+    }
+  }, [model]);
+
   return (
     <div className="heatmap">
       <div className="heatmap-toolbar">
@@ -135,7 +147,7 @@ export function HeatmapGrid({ model }: HeatmapGridProps) {
       {showTable ? (
         <HeatmapTable model={model} />
       ) : (
-        <div className="heatmap-scroll">
+        <div className="heatmap-scroll" ref={scrollRef}>
           <div
             className="heatmap-grid"
             style={{
