@@ -76,7 +76,7 @@ S35. B.10 se verifica contra canales reales con credenciales que aporta el usuar
 | ID | Tarea | Specs | Ruta | Commit |
 | --- | --- | --- | --- | --- |
 | T0 | Rama MVP1 + merges de las PRs abiertas de Santiago | S33 | inline | 7eb68a1 (merges) |
-| T1 | Motor determinístico de reglas de umbral y `ALERT` Pending | S1–S5 | inline, test-first | pendiente |
+| T1 | Motor determinístico de reglas de umbral y `ALERT` Pending | S1–S5 | inline + worker, test-first | cd7a182, bcf1e87, fbc50ee, 0061877 (esquema + config) |
 | T2 | Dispatcher de notificaciones mail + Telegram con retry/backoff | S6–S10, S5 | inline, test-first | pendiente |
 | T3 | Quality gates bloqueantes en CI (coverage, lint, contrato) | S11–S14 | inline | pendiente |
 | T4 | SPA React: vistas de latencias RUM y heatmap UX | S15–S19 | inline, test-first | pendiente |
@@ -107,3 +107,11 @@ L4 (2026-11-18, hallazgo): `/dashboard/summary` y `/dashboard/heatmap` existen s
 A/B/C/R las implementa. El heatmap de B.5 (S15) se arma sobre `GET /metrics/query`
 (`application_id, metric_type_id, timestamp, value, session_count`, bucket ≥ 60 s) +
 `GET /metrics/list` + `GET /metrics/probes`, sin backend nuevo.
+
+L5 (2026-11-18, frontera de slices T1): la rama acumula 7760 líneas desde `origin/develop` por
+los merges de Santiago; esa base NO es una slice de este trabajo. Las slices propias de B.14 son,
+por commit: docs del cambio (`cd7a182`), esquema `0008` + espejos + DDL + tests de migración
+(`bcf1e87`), API de configuración con sus tests (`fbc50ee`) y contrato OpenAPI + arquitectura
+(`0061877`). Evidencia: 813 passed, 1 xfailed, 1 xpassed; lint 9.95/10; 39/39 en
+`test_migrations.py`. La slice del motor (`src/ml/rules/`) se delega a un worker con superficies
+`src/ml/rules/`, `src/ml/entrypoint.py` y tres archivos de test.
