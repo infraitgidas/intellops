@@ -135,6 +135,25 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `invalid_alert_rule`, 404 `application_not_found` y
   `metric_type_not_found`). La imagen del worker pasa a copiar `src/`
   completo: antes arrancaba con `ModuleNotFoundError: ml.rules`.
+- Despacho de alertas por Telegram y Email (B.10, ISS-B-10, #72, ADR-0010):
+  `intellops-comms` deja de ser un placeholder y pasa a ser el worker que
+  consume las alertas `Pending` del motor de reglas. Ciclo propio cada
+  `INTELLOPS_COMMS_INTERVAL_SECONDS` (default 30 s) con lote acotado
+  (default 20) reclamado con `SELECT ... WHERE status = Pending ORDER BY
+  created_at FOR UPDATE SKIP LOCKED LIMIT :batch`; routing por severidad
+  configurable por entorno (`critical`/`high` → Telegram, `medium`/`low` →
+  Email por defecto, sin WhatsApp en la v1); un destino por canal desde el
+  entorno (`INTELLOPS_COMMS_TELEGRAM_CHAT_ID`, `INTELLOPS_COMMS_SMTP_TO`)
+  persistido en `alert.recipient`; retry con backoff exponencial (4 intentos,
+  1/2/4 s, presupuesto total acotado) donde Telegram 400/403 y SMTP 5xx van a
+  `Failed` sin reintento; éxito → `Sent` con `sent_at`, canal y destinatario,
+  intentos agotados → `Failed` con `sent_at` NULL. Un canal sin credenciales
+  no es un fallo: la alerta queda `Pending`, el canal se loguea una vez y el
+  stack levanta sin secretos. Sin dependencias nuevas (`httpx` para Telegram,
+  `smtplib`/`email.message` para el correo). La imagen pasa a copiar `src/`
+  completo y arranca con `python -m comms.entrypoint` (antes solo empaquetaba
+  el `entrypoint.py` del placeholder); `docker-compose.yml` pasa las
+  variables con default vacío.
 
 ### Changed
 
