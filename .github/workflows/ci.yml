@@ -5,6 +5,16 @@ name: IntellOps CI
 # paralelo/después; la evolución (integration/build/staging/E2E) se suma acá.
 # Dependencias fijadas en requirements/dev.lock; el job `reproducible-env`
 # corre el mismo pipeline en el entorno Docker de testing (ISS-S2-05).
+#
+# Quality gates BLOQUEANTES (ISS-B-09, issue #71):
+#   S11 — cobertura < 70 %: `--cov-fail-under=70` en el job `test`.
+#   S12 — cualquier warning o error de flake8/pylint: `--fail-on=W,E` en el
+#         job `lint` (con `--fail-under=9.0`, que no se baja).
+#   S13 — OpenAPI/contrato inválido: `tests/test_contract.py` (schemathesis)
+#         en el job `contract`, que es `needs` de `docker`.
+# Ningún job ni step usa `continue-on-error`: un gate que puede fallar sin
+# romper el check no es un gate. `tests/test_ci_gates.py` fija estas
+# condiciones (sustituto local del PR de prueba de S14).
 
 on:
   push:
@@ -41,10 +51,21 @@ jobs:
         run: |
           pip install --require-hashes -r requirements/dev.lock
           pip install --no-deps -e .
+      # S12: flake8 sale con código ≠ 0 ante cualquier hallazgo (E/F/W), así
+      # que el step es bloqueante por sí mismo: 0 warnings, 0 errores.
       - name: flake8 (PEP 8, 0 warnings)
         run: flake8 src/ tests/
-      - name: pylint (score mínimo 9.0)
-        run: pylint src/ --fail-under=9.0
+      # S12: `--fail-under` solo no alcanza (un único warning deja el score en
+      # 9.9x y el job pasaría). `--fail-on=W,E` convierte cada warning o error
+      # en un fallo del job; el score mínimo sigue en 9.0.
+      # Sin `--disable` ni mensajes desactivados en pyproject.toml: con las
+      # versiones de requirements/dev.lock el árbol pasa con 0 warnings y 0
+      # errores (ISS-B-09), así que cualquier W/E nuevo falla el job.
+      - name: pylint (score mínimo 9.0; W y E fallan el job)
+        run: >-
+          pylint src/
+          --fail-under=9.0
+          --fail-on=W,E
 
   unit:
     name: Unit Tests
@@ -98,11 +119,15 @@ jobs:
           pip install --require-hashes -r requirements/dev.lock
           pip install --no-deps -e .
       - run: alembic upgrade head
-      # Gate de cobertura (fail_under) y rutas de salida en pyproject.toml.
-      - name: pytest + cobertura
+      # S11: `--cov-fail-under=70` es el gate explícito del job (mismo valor
+      # que `[tool.coverage.report] fail_under` en pyproject.toml, que sigue
+      # siendo la fuente para `make test-cov`). Si la cobertura baja de 70 %
+      # pytest sale con código 2 y el job falla; no hay `continue-on-error`.
+      - name: pytest + cobertura (gate 70 %)
         run: >-
           PYTHONPATH=. pytest
           --cov
+          --cov-fail-under=70
           --cov-report=term-missing
           --cov-report=xml
           --cov-report=html
@@ -169,10 +194,13 @@ jobs:
           pip install --require-hashes -r requirements/dev.lock
           pip install --no-deps -e .
       - run: alembic upgrade head
+      # S13: un contrato OpenAPI inválido o una respuesta que no valida rompe
+      # este job y, como `docker` lo tiene en `needs`, frena el flujo completo.
       # OAS-9/ADR-24: contract layer con OpenAPI 3.1 (experimental en
-      # schemathesis <4.0, nativo desde 4.0); el xfail documentado degrada
-      # sin romper el gate (tests/test_contract.py).
-      - run: PYTHONPATH=. pytest tests/test_contract.py -q
+      # schemathesis <4.0, nativo desde 4.0); el xfail documentado degrada la
+      # corrida live sin romper el gate (tests/test_contract.py).
+      - name: Contract tests (schemathesis, OpenAPI 3.1)
+        run: PYTHONPATH=. pytest tests/test_contract.py -q
 
   reproducible-env:
     name: Reproducible Test Env (Docker)

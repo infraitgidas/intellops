@@ -82,7 +82,7 @@ test-down:
 	$(TEST_COMPOSE) down -v --remove-orphans
 
 lint:
-	$(TEST_COMPOSE) run --rm --build --no-deps tests sh -c "flake8 src/ tests/ && pylint src/ --fail-under=9.0"
+	$(TEST_COMPOSE) run --rm --build --no-deps tests sh -c "flake8 src/ tests/ && pylint src/ --fail-under=9.0 --fail-on=W,E"
 
 # Requiere uv (https://docs.astral.sh/uv/); corre la versión fijada en
 # UV_VERSION (la misma que setup-uv en .github/workflows/ci.yml) para que el
