@@ -1,2 +1,5 @@
 [flake8]
 max-line-length = 99
+# Artefactos que no son código del repo: node_modules del frontend (SPA
+# ISS-B-05) trae .py de terceros, y dist/ es build. flake8 no lee .gitignore.
+exclude = .git,__pycache__,.venv,venv,node_modules,dist,dist-e2e,htmlcov,reports
