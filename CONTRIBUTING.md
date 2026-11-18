@@ -158,6 +158,8 @@ make test-cov           # suite con cobertura (HTML en htmlcov/)
 make test-contract      # contract tests (schemathesis, OpenAPI 3.1)
 make lint               # flake8 (0 hallazgos) + pylint --fail-on=W,E (≥ 9.0)
 make smoke              # smoke E2E: stack real + stub de Telegram (docs/operations/smoke-e2e.md)
+make e2e-ci             # lo mismo que el job `e2e` del CI (perfil smoke, intervalos de 5 s, smoke)
+make load               # carga estándar k6 de la ingesta → reports/k6-summary.json (docs/operations/load-test.md)
 make test-down          # borra contenedores y DB efímera
 ```
 
@@ -184,10 +186,17 @@ Corre en push a `main`/`develop`, en PRs hacia esas ramas y manualmente (`workfl
 | `Contract Tests` | `tests/test_contract.py` (schemathesis, OpenAPI 3.1) | el contrato no valida |
 | `License Scan & SBOM` | SBOM CycloneDX + `pip-licenses` | hay dependencias SSPL/AGPL |
 | `Docker Build` | `docker compose build` | la imagen no construye |
+| `E2E (smoke completo)` | `docker compose --profile smoke up -d --build` + `python3 scripts/smoke.py` con los intervalos de los workers en 5 s | una etapa del smoke falla sobre la stack real (health, login, app, ingesta, lectura, regla, alerta o notificación) |
+| `Carga k6 (ingesta)` | `make load` (sólo manual, `workflow_dispatch` con `vus`/`duration`) | un umbral de k6 se cruza: p95 > 500 ms, errores ≥ 1 % o un `check` en rojo |
+
+El job `e2e` corre el mismo flujo que `make smoke` en cada push/PR y es
+bloqueante; el job `load` es **manual** (no corre en PRs: la latencia de un
+runner compartido no es comparable entre corridas) y su número se lee con
+`docs/operations/load-test.md`.
 
 ### Gates bloqueantes
 
-Cuatro gates **rompen el job** (no hay `continue-on-error` en ningún job ni
+Cinco gates **rompen el job** (no hay `continue-on-error` en ningún job ni
 step): un check en rojo no se puede mergear.
 
 | Gate | Job | Umbral / condición | Qué lo dispara |
@@ -196,6 +205,7 @@ step): un check en rojo no se puede mergear.
 | Lint (S12, #71) | `Lint & Format` | `flake8` sin hallazgos + `pylint --fail-under=9.0 --fail-on=W,E` | cualquier warning o error de flake8 o de pylint, o score < 9.0 |
 | Contrato (S13, #71) | `Contract Tests` | `pytest tests/test_contract.py` (aserciones estructurales + schemathesis) | el `openapi.yaml` no carga, pierde un path/schema/status esperado o una respuesta no valida |
 | Frontend (S16/S17/S19, #69) | `Frontend (SPA)` | `npm ci` + lint + `vitest` + build + `check-size` (< 1 MB) + smoke E2E | un warning de eslint, un test rojo, un `dist/` de más de 1 MB o un smoke E2E fallido |
+| E2E (S24, #78) | `E2E (smoke completo)` | `--profile smoke up -d --build` + `python3 scripts/smoke.py` (intervalos de 5 s) | cualquier etapa del smoke falla sobre la stack real |
 
 `Docker Build` depende de `Lint & Format`, `Unit & Integration Tests` y
 `Contract Tests`: si un gate falla, el flujo no llega a construir la imagen.
