@@ -157,6 +157,7 @@ make test-integration   # solo integración (Postgres)
 make test-cov           # suite con cobertura (HTML en htmlcov/)
 make test-contract      # contract tests (schemathesis, OpenAPI 3.1)
 make lint               # flake8 (0 hallazgos) + pylint --fail-on=W,E (≥ 9.0)
+make smoke              # smoke E2E: stack real + stub de Telegram (docs/operations/smoke-e2e.md)
 make test-down          # borra contenedores y DB efímera
 ```
 
