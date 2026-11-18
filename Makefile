@@ -7,7 +7,7 @@
 #   make test       → Corre tests
 #   make lint       → Corre linters
 
-.PHONY: setup up down test test-unit test-integration test-cov test-contract test-down ci lint lock clean help migrate makemigrations fe-install fe-lint fe-test fe-build fe-e2e
+.PHONY: setup up down test test-unit test-integration test-cov test-contract test-down ci lint lock clean help migrate makemigrations fe-install fe-lint fe-test fe-build fe-e2e smoke
 
 # Entorno reproducible de testing (ISS-S2-05): imagen con dependencias fijadas
 # (requirements/dev.lock) + Postgres efímero, aislado del stack de dev.
@@ -30,6 +30,7 @@ help:
 	@echo "  make test-cov       → Suite completa con cobertura (gate 70%, HTML en htmlcov/)"
 	@echo "  make test-contract  → Contract tests (schemathesis, OpenAPI 3.1)"
 	@echo "  make test-down      → Elimina contenedores y DB efímera del entorno de testing"
+	@echo "  make smoke          → Smoke E2E sobre la stack real (build + flujo completo + stub de Telegram)"
 	@echo "  make lint           → Linters (flake8 + pylint)"
 	@echo "  make lock           → Regenera requirements/dev.lock desde pyproject.toml (uv)"
 	@echo "  make clean          → Limpia artefactos"
@@ -80,6 +81,25 @@ test-contract:
 
 test-down:
 	$(TEST_COMPOSE) down -v --remove-orphans
+
+# Smoke E2E (ISS-C-01): levanta la stack de docker-compose.yml con los
+# intervalos de los workers en 5 s y el stub de Telegram (`telegram-stub`,
+# profile `smoke`), y apunta el proveedor de Telegram al stub por el DNS del
+# compose. Después corre el flujo completo. `SMOKE_NO_BUILD=1` reusa las
+# imágenes ya construidas. Bajar todo (stub incluido):
+# `docker compose --profile smoke down`. Ver docs/operations/smoke-e2e.md.
+SMOKE_ENV = \
+	INTELLOPS_RULES_INTERVAL_SECONDS=5 \
+	INTELLOPS_COMMS_INTERVAL_SECONDS=5 \
+	INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN=smoke-token \
+	INTELLOPS_COMMS_TELEGRAM_CHAT_ID=smoke-chat \
+	INTELLOPS_COMMS_TELEGRAM_API_BASE=http://telegram-stub:8099
+
+smoke:
+	$(SMOKE_ENV) sh -c 'set -e; if [ "$$SMOKE_NO_BUILD" = "1" ]; then \
+		docker compose --profile smoke up -d; \
+		else docker compose --profile smoke up -d --build; fi; \
+		python3 scripts/smoke.py'
 
 lint:
 	$(TEST_COMPOSE) run --rm --build --no-deps tests sh -c "flake8 src/ tests/ && pylint src/ --fail-under=9.0 --fail-on=W,E"

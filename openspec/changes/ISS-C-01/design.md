@@ -23,10 +23,10 @@
 ### D1 — El smoke es un script stdlib y la orquestación vive en `make smoke`
 
 `scripts/smoke.py` usa sólo `urllib` y `argparse`: corre en el host con Python 3.11+, sin instalar
-nada y sin depender del lock de test. La orquestación (exportar intervalos cortos, `docker compose
-up -d --build`, después el smoke) vive en el target `make smoke`, porque el script no debe decidir
-por el operador si se reconstruyen imágenes ni si se baja la stack. El script sí levanta y baja su
-propio stub de Telegram (subproceso), que es parte del contrato del test.
+nada y sin depender del lock de test. La orquestación (exportar intervalos cortos, levantar el stub
+con `--profile smoke`, `docker compose up -d --build`, después el smoke) vive en el target `make
+smoke`, porque el script no debe decidir por el operador si se reconstruyen imágenes ni si se baja
+la stack.
 
 Variables del smoke: `SMOKE_API_URL` (default `http://localhost:8000`), `SMOKE_STUB_PORT` (8099),
 `SMOKE_ADMIN_EMAIL`/`SMOKE_ADMIN_PASSWORD` (defaults del seed), `SMOKE_TIMEOUT_*` por etapa.
@@ -38,12 +38,33 @@ Variables del smoke: `SMOKE_API_URL` (default `http://localhost:8000`), `SMOKE_S
 comportamiento por defecto: sin la variable, la URL es exactamente la de hoy. Se testea con un
 `httpx.MockTransport`/stub de proveedor que verifica la URL construida.
 
-### D3 — El contenedor llega al stub por `host.docker.internal`
+### D3 — El stub es un servicio de compose bajo `profiles: ["smoke"]`
 
-`docker-compose.yml` suma `extra_hosts: ["host.docker.internal:host-gateway"]` al servicio
-`intellops-comms` (funciona en Linux con Docker ≥ 20.10, en macOS/Windows ya existe) y
-`INTELLOPS_COMMS_TELEGRAM_API_BASE=${INTELLOPS_COMMS_TELEGRAM_API_BASE:-}` a su lista de variables,
-como todas las demás: default vacío, sin cambiar nada si no se usa. El stub bindea `0.0.0.0`.
+El primer intento levantaba el stub en el host y lo exponía como `host.docker.internal` con
+`extra_hosts: host-gateway`. Se descartó por dos razones, la primera medida en esta máquina: el
+firewall del host **dropea el tráfico contenedor→host** (nftables con `input policy drop`; desde
+`intellops-comms` ningún puerto del host responde, mientras la salida a internet funciona), así que
+el smoke sólo pasaría en hosts con una política de entrada permisiva. La segunda: un stub en
+contenedor no depende del sistema operativo del que corre el smoke.
+
+El stub pasa a ser un servicio opcional del compose:
+
+```yaml
+  telegram-stub:
+    image: python:3.11-slim
+    profiles: ["smoke"]        # `docker compose up` sin el profile no lo levanta
+    command: ["python", "/app/telegram_stub.py"]
+    volumes: ["./scripts:/app:ro"]
+    ports: ["127.0.0.1:8099:8099"]   # lectura de /_messages desde el host
+    mem_limit: 80m
+```
+
+- `make smoke` lo levanta con `docker compose --profile smoke up -d telegram-stub` y exporta
+  `INTELLOPS_COMMS_TELEGRAM_API_BASE=http://telegram-stub:8099` (DNS del proyecto) para comms.
+- El smoke lee `/_messages` desde el host en `SMOKE_STUB_URL` (default `http://127.0.0.1:8099`) y
+  falla con un mensaje claro si el stub no está arriba.
+- La stack por defecto no cambia: sin `--profile smoke` no hay quinto servicio, y sin la variable el
+  despacho sigue apuntando a `https://api.telegram.org`.
 
 ### D4 — Esperas por ciclo, no por reloj fijo
 
@@ -85,7 +106,7 @@ verde y el smoke en verde sobre esta rama. Se documenta en el runbook.
 | Riesgo | Mitigación |
 |--------|------------|
 | El smoke tarda por los ciclos (60/30 s) | `make smoke` baja los intervalos a 5 s; timeouts holgados |
-| `host.docker.internal` no resuelve en Docker viejo | El runbook documenta la alternativa: correr el stub en un contenedor o exportar `INTELLOPS_COMMS_TELEGRAM_API_BASE` con la IP del host |
+| Firewall del host bloqueando contenedor→host | El stub corre en la red del compose, no en el host (D3) |
 | El seed admin no existe (base vieja) | El smoke falla en el login diciendo cómo recrear el admin/volumen |
 | El stub queda escuchando si el smoke se corta | `try/finally` + `atexit`; el puerto es configurable |
 | Reconstruir imágenes en cada `make smoke` | `smoke` no reconstruye si el operador pasa `SMOKE_NO_BUILD=1` |

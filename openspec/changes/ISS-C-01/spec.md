@@ -28,7 +28,7 @@ configurable y documentación de operación/demo. Sin migraciones, sin cambios d
 
 #### Scenario: stub local
 
-- GIVEN `INTELLOPS_COMMS_TELEGRAM_API_BASE=http://host.docker.internal:8099`
+- GIVEN `INTELLOPS_COMMS_TELEGRAM_API_BASE=http://telegram-stub:8099` (el servicio del smoke, D3)
 - WHEN envía una alerta
 - THEN la request llega al stub y la alerta pasa a `sent` con `sent_at` no nulo
 
@@ -68,7 +68,8 @@ hay uno.
 El stub MUST escuchar en un puerto configurable (default 8099), MUST responder 200 al
 `sendMessage`, MUST acumular los mensajes recibidos y MUST exponerlos en `GET /_messages` con el
 `chat_id` y el texto, para que el smoke verifique contenido y destinatario. MUST NOT requerir
-dependencias externas.
+dependencias externas fuera de la imagen base de Python, y MUST vivir en la red del compose
+(servicio bajo `profiles: ["smoke"]`) para no depender de que el host acepte tráfico de contenedores.
 
 #### Scenario: mensaje con el contenido de la alerta
 
