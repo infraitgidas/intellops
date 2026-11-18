@@ -157,6 +157,24 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Integración de punta a punta (C.1, ISS-C-01, #76): `make smoke` recorre el
+  flujo completo sobre la stack real en ~10 s — health → login del admin del
+  seed → alta de aplicación + API key → ingesta → lectura en
+  `/metrics/query` → regla de umbral → alerta → notificación — y falla
+  nombrando la etapa, el status y el cuerpo de la respuesta
+  (`scripts/smoke.py`, sólo stdlib). La notificación se verifica contra
+  `scripts/telegram_stub.py`, un servicio opcional del compose
+  (`profiles: ["smoke"]`) que imita `POST /bot<token>/sendMessage` y expone
+  `/_messages`: el despacho apunta ahí con
+  `INTELLOPS_COMMS_TELEGRAM_API_BASE`, settings nuevo y aditivo (sin la
+  variable, la URL es la de siempre). Un stub en el host no servía: el
+  firewall de esta máquina dropea el tráfico contenedor→host. Se documenta el
+  runbook (`docs/operations/smoke-e2e.md`, con el chequeo de mergeabilidad
+  contra `origin/develop`) y el guion de la demo de punta a punta
+  (`docs/operations/demo-mvp1.md`). Evidencia: 10/10 etapas verdes, alerta
+  `sent` y mensaje `[CRITICAL] TTFB p95 1500,0 ms supera el umbral de 500,0
+  ms` en el stub.
+
 - SPA de operación (B.5, ISS-B-05, #69): `src/frontend/` deja de ser
   placeholders y pasa a una app React 19 + TypeScript + Vite con las dos
   vistas de la v1. **Latencias**: selector de métrica (`/metrics/list`),
