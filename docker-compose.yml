@@ -20,6 +20,11 @@ services:
     environment:
       - INTELLOPS_ENV=development
       - DATABASE_URL=postgresql://${POSTGRES_USER:-intellops}:${POSTGRES_PASSWORD:-intellops}@intellops-db:5432/${POSTGRES_DB:-intellops}
+      # Firma HS256 de los tokens (AUTH-6). El default es el de `.env.example`
+      # (dev/CI): en un despliegue real se override en `.env`
+      # (docs/operations/deploy-v1.0.md). Sin esta línea el contenedor usaba el
+      # default del código y el `.env` del operador no tenía efecto.
+      - JWT_SECRET=${JWT_SECRET:-dev-only-jwt-secret-change-me-0123456789abcdef}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 30s
