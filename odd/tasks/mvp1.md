@@ -82,7 +82,7 @@ S35. B.10 se verifica contra canales reales con credenciales que aporta el usuar
 | T4 | SPA React: vistas de latencias RUM y heatmap UX | S15–S19 | worker×2 + inline, test-first | 9e1ccc1, c934f78, 60c945f, 0ef44f3 |
 | T5 | Integración E2E del flujo completo | S20–S23 | worker + inline | 10419a6, 6a58a3e, f8244b6, 63536d0, f9aea30, d86961f |
 | T6 | Suite E2E automatizada + escenario k6 ≤ 500 ms | S24–S27 | worker + inline | eaef520, 20e3908, 1ea6da5, 996a577, 6d6c0b1 |
-| T7 | Release v1.0: tag, compose, guía de despliegue y notes | S28–S32 | inline | pendiente |
+| T7 | Release v1.0: tag, compose, guía de despliegue y notes | S28–S32 | inline | pendiente-de-tag |
 
 Orden por dependencia: T1 (alerta) → T2 (despacho de esa alerta) → T3 (gates antes de la SPA)
 → T4 (SPA) → T5 → T6 → T7.
@@ -224,3 +224,20 @@ conflictos y sin cambiar un byte (`git diff 6d6c0b1 7edb030` vacío); `origin/de
 ancestro de `MVP1` (43 commits adelante, 0 atrás) y lo subido a develop tiene prioridad por
 construcción. Frontera de slice: los cinco commits de T6 son la slice de este trabajo. Próxima
 task: T7 (release v1.0).
+
+L12 (2026-11-18, T7 cerrado — release v1.0): S29 verificado de verdad, no leído: `docker compose
+--profile smoke down -v --remove-orphans` (volumen de PostgreSQL borrado) + `docker compose up -d
+--build` → exit 0, `/health` 200 y los cuatro servicios arriba; después, `make smoke` sobre la base
+recién migrada → 10/10 etapas en 6.4 s, alerta `sent` (S31). Hueco real encontrado al escribir la
+guía: `docker-compose.yml` **no** pasaba `JWT_SECRET` al core, así que el contenedor firmaba con el
+default del código y el `.env` del operador no tenía efecto; se agregó con el default de
+`.env.example` y se verificó dentro del contenedor (`printenv JWT_SECRET`). Segundo hueco
+documentado en lugar de "arreglado": la password del Admin semilla está precalculada en la
+migración `0002` para `admin-dev-password`, así que `ADMIN_BOOTSTRAP_PASSWORD` no la cambia en una
+base nueva — la guía indica rotarla por SQL o desactivar el usuario semilla y crear los reales por
+API. Documentos nuevos: `docs/operations/deploy-v1.0.md` (prerrequisitos, variables, pasos,
+checklist de aceptación, dos rollbacks —código y datos— y tabla de fallos) y
+`docs/release-notes-v1.0.md` (qué entra, números verificados, limitaciones conocidas y qué queda
+para M3). `CHANGELOG.md` cierra `[1.0.0] - 2026-11-18` y abre un `[Unreleased]` nuevo. Tag
+anotado `v1.0.0` local sobre el commit de release (MVP1 no se pushea, S33). Frontera de slice: los
+commits de T7 son la slice de este trabajo y cierran el MVP1.

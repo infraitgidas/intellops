@@ -7,6 +7,14 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-18
+
+Primera versión completa del MVP v1 sobre la rama local `MVP1`: agente RUM, ingesta asíncrona,
+lectura de métricas y sesiones, sonda de disponibilidad, motor determinístico de umbrales,
+despacho por Telegram y mail, SPA de latencias y heatmap, gates de calidad bloqueantes, smoke E2E
+reproducible y carga con k6. Detalle funcional y limitaciones conocidas en
+`docs/release-notes-v1.0.md`; despliegue y rollback en `docs/operations/deploy-v1.0.md`.
+
 ### Added
 
 - Estructura SDD: `openspec/config.yaml`, `openspec/specs/`, `openspec/changes/` (#1)
@@ -157,6 +165,13 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Release v1.0.0 (C.5, ISS-C-05, #80): tag local `v1.0.0` sobre `MVP1` con la verificación de
+  despliegue en máquina limpia (`docker compose down -v` + `up -d --build` → `/health` 200 y los
+  cuatro servicios arriba), el smoke post-deploy en verde sobre la base recién migrada, la guía de
+  despliegue y rollback (`docs/operations/deploy-v1.0.md`) y las notas de release
+  (`docs/release-notes-v1.0.md`). `docker-compose.yml` pasa `JWT_SECRET` al core (antes el
+  contenedor usaba el default del código y el `.env` del operador no tenía efecto).
+
 - Suite E2E en CI y carga con k6 (C.3, ISS-C-03, #78): job `e2e` bloqueante
   (`needs: lint`, 25 min) que levanta la stack con el perfil `smoke`, intervalos
   de los workers en 5 s, y corre el smoke de C.1 — es el único gate que ve
@@ -285,5 +300,6 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Documentación de RRHH con planes de trabajo de estudiantes PS
 - Definición de módulos: Seguridad (Cavallero), ML (Monfroglio), QA (Montanari)
 
-[Unreleased]: https://github.com/gidas/intellops/compare/v0.0.0...HEAD
+[Unreleased]: https://github.com/gidas/intellops/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/gidas/intellops/releases/tag/v1.0.0
 [0.0.0]: https://github.com/gidas/intellops/releases/tag/v0.0.0
