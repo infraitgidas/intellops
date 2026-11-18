@@ -106,7 +106,7 @@ Duraciones en **minutos de reloj**, convertidas a buckets con `max(1, round(min�
 
 `manifest.json`: versión del generador, seed, parámetros, versión de numpy/Python, schema, conteos (split, tipo, severidad), contaminación, rangos por métrica, lista de eventos (con `k` efectivo), sha256 del CSV.
 
-Lector: `load_labeled_dataset(csv_path)` → `{split: LabeledSplit(rows: list[MetricBatchInput], labels: list[RowLabel])}`; importa `src.ml.schemas` de forma diferida y verifica el sha256 si hay `manifest.json` al lado.
+Lector: `load_labeled_dataset(csv_path)` → `{split: LabeledSplit(rows: list[MetricBatchInput], labels: list[RowLabel])}`; importa `ml.schemas` de forma diferida y verifica el sha256 si hay `manifest.json` al lado.
 
 ## 7. Decisiones
 

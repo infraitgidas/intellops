@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from src.ml.schemas import MetricBatchInput
-from src.ml.main import app
-from src.ml.pipeline.mock_reader import load_mock_data
+from ml.schemas import MetricBatchInput
+from ml.main import app
+from ml.pipeline.mock_reader import load_mock_data
 
 
 def test_mock_reader_validates_contract():

@@ -94,7 +94,9 @@ async def query_metrics(
     operation_id="listMetrics",
 )
 async def list_metrics(
-    application: Annotated[Application, Depends(require_api_key)],
+    # El catálogo es global: `Depends` sigue exigiendo una key válida, pero la
+    # aplicación autenticada no se consulta (de ahí el nombre `_application`).
+    _application: Annotated[Application, Depends(require_api_key)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[MetricTypeInfoOut]:
     """Catálogo metric_type de la plataforma (OAS-13)."""

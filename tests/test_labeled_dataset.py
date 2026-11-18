@@ -15,7 +15,7 @@ from datetime import datetime
 import numpy as np
 import pytest
 
-from src.ml.schemas import MetricBatchInput
+from ml.schemas import MetricBatchInput
 
 pytestmark = pytest.mark.unit
 
