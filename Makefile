@@ -7,7 +7,7 @@
 #   make test       → Corre tests
 #   make lint       → Corre linters
 
-.PHONY: setup up down test test-unit test-integration test-cov test-contract test-down ci lint lock clean help migrate makemigrations fe-install fe-lint fe-test fe-build fe-e2e smoke
+.PHONY: setup up down test test-unit test-integration test-cov test-contract test-down ci lint lock clean help migrate makemigrations fe-install fe-lint fe-test fe-build fe-e2e smoke e2e-ci load
 
 # Entorno reproducible de testing (ISS-S2-05): imagen con dependencias fijadas
 # (requirements/dev.lock) + Postgres efímero, aislado del stack de dev.
@@ -31,6 +31,8 @@ help:
 	@echo "  make test-contract  → Contract tests (schemathesis, OpenAPI 3.1)"
 	@echo "  make test-down      → Elimina contenedores y DB efímera del entorno de testing"
 	@echo "  make smoke          → Smoke E2E sobre la stack real (build + flujo completo + stub de Telegram)"
+	@echo "  make e2e-ci         → Lo mismo que el job e2e del CI (perfil smoke + intervalos de 5 s + smoke)"
+	@echo "  make load           → Carga estándar k6 de la ingesta (10 VUs, 1 min) → reports/k6-summary.json"
 	@echo "  make lint           → Linters (flake8 + pylint)"
 	@echo "  make lock           → Regenera requirements/dev.lock desde pyproject.toml (uv)"
 	@echo "  make clean          → Limpia artefactos"
@@ -100,6 +102,40 @@ smoke:
 		docker compose --profile smoke up -d; \
 		else docker compose --profile smoke up -d --build; fi; \
 		python3 scripts/smoke.py'
+
+# E2E del CI (ISS-C-03, LT-1/D1): el mismo comando que el job `e2e`, sin
+# atajos. Levanta la stack con el perfil `smoke` y los intervalos de los
+# workers en 5 s, y corre el smoke de C.1. Un fallo acá frena el PR: el job no
+# declara `continue-on-error`.
+e2e-ci:
+	$(SMOKE_ENV) docker compose --profile smoke up -d --build
+	python3 scripts/smoke.py
+
+# Carga estándar (ISS-C-03, LT-3/LT-4): k6 corre en la imagen oficial —nada que
+# instalar en el repo— dentro de la red del compose, así alcanza la API por DNS
+# (`http://intellops-core:8000`) sin depender de que el host acepte tráfico de
+# contenedores. La red se resuelve desde `docker compose ps`, sin hardcodear el
+# nombre del proyecto. El summary queda en `reports/k6-summary.json` (ignorado
+# por git). Overrides: `make load VUS=20 DURATION=30s`. Ver
+# docs/operations/load-test.md.
+K6_IMAGE = grafana/k6:0.57.0
+VUS ?= 10
+DURATION ?= 1m
+
+load:
+	@mkdir -p reports
+	@net=$$(docker compose ps --format json | python3 -c 'import json, sys; print(next(json.loads(l)["Networks"] for l in sys.stdin if l.strip()))'); \
+	echo "→ k6 en la red $$net (VUS=$(VUS), DURATION=$(DURATION))"; \
+	docker run --rm -i --network "$$net" \
+		--user "$(HOST_UID):$(HOST_GID)" \
+		-v "$$PWD/load:/scripts:ro" \
+		-v "$$PWD/reports:/reports" \
+		-e BASE_URL=$${BASE_URL:-http://intellops-core:8000} \
+		-e ADMIN_EMAIL=$${ADMIN_EMAIL:-admin@intellops.local} \
+		-e ADMIN_PASSWORD=$${ADMIN_PASSWORD:-admin-dev-password} \
+		-e VUS=$(VUS) \
+		-e DURATION=$(DURATION) \
+		$(K6_IMAGE) run --summary-export=/reports/k6-summary.json /scripts/ingest.js
 
 lint:
 	$(TEST_COMPOSE) run --rm --build --no-deps tests sh -c "flake8 src/ tests/ && pylint src/ --fail-under=9.0 --fail-on=W,E"
