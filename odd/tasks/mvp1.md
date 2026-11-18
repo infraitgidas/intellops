@@ -64,8 +64,10 @@ S32. «Release notes.»
 
 ### Restricciones del tramo
 
-S33. «no se van a mezclar por el momento, asi que mvp va a ser local por ahora» — sin push,
-sin PRs a `develop`, sin merge a `develop` mientras dure MVP1.
+S33. «no se van a mezclar por el momento, asi que mvp va a ser local por ahora» — sin merge a
+`develop` mientras dure MVP1. Actualizado el 18/11/2026 (L13): la rama `MVP1` **sí** se pushea
+(`origin/MVP1`), sin PR y con el tag `v1.0.0` todavía local; lo que sigue prohibido sin decisión
+explícita es el PR y el merge a `develop`.
 S34. Fuera de alcance: C.2 (acceso al sitio piloto), C.4 (datos reales del piloto), C.6 y C.7
 (informes de PPS, autoría humana).
 S35. B.10 se verifica contra canales reales con credenciales que aporta el usuario
@@ -241,3 +243,11 @@ checklist de aceptación, dos rollbacks —código y datos— y tabla de fallos)
 para M3). `CHANGELOG.md` cierra `[1.0.0] - 2026-11-18` y abre un `[Unreleased]` nuevo. Tag
 anotado `v1.0.0` local sobre el commit de release (MVP1 no se pushea, S33). Frontera de slice: los
 commits de T7 son la slice de este trabajo y cierran el MVP1.
+
+L13 (2026-11-18, verbatim): «subi la rama, por ahora solo eso no hay pr». Se pushea `MVP1`
+→ `origin/MVP1` (3676ebc) con upstream configurado; **no** se crea PR y el tag `v1.0.0` queda
+local (no se pushea nada más que la rama). S33 se actualiza: el push ya está permitido, el PR y el
+merge a `develop` siguen requiriendo decisión explícita. Consecuencia a tener en cuenta: el
+workflow sólo dispara en `push` a `main`/`develop` y en PRs hacia esas ramas, así que los gates
+—incluido el job `e2e` nuevo— no corren con este push; la primera corrida real en GitHub Actions
+será al abrir el PR o al mergear.
