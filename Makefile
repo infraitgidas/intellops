@@ -7,7 +7,7 @@
 #   make test       → Corre tests
 #   make lint       → Corre linters
 
-.PHONY: setup up down test test-unit test-integration test-cov test-contract test-down ci lint lock clean help migrate makemigrations
+.PHONY: setup up down test test-unit test-integration test-cov test-contract test-down ci lint lock clean help migrate makemigrations fe-install fe-lint fe-test fe-build fe-e2e
 
 # Entorno reproducible de testing (ISS-S2-05): imagen con dependencias fijadas
 # (requirements/dev.lock) + Postgres efímero, aislado del stack de dev.
@@ -83,6 +83,23 @@ test-down:
 
 lint:
 	$(TEST_COMPOSE) run --rm --build --no-deps tests sh -c "flake8 src/ tests/ && pylint src/ --fail-under=9.0 --fail-on=W,E"
+
+# SPA React (ISS-B-05): build estático, no es un contenedor del compose
+# (ADR-0010). Node ≥ 22 (`src/frontend/.nvmrc`); corre en el host, no en Docker.
+fe-install:
+	cd src/frontend && npm ci
+
+fe-lint:
+	cd src/frontend && npm run lint
+
+fe-test:
+	cd src/frontend && npm test
+
+fe-build:
+	cd src/frontend && npm run build && npm run check-size
+
+fe-e2e:
+	cd src/frontend && npm run test:e2e
 
 # Requiere uv (https://docs.astral.sh/uv/); corre la versión fijada en
 # UV_VERSION (la misma que setup-uv en .github/workflows/ci.yml) para que el

@@ -86,6 +86,40 @@ jobs:
       # Sin Postgres: los tests `unit` no tocan DB (ver tests/conftest.py).
       - run: PYTHONPATH=. pytest -m unit
 
+  frontend:
+    name: Frontend (SPA)
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v4
+      # Vite 8 pide Node ≥ 22; `engines` de package.json fija ≥ 22.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      # S16: `npm ci` instala exactamente lo del lock (build reproducible).
+      - name: Instalar dependencias (lock)
+        run: npm ci
+      # S19/QF-1: sin `continue-on-error`; lint, tests, build y presupuesto de
+      # bundle (S17) bloquean el PR igual que los gates de Python.
+      - name: eslint (0 warnings)
+        run: npm run lint
+      - name: Tests de componentes (Vitest)
+        run: npm test
+      - name: Build estático (tsc + vite)
+        run: npm run build
+      - name: Presupuesto de bundle (< 1 MB)
+        run: npm run check-size
+      - name: Navegador para el smoke E2E
+        run: npx playwright install --with-deps chromium
+      - name: Smoke E2E (Playwright)
+        run: npm run test:e2e
+
   test:
     name: Unit & Integration Tests
     needs: unit

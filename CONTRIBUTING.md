@@ -186,7 +186,7 @@ Corre en push a `main`/`develop`, en PRs hacia esas ramas y manualmente (`workfl
 
 ### Gates bloqueantes
 
-Tres gates **rompen el job** (no hay `continue-on-error` en ningún job ni
+Cuatro gates **rompen el job** (no hay `continue-on-error` en ningún job ni
 step): un check en rojo no se puede mergear.
 
 | Gate | Job | Umbral / condición | Qué lo dispara |
@@ -194,11 +194,46 @@ step): un check en rojo no se puede mergear.
 | Cobertura (S11, #71) | `Unit & Integration Tests` | `--cov-fail-under=70` (y `fail_under = 70` en `pyproject.toml`) | la suite pasa pero el total de `src/` queda por debajo de 70% |
 | Lint (S12, #71) | `Lint & Format` | `flake8` sin hallazgos + `pylint --fail-under=9.0 --fail-on=W,E` | cualquier warning o error de flake8 o de pylint, o score < 9.0 |
 | Contrato (S13, #71) | `Contract Tests` | `pytest tests/test_contract.py` (aserciones estructurales + schemathesis) | el `openapi.yaml` no carga, pierde un path/schema/status esperado o una respuesta no valida |
+| Frontend (S16/S17/S19, #69) | `Frontend (SPA)` | `npm ci` + lint + `vitest` + build + `check-size` (< 1 MB) + smoke E2E | un warning de eslint, un test rojo, un `dist/` de más de 1 MB o un smoke E2E fallido |
 
 `Docker Build` depende de `Lint & Format`, `Unit & Integration Tests` y
 `Contract Tests`: si un gate falla, el flujo no llega a construir la imagen.
 Los umbrales están fijados por `tests/test_ci_gates.py`, que lee este workflow
 y falla si alguien los baja o agrega `continue-on-error`.
+
+### Frontend (SPA React, `src/frontend/`)
+
+La SPA de B.5 (latencias RUM + heatmap UX) es un **build estático**, no un
+contenedor del compose (ADR-0010). Corre en el host con Node ≥ 22
+(`src/frontend/.nvmrc`), no en el contenedor de testing.
+
+```bash
+cd src/frontend
+npm ci                # instala exactamente el package-lock.json (S16)
+npm run lint          # eslint, 0 warnings
+npm test              # Vitest + Testing Library (componentes y hooks)
+npm run build         # tsc --noEmit + vite build → dist/
+npm run check-size    # gate S17: dist/ < 1 MB (raw) e informa gzip
+npm run test:e2e      # Playwright: stub de API + vite preview del build
+```
+
+Desde el root: `make fe-install`, `make fe-lint`, `make fe-test`,
+`make fe-build` (build + tamaño) y `make fe-e2e`.
+
+- **Job `frontend` del CI**: `npm ci` → lint → tests → build → `check-size` →
+  `npx playwright install --with-deps chromium` → `test:e2e`, todo bloqueante
+  (QF-1). Presupuesto actual: ~243 kB raw / ~75 kB gzip (tope 1 MB).
+- **Smoke E2E sin navegador propio**: si la revisión de Chromium del caché no
+  coincide con la de `@playwright/test`, usá
+  `PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e`.
+- **Autenticación (D2)**: `/metrics/*` exige `X-API-Key`, así que la key la pega
+  el operador en la UI y vive **sólo** en `sessionStorage`; nunca va al bundle,
+  a la URL, a `localStorage` ni a los logs. Un 401/403 la descarta. Es una
+  herramienta interna: la deuda con dueño es un endpoint de lectura con JWT
+  (`require_role`), que es backend nuevo y sale de B.5.
+- **Qué mide el heatmap (D3)**: la API pública no expone `page_url` ni
+  `metadata`, así que el mapa es tiempo × métrica (AVG por bucket, normalizado
+  por fila) con tabla accesible; no es una grilla página × posición.
 
 #### Reproducir cada fallo localmente
 

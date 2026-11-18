@@ -209,6 +209,34 @@ def test_s12_pylint_has_no_global_suppressions():
     )
 
 
+# -- QF-1 (ISS-B-05): el job del frontend bloquea ---------------------------
+
+
+def test_frontend_job_runs_the_full_gate_and_is_blocking():
+    """El job `frontend` DEBE correr el gate completo de la SPA y no tragarse fallos (QF-1).
+
+    S16 (npm ci desde el lock), S17 (presupuesto de bundle) y S19 (lint, tests y
+    smoke E2E) son bloqueantes: un bundle de más de 1 MB o un test rojo tienen
+    que romper el job, no avisar.
+    """
+    job = _job("frontend")
+    runs = [step.get("run", "") for step in job["steps"]]
+
+    for expected in (
+        "npm ci",
+        "npm run lint",
+        "npm test",
+        "npm run build",
+        "npm run check-size",
+        "npm run test:e2e",
+    ):
+        assert any(expected in run for run in runs), (
+            f"el job `frontend` DEBE correr `{expected}` (QF-1)"
+        )
+    assert job.get("continue-on-error") is not True
+    assert all(step.get("continue-on-error") is not True for step in job["steps"])
+
+
 # -- S13: OpenAPI/contract inválido bloquea ---------------------------------
 
 
