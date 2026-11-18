@@ -77,7 +77,7 @@ S35. B.10 se verifica contra canales reales con credenciales que aporta el usuar
 | --- | --- | --- | --- | --- |
 | T0 | Rama MVP1 + merges de las PRs abiertas de Santiago | S33 | inline | 7eb68a1 (merges) |
 | T1 | Motor determinístico de reglas de umbral y `ALERT` Pending | S1–S5 | inline + worker, test-first | cd7a182, bcf1e87, fbc50ee, 0061877, 955ba88, 5bbe050, 31ec509 |
-| T2 | Dispatcher de notificaciones mail + Telegram con retry/backoff | S6–S10, S5 | inline, test-first | pendiente |
+| T2 | Dispatcher de notificaciones mail + Telegram con retry/backoff | S6–S10, S5 | worker + inline, test-first | 6ad623b, 1814b2f, 98a7030, d11a64b (bloqueado: `.env.example` y verificación real de S6) |
 | T3 | Quality gates bloqueantes en CI (coverage, lint, contrato) | S11–S14 | inline | pendiente |
 | T4 | SPA React: vistas de latencias RUM y heatmap UX | S15–S19 | inline, test-first | pendiente |
 | T5 | Integración E2E del flujo completo | S20–S23 | inline | pendiente |
@@ -124,3 +124,14 @@ imagen y corriéndola contra la base de test: build, imports, migración, seis c
 2 s y apagado ordenado por SIGTERM. Dos correcciones de diseño: `RAGE_CLICK` se agrega por p95
 (la spec es normativa y el diseño decía AVG) y el observado se cuantiza a 6 decimales para que la
 comparación inclusiva no falle por la interpolación de `percentile_cont` sobre `float8`.
+
+L7 (2026-11-18, T2 bloqueado): cuatro commits con el dispatcher, el contrato con B.14, el
+empaquetado de `intellops-comms` y la documentación. Evidencia: 889 passed + 1 skipped + 1 xfailed
++ 1 xpassed, lint 9.91/10. Prueba de contenedor: build de `src/comms/Dockerfile`, arranque contra
+la base de test (`channels=none`), aviso único por canal, ciclos `claimed=0 sent=0 failed=0`,
+`docker stop` con exit 0, y una alerta real que quedó `Pending` sin destinatario (no `Failed`).
+Corrección del padre sobre el handoff: `mark_failed` ahora persiste `channel_id` y `recipient` del
+intento y deja `sent_at` NULL; sin eso una alerta fallida no se podía diagnosticar ni distinguir
+de una que nadie intentó despachar. Quedan abiertos dos puntos que dependen del usuario:
+`.env.example` está bloqueado por la política de rutas sensibles (el worker y el padre fueron
+rechazados), y S6 («envío por mail y Telegram operativo») necesita credenciales reales.
