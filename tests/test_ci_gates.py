@@ -17,6 +17,7 @@ sacar el contrato de `needs`) rompe estos tests antes de llegar al PR.
 
 from pathlib import Path
 
+import re
 import tomllib
 import yaml
 
@@ -25,9 +26,14 @@ WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 CONTRIBUTING_PATH = REPO_ROOT / "CONTRIBUTING.md"
 MAKEFILE_PATH = REPO_ROOT / "Makefile"
+LOAD_SCRIPT_PATH = REPO_ROOT / "load" / "ingest.js"
 
 COVERAGE_THRESHOLD = 70
 PYLINT_THRESHOLD = "9.0"
+# Imagen de k6 pinneada por tag (LT-2/LT-4): sin tag, la corrida deja de ser
+# reproducible y el número de latencia no se puede comparar entre corridas.
+K6_IMAGE = "grafana/k6"
+K6_TAG_PATTERN = rf"{re.escape(K6_IMAGE)}:\d+\.\d+\.\d+"
 
 
 def _workflow() -> dict:
@@ -302,3 +308,68 @@ def test_contributing_documents_the_three_blocking_gates():
         assert expected in contributing, (
             f"CONTRIBUTING.md DEBE documentar `{expected}` (S14)"
         )
+
+
+# -- S24–S27 (ISS-C-03): E2E bloqueante y carga k6 versionada ---------------
+
+
+def test_e2e_and_load_jobs_are_wired():
+    """El E2E corre en cada cambio y la carga es un escenario k6 versionado (S24–S27).
+
+    LT-1: `e2e` depende de `lint`, levanta la stack del perfil `smoke` y corre
+    `scripts/smoke.py`, sin `continue-on-error` (un flujo roto frena el PR).
+    LT-4: `load` sólo corre por `workflow_dispatch` y sube el summary.
+    LT-2/LT-3: el escenario vive en `load/ingest.js` y k6 va pinneado por tag en
+    `make load`, así la corrida es reproducible.
+    """
+    e2e = _job("e2e")
+    load = _job("load")
+
+    # LT-1/S24: bloqueante, después del lint y corriendo el smoke de C.1.
+    assert _needs("e2e") == {"lint"}, (
+        "el job `e2e` DEBE depender sólo de `lint` (LT-1)"
+    )
+    assert e2e.get("continue-on-error") is not True
+    assert all(step.get("continue-on-error") is not True for step in e2e["steps"])
+    e2e_runs = "\n".join(step.get("run", "") for step in e2e["steps"])
+    assert "scripts/smoke.py" in e2e_runs, (
+        "el job `e2e` DEBE correr `scripts/smoke.py` (LT-1: un solo guion, no YAML paralelo)"
+    )
+    assert "docker compose --profile smoke up" in e2e_runs, (
+        "el job `e2e` DEBE levantar la stack con `--profile smoke` (LT-1)"
+    )
+
+    # LT-4/D6: la carga es manual, corre el target versionado y sube el summary.
+    assert load.get("continue-on-error") is not True
+    assert all(step.get("continue-on-error") is not True for step in load["steps"])
+    assert "workflow_dispatch" in str(load.get("if", "")), (
+        "el job `load` DEBE correr sólo por `workflow_dispatch` (LT-4/D6)"
+    )
+    load_runs = "\n".join(step.get("run", "") for step in load["steps"])
+    assert "make load" in load_runs, (
+        "el job `load` DEBE correr `make load`, el mismo comando local (LT-4)"
+    )
+    artifacts = [
+        step.get("with", {}).get("path", "")
+        for step in load["steps"]
+        if step.get("uses", "").startswith("actions/upload-artifact")
+    ]
+    assert any("k6-summary.json" in path for path in artifacts), (
+        "el job `load` DEBE subir `reports/k6-summary.json` como artefacto (LT-4)"
+    )
+
+    # LT-2/LT-3: escenario versionado + imagen de k6 pinneada en `make load`.
+    assert LOAD_SCRIPT_PATH.is_file(), (
+        "el escenario DEBE estar versionado en `load/ingest.js` (LT-2)"
+    )
+    recipe = _make_recipe("load")
+    makefile = MAKEFILE_PATH.read_text(encoding="utf-8")
+    assert re.search(K6_TAG_PATTERN, makefile), (
+        f"el Makefile DEBE fijar `{K6_IMAGE}` con un tag pinneado (LT-2/LT-4)"
+    )
+    assert "$(K6_IMAGE)" in recipe, (
+        "`make load` DEBE correr la imagen pinneada, no `latest` (LT-4)"
+    )
+    assert "k6-summary.json" in recipe, (
+        "`make load` DEBE exportar el summary a `reports/k6-summary.json` (LT-4)"
+    )

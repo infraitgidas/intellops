@@ -15,13 +15,27 @@ name: IntellOps CI
 # Ningún job ni step usa `continue-on-error`: un gate que puede fallar sin
 # romper el check no es un gate. `tests/test_ci_gates.py` fija estas
 # condiciones (sustituto local del PR de prueba de S14).
-
+#
+# E2E y carga (ISS-C-03, LT-1/LT-4): `e2e` corre el smoke de C.1 sobre la stack
+# real en cada push/PR (bloqueante, `needs: lint`); `load` corre la carga k6 de
+# la ingesta sólo a mano (`workflow_dispatch`) y sube el summary como artefacto.
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # `vus`/`duration` son las entradas del escenario k6 (LT-3/LT-4): 10 VUs y
+  # 1 min son la carga estándar; el job `load` las pasa a `make load`.
   workflow_dispatch:
+    inputs:
+      vus:
+        description: "VUs de la carga estándar (LT-3: 10)"
+        required: false
+        default: "10"
+      duration:
+        description: "Duración del escenario k6 (LT-3: 1m)"
+        required: false
+        default: "1m"
 
 # Un push nuevo a la misma rama/PR cancela la corrida anterior en curso.
 concurrency:
@@ -283,4 +297,96 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose build
+
+  # ISS-C-03 (LT-1, D1): el smoke E2E de C.1 sobre la stack real. Es el único
+  # gate que ve el compose completo —build, migraciones, colas y ciclos de los
+  # workers—: una rotura del camino real no la ven los tests con ASGI. Corre los
+  # mismos pasos que `make e2e-ci`, inline (sin depender de targets), con los
+  # intervalos de los workers en 5 s y el perfil `smoke`. Sin
+  # `continue-on-error`: un flujo roto frena el PR. Coste ~3-4 min de build +
+  # ~15 s de flujo; `needs: lint` evita gastarlo si el código ni siquiera lintea.
+  e2e:
+    name: E2E (smoke completo)
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      INTELLOPS_RULES_INTERVAL_SECONDS: "5"
+      INTELLOPS_COMMS_INTERVAL_SECONDS: "5"
+      INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN: smoke-token
+      INTELLOPS_COMMS_TELEGRAM_CHAT_ID: smoke-chat
+      INTELLOPS_COMMS_TELEGRAM_API_BASE: http://intellops-telegram-stub:8099
+    steps:
+      - uses: actions/checkout@v4
+      # Mismo `up` que `make smoke`: la primera vez construye las tres imágenes.
+      - name: Levantar la stack (perfil smoke, intervalos de 5 s)
+        run: docker compose --profile smoke up -d --build
+      # El script falla nombrando la etapa (health, login, app, ingesta, lectura,
+      # regla, alerta, notificación): su salida es el diagnóstico del job.
+      - name: Smoke E2E (scripts/smoke.py)
+        run: |
+          mkdir -p reports
+          python3 scripts/smoke.py 2>&1 | tee reports/smoke.log
+      # Sin este dump, un rojo del smoke no dice nada sobre la causa del lado
+      # del servidor (migración, worker o cola).
+      - name: Logs de la stack (si falló)
+        if: failure()
+        run: |
+          mkdir -p reports
+          docker compose --profile smoke ps --all > reports/compose-ps.txt 2>&1 || true
+          docker compose --profile smoke logs --no-color > reports/compose-logs.txt 2>&1 || true
+      - name: Publicar la salida del smoke y los logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Bajar la stack
+        if: always()
+        run: docker compose --profile smoke down -v
+
+  # ISS-C-03 (LT-4, D6): carga estándar de la ingesta. Manual a propósito: en
+  # cada PR duplicaría el coste del job `e2e` sin agregar señal (la latencia de
+  # un runner compartido no es comparable entre corridas). Se corre cuando se
+  # toca ingesta o infraestructura; ahí el umbral p95 ≤ 500 ms y el < 1 % de
+  # errores son el criterio. `make load` corre k6 en la imagen pinneada dentro
+  # de la red del compose y deja el summary en reports/ (ignorado por git).
+  load:
+    name: Carga k6 (ingesta)
+    if: github.event_name == 'workflow_dispatch'
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Levantar la stack
+        run: docker compose up -d --build
+      # El escenario es contra la API real: sin /health en verde no hay nada que
+      # medir (y `make load` necesita los contenedores para resolver la red).
+      - name: Esperar la API (/health)
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/health > /dev/null; then
+              echo "API arriba en el intento $attempt"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "la API no respondió /health en 120 s"
+          docker compose logs intellops-core
+          exit 1
+      - name: Carga estándar (make load)
+        run: make load VUS=${{ inputs.vus }} DURATION=${{ inputs.duration }}
+      # Se sube siempre: si un umbral se cruza, el summary es justamente la
+      # evidencia que hay que mirar (p95, tasa de error, checks).
+      - name: Publicar el summary de k6
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-summary
+          path: reports/k6-summary.json
+          if-no-files-found: ignore
+          retention-days: 14
       
