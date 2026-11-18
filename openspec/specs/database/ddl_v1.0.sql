@@ -325,6 +325,13 @@ CREATE TABLE alert (
     status_id SMALLINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     sent_at TIMESTAMPTZ,
+    -- Columna de las alertas de reglas de umbral (migración 0008, ISS-B-14,
+    -- ADR-0013): el umbral y el valor observado se copian en la alerta para
+    -- que una alerta histórica explique por qué disparó aunque la regla se
+    -- edite después. Nullable porque las alertas de ML de M3 no tienen regla.
+    rule_id UUID,
+    threshold NUMERIC,
+    observed_value NUMERIC,
 
     CONSTRAINT ck_alert_severity
         CHECK (severity IN ('low', 'medium', 'high', 'critical')),
@@ -332,6 +339,11 @@ CREATE TABLE alert (
     CONSTRAINT fk_alert_application
         FOREIGN KEY (application_id)
         REFERENCES application(app_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_alert_rule
+        FOREIGN KEY (rule_id)
+        REFERENCES alert_rule(rule_id)
         ON DELETE RESTRICT,
 
     CONSTRAINT fk_alert_anomaly
@@ -360,8 +372,67 @@ CREATE INDEX idx_alert_channel
 CREATE INDEX idx_alert_app_created
     ON alert(application_id, created_at DESC);
 
+-- Cooldown del motor de reglas (migración 0008, ISS-B-14).
+CREATE INDEX idx_alert_rule_created
+    ON alert(rule_id, created_at DESC);
+
 -- ============================================================
--- 11. DATOS INICIALES DE CATÁLOGOS
+-- 11. ALERT_RULE (migración 0008, ISS-B-14)
+-- ============================================================
+--
+-- Reglas determinísticas de umbral: la v1 crea ALERT en estado Pending sin
+-- detección ML (D1). Una regla es un umbral sobre una métrica de una
+-- aplicación; la agregación se deriva del metric_type (ADR-0013).
+
+CREATE TABLE alert_rule (
+    rule_id UUID PRIMARY KEY,
+    application_id UUID NOT NULL,
+    metric_type_id SMALLINT NOT NULL,
+    comparison TEXT NOT NULL,
+    threshold NUMERIC NOT NULL,
+    window_minutes INTEGER NOT NULL,
+    min_samples INTEGER NOT NULL,
+    cooldown_minutes INTEGER NOT NULL,
+    severity TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT ck_alert_rule_comparison
+        CHECK (comparison IN ('gt', 'lt')),
+
+    CONSTRAINT ck_alert_rule_window
+        CHECK (window_minutes BETWEEN 1 AND 10080),
+
+    CONSTRAINT ck_alert_rule_min_samples
+        CHECK (min_samples >= 1),
+
+    CONSTRAINT ck_alert_rule_cooldown
+        CHECK (cooldown_minutes >= 1),
+
+    CONSTRAINT ck_alert_rule_severity
+        CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+
+    CONSTRAINT fk_alert_rule_application
+        FOREIGN KEY (application_id)
+        REFERENCES application(app_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_alert_rule_metric_type
+        FOREIGN KEY (metric_type_id)
+        REFERENCES metric_type(metric_type_id)
+        ON DELETE RESTRICT
+);
+
+-- Una regla equivalente no se duplica: el POST la actualiza.
+CREATE UNIQUE INDEX uq_alert_rule_key
+    ON alert_rule(application_id, metric_type_id, comparison, threshold);
+
+-- Ciclo del motor: reglas activas de una aplicación.
+CREATE INDEX idx_alert_rule_app_active
+    ON alert_rule(application_id, is_active);
+
+-- ============================================================
+-- 12. DATOS INICIALES DE CATÁLOGOS
 -- ============================================================
 
 INSERT INTO metric_type (name, description)
@@ -381,7 +452,7 @@ VALUES
     ('Researcher', 'Usuario investigador');
 
 -- ============================================================
--- 12. SEED ADMIN (migración 0002, solo dev/CI)
+-- 13. SEED ADMIN (migración 0002, solo dev/CI)
 -- ============================================================
 -- Usuario de bootstrap con UUID fijo; password_hash argon2id de la
 -- password dev (ADMIN_BOOTSTRAP_PASSWORD en .env.example). No usar en
