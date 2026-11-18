@@ -28,8 +28,9 @@ from comms.dispatcher import (
 )
 from comms.config import EMAIL, TELEGRAM
 
-# Base de la Bot API: constante, no se configura por entorno (no hay motivo
-# para apuntar a otro host en la v1 y una URL configurable es una fuga más).
+# Base de la Bot API. Es el DEFAULT del proveedor: `CommsSettings`
+# (`INTELLOPS_COMMS_TELEGRAM_API_BASE`) puede apuntarlo a otro host —el stub
+# del smoke E2E— sin tocar el código (E2E-1, D2).
 TELEGRAM_API_BASE = "https://api.telegram.org"
 # 400 (chat inválido / mensaje rechazado) y 403 (bot bloqueado) no mejoran
 # reintentando: son la lista explícita de CD-4.

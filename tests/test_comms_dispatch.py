@@ -45,6 +45,7 @@ from comms.dispatcher import (
     RetryPolicy,
     TransientDeliveryError,
 )
+from comms.entrypoint import build_providers
 from comms.providers import EmailProvider, TelegramProvider
 from comms.scheduler import CommsScheduler
 
@@ -53,6 +54,9 @@ APP_ID = UUID("8f14e45f-ceea-467a-9a3c-1c9b1dbb1f2a")
 CHAT_ID = "424242"
 MAILBOX = "guardia@example.test"
 BOT_TOKEN = "123456:the-bot-token"
+# Stub local de la Bot API del smoke E2E (ISS-C-01, E2E-1).
+API_BASE_VAR = "INTELLOPS_COMMS_TELEGRAM_API_BASE"
+STUB_API_BASE = "http://host.docker.internal:8099"
 ROUTING = {
     "critical": "telegram",
     "high": "telegram",
@@ -564,6 +568,53 @@ async def test_telegram_provider_never_leaks_the_token_in_the_error():
     assert BOT_TOKEN not in str(excinfo.value)
 
 
+async def test_telegram_provider_uses_the_configured_api_base(monkeypatch):
+    """GIVEN `INTELLOPS_COMMS_TELEGRAM_API_BASE` WHEN el worker arma el
+    proveedor y envía THEN la URL es `{base}/bot{token}/sendMessage` sobre el
+    stub configurado (E2E-1, D2)."""
+    monkeypatch.setenv(API_BASE_VAR, STUB_API_BASE)
+    monkeypatch.setenv("INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN", BOT_TOKEN)
+    monkeypatch.setenv("INTELLOPS_COMMS_TELEGRAM_CHAT_ID", CHAT_ID)
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, json={"ok": True})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler)
+    ) as client:
+        providers = build_providers(CommsSettings(), client)
+        await providers["telegram"].send(_alert("critical"))
+
+    assert seen == [f"{STUB_API_BASE}/bot{BOT_TOKEN}/sendMessage"]
+
+
+async def test_telegram_provider_without_the_variable_keeps_the_current_url(
+    monkeypatch,
+):
+    """Sin la variable la URL es exactamente la de hoy: comportamiento
+    actual preservado (E2E-1, escenario "default sin la variable")."""
+    monkeypatch.delenv(API_BASE_VAR, raising=False)
+    monkeypatch.setenv("INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN", BOT_TOKEN)
+    monkeypatch.setenv("INTELLOPS_COMMS_TELEGRAM_CHAT_ID", CHAT_ID)
+    settings = CommsSettings()
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, json={"ok": True})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler)
+    ) as client:
+        providers = build_providers(settings, client)
+        await providers["telegram"].send(_alert("critical"))
+
+    assert settings.telegram_api_base == providers_module.TELEGRAM_API_BASE
+    assert seen == [f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"]
+
+
 class FakeSMTP:
     """`smtplib.SMTP` falso: registra el mensaje y puede fallar a pedido."""
 
@@ -727,6 +778,7 @@ def test_settings_ignore_empty_values_from_the_compose(monkeypatch):
         "INTELLOPS_COMMS_DELIVERY_TIMEOUT_SECONDS",
         "INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN",
         "INTELLOPS_COMMS_TELEGRAM_CHAT_ID",
+        "INTELLOPS_COMMS_TELEGRAM_API_BASE",
         "INTELLOPS_COMMS_SMTP_HOST",
         "INTELLOPS_COMMS_SMTP_PORT",
         "INTELLOPS_COMMS_SMTP_USER",
@@ -747,6 +799,9 @@ def test_settings_ignore_empty_values_from_the_compose(monkeypatch):
     assert settings.smtp_port == 587
     assert settings.smtp_starttls is True
     assert settings.smtp_to is None
+    # Un valor vacío significa "usá el default": la base de Telegram vuelve a
+    # la constante de siempre y el comportamiento no cambia (E2E-1, D3).
+    assert settings.telegram_api_base == providers_module.TELEGRAM_API_BASE
 
 
 def test_settings_reject_a_channel_outside_the_v1_catalog(monkeypatch):

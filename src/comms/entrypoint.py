@@ -51,6 +51,7 @@ def build_providers(
             destination=settings.telegram_chat_id or "",
             client=client,
             timeout=settings.delivery_timeout_seconds,
+            api_base=settings.telegram_api_base,
         )
     if settings.email_configured:
         providers[EMAIL] = EmailProvider(

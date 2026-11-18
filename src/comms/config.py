@@ -34,6 +34,20 @@ SEVERITIES = ("critical", "high", "medium", "low")
 DEFAULT_SMTP_SENDER = "intellops@localhost"
 
 
+def _default_telegram_api_base() -> str:
+    """Base de la Bot API por defecto: la constante de `comms.providers`.
+
+    El import es local porque `comms.providers` importa este módulo
+    (`EMAIL`/`TELEGRAM`): a nivel de módulo sería circular. La constante sigue
+    viviendo en un solo lugar para que la URL por defecto no pueda
+    desincronizarse (E2E-1, D2).
+    """
+    # pylint: disable=import-outside-toplevel
+    from comms.providers import TELEGRAM_API_BASE
+
+    return TELEGRAM_API_BASE
+
+
 class CommsSettings(BaseSettings):
     """Variables de entorno consumidas por el worker de despacho."""
 
@@ -89,6 +103,15 @@ class CommsSettings(BaseSettings):
     )
     telegram_chat_id: str | None = Field(
         default=None, validation_alias="INTELLOPS_COMMS_TELEGRAM_CHAT_ID"
+    )
+    # Base de la Bot API (E2E-1, D2). Default: la constante de siempre, así
+    # que sin la variable el comportamiento es idéntico al actual. Apuntarla a
+    # un stub local (`http://host.docker.internal:8099`) es lo que permite
+    # verificar la notificación sin credenciales reales.
+    telegram_api_base: str = Field(
+        default_factory=_default_telegram_api_base,
+        min_length=1,
+        validation_alias="INTELLOPS_COMMS_TELEGRAM_API_BASE",
     )
 
     # Destino y credenciales de Email (stdlib `smtplib`, D9).
