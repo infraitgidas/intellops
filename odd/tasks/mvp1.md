@@ -76,7 +76,7 @@ S35. B.10 se verifica contra canales reales con credenciales que aporta el usuar
 | ID | Tarea | Specs | Ruta | Commit |
 | --- | --- | --- | --- | --- |
 | T0 | Rama MVP1 + merges de las PRs abiertas de Santiago | S33 | inline | 7eb68a1 (merges) |
-| T1 | Motor determinístico de reglas de umbral y `ALERT` Pending | S1–S5 | inline + worker, test-first | cd7a182, bcf1e87, fbc50ee, 0061877 (esquema + config) |
+| T1 | Motor determinístico de reglas de umbral y `ALERT` Pending | S1–S5 | inline + worker, test-first | cd7a182, bcf1e87, fbc50ee, 0061877, 955ba88, 5bbe050, 31ec509 |
 | T2 | Dispatcher de notificaciones mail + Telegram con retry/backoff | S6–S10, S5 | inline, test-first | pendiente |
 | T3 | Quality gates bloqueantes en CI (coverage, lint, contrato) | S11–S14 | inline | pendiente |
 | T4 | SPA React: vistas de latencias RUM y heatmap UX | S15–S19 | inline, test-first | pendiente |
@@ -115,3 +115,12 @@ por commit: docs del cambio (`cd7a182`), esquema `0008` + espejos + DDL + tests 
 (`0061877`). Evidencia: 813 passed, 1 xfailed, 1 xpassed; lint 9.95/10; 39/39 en
 `test_migrations.py`. La slice del motor (`src/ml/rules/`) se delega a un worker con superficies
 `src/ml/rules/`, `src/ml/entrypoint.py` y tres archivos de test.
+
+L6 (2026-11-18, T1 cerrado): siete commits. Evidencia final: 843 passed + 1 xfailed + 1 xpassed,
+lint 9.94/10, 39/39 en `test_migrations.py`. El empaquetado de la imagen del `ai-engine` era un
+hueco real: copiaba solo `entrypoint.py` y el motor importa `ml.rules` como top-level. Se reescribió
+`src/ml/Dockerfile`, se ancló con `tests/test_ai_engine_container.py` y se verificó construyendo la
+imagen y corriéndola contra la base de test: build, imports, migración, seis ciclos a intervalo de
+2 s y apagado ordenado por SIGTERM. Dos correcciones de diseño: `RAGE_CLICK` se agrega por p95
+(la spec es normativa y el diseño decía AVG) y el observado se cuantiza a 6 decimales para que la
+comparación inclusiva no falle por la interpolación de `percentile_cont` sobre `float8`.
