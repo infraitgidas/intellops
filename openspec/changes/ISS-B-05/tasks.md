@@ -27,37 +27,37 @@ Dependencias: B.3 (contrato `/metrics/*`), B.13 (sonda). Lo consumen C.1 (E2E) y
 
 ## Fase 1 — Scaffold y tooling
 
-- [ ] 1.1 `src/frontend/`: `package.json` (runtime `react`/`react-dom`; dev Vite/TS/Vitest/RTL/
+- [x] 1.1 `src/frontend/`: `package.json` (runtime `react`/`react-dom`; dev Vite/TS/Vitest/RTL/
   jsdom/eslint/Playwright), `package-lock.json`, `tsconfig.json`, `vite.config.ts`,
   `eslint.config.js`, `.nvmrc`, `index.html`, borrar los `.gitkeep`.
-- [ ] 1.2 `scripts/check-size.mjs`: gate de 1 MB sobre `dist/` (raw + gzip informado).
-- [ ] 1.3 `npm run build` sin API y `npm run check-size` verdes.
+- [x] 1.2 `scripts/check-size.mjs`: gate de 1 MB sobre `dist/` (raw + gzip informado).
+- [x] 1.3 `npm run build` sin API y `npm run check-size` verdes.
 
 ## Fase 2 — Acceso a datos y gate de key
 
-- [ ] 2.1 `services/types.ts` + `services/api.ts`: espejo tipado del contrato y las tres llamadas
+- [x] 2.1 `services/types.ts` + `services/api.ts`: espejo tipado del contrato y las tres llamadas
   con `X-API-Key`; errores 401/403/5xx tipados.
-- [ ] 2.2 `hooks/useSessionKey.ts` (`sessionStorage`, borrado en 401/403) y `hooks/useApi.ts`
+- [x] 2.2 `hooks/useSessionKey.ts` (`sessionStorage`, borrado en 401/403) y `hooks/useApi.ts`
   (unión `loading|error|success` + `reload`).
-- [ ] 2.3 `components/KeyGate.tsx` + tests (401 limpia y vuelve al gate).
+- [x] 2.3 `components/KeyGate.tsx` + tests (401 limpia y vuelve al gate).
 
 ## Fase 3 — Vista de latencias
 
-- [ ] 3.1 `views/LatencyView.tsx`: selector de métrica y de ventana (tabla de presets, D4), serie
+- [x] 3.1 `views/LatencyView.tsx`: selector de métrica y de ventana (tabla de presets, D4), serie
   SVG por bucket, tabla de sondas (`/metrics/probes`), estados de carga/error/vacío.
-- [ ] 3.2 Tests de la vista (carga, error + reintento, datos, vacío) y de `SeriesChart`.
+- [x] 3.2 Tests de la vista (carga, error + reintento, datos, vacío) y de `SeriesChart`.
 
 ## Fase 4 — Heatmap
 
-- [ ] 4.1 `views/HeatmapView.tsx` + `components/HeatmapGrid.tsx`: una llamada sin `metric_type`,
+- [x] 4.1 `views/HeatmapView.tsx` + `components/HeatmapGrid.tsx`: una llamada sin `metric_type`,
   normalización por fila, celda vacía neutra, tooltip, leyenda y tabla alternativa accesible.
-- [ ] 4.2 Tests (dos escalas, celda vacía, tabla accesible).
+- [x] 4.2 Tests (dos escalas, celda vacía, tabla accesible).
 
 ## Fase 5 — E2E, CI y documentación
 
-- [ ] 5.1 `e2e/stub-api.mjs` + `e2e/dashboard.spec.ts` + `playwright.config.ts` (dos `webServer`,
+- [x] 5.1 `e2e/stub-api.mjs` + `e2e/dashboard.spec.ts` + `playwright.config.ts` (dos `webServer`,
   `PLAYWRIGHT_CHROMIUM_PATH` opcional); smoke verde en local.
-- [ ] 5.2 `.github/workflows/ci.yml`: job `frontend` bloqueante (lint, test, build, size, e2e).
-- [ ] 5.3 `Makefile` (`fe-install`, `fe-lint`, `fe-test`, `fe-build`, `fe-e2e`) y
+- [x] 5.2 `.github/workflows/ci.yml`: job `frontend` bloqueante (lint, test, build, size, e2e).
+- [x] 5.3 `Makefile` (`fe-install`, `fe-lint`, `fe-test`, `fe-build`, `fe-e2e`) y
   `CONTRIBUTING.md` (comandos y la deuda de autenticación).
-- [ ] 5.4 `CHANGELOG.md` y registro de T4 en `odd/tasks/mvp1.md` con la evidencia.
+- [x] 5.4 `CHANGELOG.md` y registro de T4 en `odd/tasks/mvp1.md` con la evidencia.

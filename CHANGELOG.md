@@ -157,6 +157,24 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- SPA de operación (B.5, ISS-B-05, #69): `src/frontend/` deja de ser
+  placeholders y pasa a una app React 19 + TypeScript + Vite con las dos
+  vistas de la v1. **Latencias**: selector de métrica (`/metrics/list`),
+  ventanas 15 min/1 h/6 h/24 h con bucket 60/60/300/900 s, serie SVG del AVG
+  por bucket con `session_count`, resumen y tabla de corridas de la sonda
+  (`/metrics/probes`). **Heatmap UX**: grilla tiempo × métrica con una sola
+  llamada a `/metrics/query` sin filtro, color normalizado por fila, celda sin
+  dato neutra, tooltip y tabla accesible (la API pública no expone `page_url`
+  ni `metadata`, así que no es una grilla página × posición). La API key la
+  pega el operador y vive sólo en `sessionStorage` (401/403 la descarta): el
+  JWT no está cableado a `/metrics/*` y hacerlo es backend nuevo, fuera de
+  B.5. Build estático reproducible (`npm ci` + lock, Node ≥ 22) con
+  presupuesto de bundle verificado por script: ~243 kB raw / ~75 kB gzip.
+  50 tests de componentes (Vitest + Testing Library) y 5 de smoke E2E
+  (Playwright sobre el build con un stub de API). Sin librería de gráficos:
+  D3 queda para cuando haga falta interacción (desvío de ADR-0009
+  documentado).
+
 - Gates de calidad bloqueantes en CI (B.9, ISS-B-09, #71): la suite declara
   `--cov-fail-under=70` en el job (además de `fail_under = 70` en
   `pyproject.toml`), pylint pasa a `--fail-under=9.0 --fail-on=W,E` sin ningún
@@ -168,6 +186,10 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   de `needs`, `--fail-on`, la paridad de `make lint` y la ausencia de
   `continue-on-error`; `CONTRIBUTING.md` documenta cada gate y cómo
   reproducir su fallo localmente.
+- CI (ISS-B-05, #69): job `frontend` bloqueante (`npm ci` → eslint → Vitest →
+  build → `check-size` < 1 MB → Chromium + smoke E2E), fijado por
+  `tests/test_ci_gates.py`; `make fe-install/fe-lint/fe-test/fe-build/fe-e2e`
+  para correr lo mismo en local.
 - Imports `src.ml.*` → `ml.*` (ISS-B-09, #71): `src/ml/` y los tests cargaban
   el mismo archivo como dos módulos distintos (`src.ml.schemas` y
   `ml.schemas` → dos clases `MetricBatchInput`), lo que rompía `isinstance`
