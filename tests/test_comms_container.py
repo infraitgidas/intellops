@@ -13,6 +13,7 @@ ausencia como "canal no disponible", nunca como un fallo (OAS-B10-2).
 from pathlib import Path
 
 import pytest
+import re
 
 DOCKERFILE = Path("src/comms/Dockerfile")
 ENTRYPOINT = Path("src/comms/entrypoint.py")
@@ -45,12 +46,24 @@ COMMS_ENV_VARS = (
 
 
 def _comms_service_block() -> str:
-    """Bloque YAML del servicio `intellops-comms` dentro del compose."""
+    """Bloque YAML del servicio `intellops-comms` dentro del compose.
+
+    Corta en el pr\u00f3ximo **servicio** (clave de dos espacios bajo `services:`), no
+    en un prefijo de nombre: con un corte por `intellops-` cualquier servicio
+    nuevo despu\u00e9s de comms quedaba adentro del bloque y romp\u00eda las
+    aserciones sobre comms sin que comms hubiera cambiado (pas\u00f3 con el stub
+    del smoke de ISS-C-01).
+    """
     content = COMPOSE.read_text(encoding="utf-8")
     start = content.index("\n  intellops-comms:") + 1
     rest = content[start:]
-    end = rest.find("\n  intellops-")
-    return rest if end == -1 else rest[:end]
+    first_line_end = rest.index("\n")
+    match = re.search(
+        r"\n  [a-z0-9][a-z0-9-]*:\s*\n", rest[first_line_end:]
+    )
+    if match is None:
+        return rest
+    return rest[: first_line_end + match.start()]
 
 
 def test_image_packages_the_full_source_tree():

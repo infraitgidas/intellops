@@ -72,7 +72,7 @@ Qué hace el target:
    `INTELLOPS_RULES_INTERVAL_SECONDS=5`, `INTELLOPS_COMMS_INTERVAL_SECONDS=5`,
    `INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN=smoke-token`,
    `INTELLOPS_COMMS_TELEGRAM_CHAT_ID=smoke-chat` y
-   `INTELLOPS_COMMS_TELEGRAM_API_BASE=http://telegram-stub:8099`.
+   `INTELLOPS_COMMS_TELEGRAM_API_BASE=http://intellops-telegram-stub:8099`.
 2. Levanta la stack con el perfil del stub:
    `docker compose --profile smoke up -d --build` (la primera vez baja y
    construye las tres imágenes: contá hasta ~5 min).
@@ -112,7 +112,7 @@ INTELLOPS_RULES_INTERVAL_SECONDS=5 \
 INTELLOPS_COMMS_INTERVAL_SECONDS=5 \
 INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN=smoke-token \
 INTELLOPS_COMMS_TELEGRAM_CHAT_ID=smoke-chat \
-INTELLOPS_COMMS_TELEGRAM_API_BASE=http://telegram-stub:8099 \
+INTELLOPS_COMMS_TELEGRAM_API_BASE=http://intellops-telegram-stub:8099 \
   docker compose --profile smoke up -d --build
 
 python3 scripts/smoke.py
@@ -135,7 +135,7 @@ Cada una tiene su flag equivalente: `python3 scripts/smoke.py --help`.
 
 El smoke habla con el stub por `SMOKE_STUB_URL` (el puerto publicado en
 loopback); el worker de `comms` habla con el stub por DNS del compose
-(`http://telegram-stub:8099`). Si cambiás el puerto en `docker-compose.yml`
+(`http://intellops-telegram-stub:8099`). Si cambiás el puerto en `docker-compose.yml`
 cambiá los dos.
 
 ---
@@ -147,7 +147,7 @@ envío sin cuenta real. Es un servicio **opcional** del compose, bajo
 `profiles: ["smoke"]`:
 
 ```yaml
-  telegram-stub:
+  intellops-telegram-stub:
     image: python:3.11-slim
     profiles: ["smoke"]
     command: ["python", "/app/telegram_stub.py"]
@@ -159,7 +159,7 @@ envío sin cuenta real. Es un servicio **opcional** del compose, bajo
 
 Sin `--profile smoke`, `docker compose up` sigue levantando **cuatro** servicios:
 la stack por defecto no cambia. Con el perfil, el stub entra en la red del
-compose y el worker de `comms` le llega por DNS (`http://telegram-stub:8099`).
+compose y el worker de `comms` le llega por DNS (`http://intellops-telegram-stub:8099`).
 Esa es la razón de que el smoke no dependa de `host.docker.internal`: hay hosts
 (con firewall de entrada restrictivo) donde un contenedor no puede abrir
 conexiones TCP hacia el host, y el smoke fallaría sin que el producto tenga un
@@ -175,8 +175,8 @@ problema.
 Levantarlo solo (con la stack ya arriba) y probarlo a mano:
 
 ```bash
-docker compose --profile smoke up -d telegram-stub
-docker compose ps telegram-stub                 # Up
+docker compose --profile smoke up -d intellops-telegram-stub
+docker compose ps intellops-telegram-stub                 # Up
 
 curl -s -X POST http://127.0.0.1:8099/botsmoke-token/sendMessage \
   -H 'Content-Type: application/json' \
@@ -196,7 +196,8 @@ código ≠ 0. Tabla de lectura rápida:
 
 | Etapa que falla | Causa probable | Qué mirar |
 |---|---|---|
-| `stub de Telegram` | El servicio no está arriba (falta `--profile smoke`) o el puerto 8099 está ocupado | `docker compose --profile smoke up -d telegram-stub`; `docker compose ps telegram-stub` |
+| `stub de Telegram` | El servicio no está arriba (falta `--profile smoke`) o el puerto 8099 está ocupado | `docker compose --profile smoke up -d intellops-telegram-stub`; `docker compose ps intellops-telegram-stub` |
+| `make smoke` aborta con `Bind for 127.0.0.1:8099 failed: port is already allocated` | Quedó un stub de una corrida anterior (o de un nombre viejo del servicio) con el puerto tomado | `docker compose --profile smoke down`; si persiste, `docker ps -a --filter name=telegram-stub` y `docker rm -f <nombre>` |
 | `health` | La API no arrancó, migración falló o el build no terminó | `docker compose logs intellops-core` |
 | `login` | La base no tiene el Admin del seed | `docker compose down -v && make smoke`; migración `0002` |
 | `aplicación` / `catálogo` | Roles, JWT o catálogo `metric_type` incompletos | logs de `intellops-core`; `GET /metrics/list` |
@@ -208,14 +209,14 @@ código ≠ 0. Tabla de lectura rápida:
 
 ### El worker de comms no llega al stub
 
-El worker sale al stub por el DNS del compose (`http://telegram-stub:8099`). Si
+El worker sale al stub por el DNS del compose (`http://intellops-telegram-stub:8099`). Si
 no hay mensaje en `/_messages` pero el stub está arriba, revisá en este orden:
 
 ```bash
 # 1. El stub está en la misma red que comms?
-docker compose ps telegram-stub
+docker compose ps intellops-telegram-stub
 docker compose exec intellops-comms python -c \
-  "import urllib.request; print(urllib.request.urlopen('http://telegram-stub:8099/health', timeout=3).read())"
+  "import urllib.request; print(urllib.request.urlopen('http://intellops-telegram-stub:8099/health', timeout=3).read())"
 
 # 2. El worker tiene la base URL, el token y el chat id?
 docker compose exec intellops-comms env | grep TELEGRAM
@@ -247,7 +248,7 @@ docker compose --profile smoke down -v # y borra el volumen de Postgres
 
 El stub se baja con la stack del perfil: no queda escuchando en 8099 cuando
 temina la corrida. Si querés sacarlo sin bajar lo demás:
-`docker compose --profile smoke stop telegram-stub`.
+`docker compose --profile smoke stop intellops-telegram-stub`.
 
 Los datos del smoke quedan en la base de desarrollo: una aplicación
 `smoke-<timestamp>` y sus métricas y alertas. Para dejarla limpia, `docker

@@ -20,7 +20,7 @@ fallo imprime la etapa, el request, el status y el cuerpo truncado, y el
 proceso sale con código ≠ 0.
 
 El stub de Telegram es un servicio del compose bajo `profiles: ["smoke"]`
-(`telegram-stub`, D3): lo levanta `make smoke` con el resto de la stack y el
+(`intellops-telegram-stub`, D3): lo levanta `make smoke` con el resto de la stack y el
 smoke sólo verifica su `/health` y lee `/_messages` desde el host. No depende de
 que el host acepte tráfico de contenedores.
 
@@ -74,7 +74,7 @@ POLL_INTERVAL = 2.0
 STUB_START_TIMEOUT = 15.0
 STUB_HINT = (
     "levantá el stub con `make smoke` o, con la stack arriba, "
-    "`docker compose --profile smoke up -d telegram-stub`"
+    "`docker compose --profile smoke up -d intellops-telegram-stub`"
 )
 REQUEST_TIMEOUT = 15.0
 # Cuerpo de respuesta que se imprime en un fallo (el resto se trunca).

@@ -98,7 +98,7 @@ services:
       - INTELLOPS_COMMS_TELEGRAM_CHAT_ID=${INTELLOPS_COMMS_TELEGRAM_CHAT_ID:-}
       # Base de la Bot API (ISS-C-01): default vacío = la constante del código
       # (`https://api.telegram.org`). `make smoke` la apunta al servicio
-      # `telegram-stub` del compose (`http://telegram-stub:8099`).
+      # `intellops-telegram-stub` del compose (`http://intellops-telegram-stub:8099`).
       - INTELLOPS_COMMS_TELEGRAM_API_BASE=${INTELLOPS_COMMS_TELEGRAM_API_BASE:-}
       - INTELLOPS_COMMS_SMTP_HOST=${INTELLOPS_COMMS_SMTP_HOST:-}
       - INTELLOPS_COMMS_SMTP_PORT=${INTELLOPS_COMMS_SMTP_PORT:-}
@@ -119,10 +119,10 @@ services:
   # Stub de la Bot API de Telegram para el smoke E2E (ISS-C-01, E2E-3/D3).
   # Bajo `profiles: ["smoke"]`: `docker compose up` NO lo levanta, así la stack
   # por defecto sigue siendo de cuatro servicios. Vive en la red del compose —
-  # el despacho le llega por DNS (`http://telegram-stub:8099`) sin depender de
+  # el despacho le llega por DNS (`http://intellops-telegram-stub:8099`) sin depender de
   # que el host acepte tráfico de contenedores — y publica el puerto en
   # loopback para que el smoke lea `/_messages` desde el host.
-  telegram-stub:
+  intellops-telegram-stub:
     image: python:3.11-slim
     profiles: ["smoke"]
     command: ["python", "/app/telegram_stub.py"]

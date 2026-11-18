@@ -178,13 +178,13 @@ El stub es un servicio opcional del compose (perfil `smoke`):
 INTELLOPS_COMMS_INTERVAL_SECONDS=5 \
 INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN=demo-token \
 INTELLOPS_COMMS_TELEGRAM_CHAT_ID=demo-chat \
-INTELLOPS_COMMS_TELEGRAM_API_BASE=http://telegram-stub:8099 \
-  docker compose --profile smoke up -d telegram-stub intellops-comms
+INTELLOPS_COMMS_TELEGRAM_API_BASE=http://intellops-telegram-stub:8099 \
+  docker compose --profile smoke up -d intellops-telegram-stub intellops-comms
 
 curl -s http://127.0.0.1:8099/_messages     # el mensaje recibido
 ```
 
-El worker llega al stub por el DNS del compose (`telegram-stub`), no por el
+El worker llega al stub por el DNS del compose (`intellops-telegram-stub`), no por el
 host: no hace falta que el host acepte tráfico de contenedores.
 
 ### Opción B — Telegram real (si tenés un bot)
@@ -207,7 +207,7 @@ observado y umbral, y la alerta pasó a `sent` con `sent_at` no nulo
 
 Si la alerta queda `failed` con `comms delivery attempt failed` en los logs, el
 contenedor no llegó al destino: revisá el token, el chat id y —con el stub— que
-`telegram-stub` esté arriba y en la misma red (`docker compose ps telegram-stub`,
+`intellops-telegram-stub` esté arriba y en la misma red (`docker compose ps intellops-telegram-stub`,
 [`smoke-e2e.md`](./smoke-e2e.md) §5).
 
 ---

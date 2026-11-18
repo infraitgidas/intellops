@@ -83,7 +83,7 @@ test-down:
 	$(TEST_COMPOSE) down -v --remove-orphans
 
 # Smoke E2E (ISS-C-01): levanta la stack de docker-compose.yml con los
-# intervalos de los workers en 5 s y el stub de Telegram (`telegram-stub`,
+# intervalos de los workers en 5 s y el stub de Telegram (`intellops-telegram-stub`,
 # profile `smoke`), y apunta el proveedor de Telegram al stub por el DNS del
 # compose. Después corre el flujo completo. `SMOKE_NO_BUILD=1` reusa las
 # imágenes ya construidas. Bajar todo (stub incluido):
@@ -93,7 +93,7 @@ SMOKE_ENV = \
 	INTELLOPS_COMMS_INTERVAL_SECONDS=5 \
 	INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN=smoke-token \
 	INTELLOPS_COMMS_TELEGRAM_CHAT_ID=smoke-chat \
-	INTELLOPS_COMMS_TELEGRAM_API_BASE=http://telegram-stub:8099
+	INTELLOPS_COMMS_TELEGRAM_API_BASE=http://intellops-telegram-stub:8099
 
 smoke:
 	$(SMOKE_ENV) sh -c 'set -e; if [ "$$SMOKE_NO_BUILD" = "1" ]; then \
