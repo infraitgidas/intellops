@@ -39,9 +39,14 @@ except ImportError:
     _OPEN_API_3_1_EXPERIMENTAL = False
 
 # Paths implementados en la app (ISS-S2-03 agrega /telemetry/*; ISS-S3-01
-# agrega /metrics/*; ISS-S3-03 agrega /sessions*; dashboard/ML viven en slices
-# posteriores; OAS-10 los declara en el documento).
-_SCOPED_PATH_RE = r"/(health|ready|auth|users|applications|telemetry|metrics|sessions)"
+# agrega /metrics/*; ISS-S3-03 agrega /sessions*; ISS-B-03 agrega /anomalies*
+# y GET /alerts; dashboard/ML viven en slices posteriores; OAS-10 los
+# declara en el documento).
+# `/alerts` va anclado: /alerts/config y /alerts/{id}/ack no están implementados.
+_SCOPED_PATH_RE = (
+    r"/(health|ready|auth|users|applications|telemetry|metrics|sessions|anomalies)"
+    r"|^/alerts$"
+)
 
 
 def _contract() -> dict:
@@ -101,7 +106,7 @@ def test_oas10_preexisting_paths_intact():
         "/metrics/query",
         "/metrics/list",
         "/anomalies",
-        "/anomalies/{id}",
+        "/anomalies/{anomaly_id}",
         "/predictions",
         "/predictions/forecast",
         "/alerts",
@@ -400,6 +405,98 @@ def test_s303_session_schema_has_no_dead_fields():
         "metric_count",
         "exception_count",
     }
+
+
+# -- ISS-B-03: lectura app-scoped de anomalías y alertas (ADR-0012) -----------
+
+_READ_ERRORS = {"200", "401", "403"}
+
+
+def _limit_param(operation: dict) -> dict:
+    return next(param for param in operation["parameters"] if param["name"] == "limit")
+
+
+def test_b03_anomalies_paths_contract():
+    """`GET /anomalies` y `GET /anomalies/{anomaly_id}` DEBEN exigir apiKey
+    (OAS-14), declarar ventana + limit acotado 1..500 + filtro metric_type en
+    el listado y 404 en el detalle (ADR-0003)."""
+    doc = _contract()
+    listing = doc["paths"]["/anomalies"]["get"]
+    detail = doc["paths"]["/anomalies/{anomaly_id}"]["get"]
+
+    assert listing["operationId"] == "listAnomalies"
+    assert detail["operationId"] == "getAnomaly"
+    for operation in (listing, detail):
+        assert operation["security"] == [{"apiKey": []}]
+    assert _READ_ERRORS | {"422"} <= set(listing["responses"])
+    assert _READ_ERRORS | {"404"} <= set(detail["responses"])
+
+    params = {param["name"] for param in listing["parameters"]}
+    assert params == {"start", "end", "limit", "metric_type"}
+    limit = _limit_param(listing)["schema"]
+    assert (limit["minimum"], limit["maximum"], limit["default"]) == (1, 500, 50)
+
+    (path_param,) = detail["parameters"]
+    assert path_param["name"] == "anomaly_id"
+    assert path_param["in"] == "path"
+    assert path_param["schema"]["format"] == "uuid"
+
+    items = listing["responses"]["200"]["content"]["application/json"]["schema"]["items"]
+    assert items["$ref"] == "#/components/schemas/Anomaly"
+
+
+def test_b03_alerts_path_contract():
+    """`GET /alerts` DEBE exigir apiKey, declarar ventana, limit 1..500 y el
+    filtro status con el enum del catálogo, y 422 para parámetros inválidos."""
+    doc = _contract()
+    operation = doc["paths"]["/alerts"]["get"]
+
+    assert operation["operationId"] == "listAlerts"
+    assert operation["security"] == [{"apiKey": []}]
+    assert _READ_ERRORS | {"422"} <= set(operation["responses"])
+
+    params = {param["name"]: param for param in operation["parameters"]}
+    assert set(params) == {"start", "end", "limit", "status"}
+    assert params["status"]["schema"]["enum"] == ["pending", "sent", "failed"]
+    limit = params["limit"]["schema"]
+    assert (limit["minimum"], limit["maximum"], limit["default"]) == (1, 500, 50)
+
+    items = operation["responses"]["200"]["content"]["application/json"]["schema"]["items"]
+    assert items["$ref"] == "#/components/schemas/Alert"
+
+
+def test_b03_anomaly_and_alert_schemas_match_response_models():
+    """Los schemas `Anomaly` y `Alert` DEBEN declarar exactamente los campos
+    de `AnomalyOut` y `AlertOut` (sin campos muertos del borrador ni
+    `recipient`, ADR-0012)."""
+    from api.presentation.schemas.alert import AlertOut
+    from api.presentation.schemas.anomaly import AnomalyOut
+
+    schemas = _contract()["components"]["schemas"]
+    anomaly, alert = schemas["Anomaly"], schemas["Alert"]
+
+    assert set(anomaly["properties"]) == set(AnomalyOut.model_fields)
+    assert set(anomaly["required"]) == set(AnomalyOut.model_fields)
+    assert set(alert["properties"]) == set(AlertOut.model_fields)
+    assert "recipient" not in alert["properties"]
+    assert alert["properties"]["severity"]["enum"] == ["low", "medium", "high", "critical"]
+    # status y channel salen de catálogos sin CHECK: sin enum cerrado, para
+    # que un valor nuevo del catálogo no rompa la respuesta.
+    for open_field in ("status", "channel"):
+        assert "enum" not in alert["properties"][open_field], open_field
+    for nullable in ("anomaly_id", "channel", "sent_at"):
+        assert "null" in alert["properties"][nullable]["type"], nullable
+
+
+def test_b03_schemathesis_subset_includes_reads_and_excludes_unimplemented():
+    """OAS-B3-1: el subset de schemathesis DEBE incluir los tres endpoints de
+    lectura y excluir `/alerts/config` y `/alerts/{id}/ack`, que no están
+    implementados."""
+    scoped = from_path(OPENAPI_PATH).include(path_regex=_SCOPED_PATH_RE)
+    paths = {operation.ok().path for operation in scoped.get_all_operations()}
+
+    assert {"/anomalies", "/anomalies/{anomaly_id}", "/alerts"} <= paths
+    assert not {"/alerts/config", "/alerts/{id}/ack"} & paths
 
 
 # -- OAS-14 (ISS-S3-02/ARCH-6): enum unit ampliado + nota error_type ---------

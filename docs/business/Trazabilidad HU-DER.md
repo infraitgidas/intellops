@@ -49,4 +49,4 @@
 - `USER_SESSION` relaciona `APPLICATION` y `LAB_USER` con `RUM_METRIC` (session_id).
 - `JS_EXCEPTION.metric_id` (opcional) asocia errores a la métrica que los originó.
 - `ANOMALY` relaciona `RUM_METRIC` (metric_id) con `ML_MODEL` (model_id).
-- `ALERT.anomaly_id` asocia cada alerta a la anomalía que la disparó.
+- `ALERT.application_id` es el tenant de la alerta. `ALERT.anomaly_id` (opcional) asocia la alerta a la anomalía que la disparó; es NULL en las alertas de reglas de umbral de la v1 (migración 0007, ADR-0012).

@@ -26,6 +26,8 @@ from api.presentation.errors import (
     validation_error_handler,
 )
 from api.presentation.routers import (
+    alerts,
+    anomalies,
     applications,
     auth,
     metrics,
@@ -105,6 +107,8 @@ app.include_router(users.router)
 app.include_router(applications.router)
 app.include_router(telemetry.router)
 app.include_router(metrics.router)
+app.include_router(anomalies.router)
+app.include_router(alerts.router)
 app.include_router(sessions.router)
 
 
