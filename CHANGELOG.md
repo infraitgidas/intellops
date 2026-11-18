@@ -123,6 +123,18 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `channel_id` pasan a nullable; índices `idx_alert_app_created` e
   `idx_anomaly_app_timestamp`. Aborta si `alert` tiene filas. Espejo en
   `ddl_v1.0.sql`.
+- Motor determinístico de reglas de umbral (ISS-B-14, #74, ADR-0013): la v1
+  crea alertas sin detección ML (D1). Migración 0008: tabla `alert_rule`
+  (umbral por aplicación y por métrica, comparación `gt`/`lt`, ventana,
+  muestras mínimas, cooldown y severidad) y columnas `rule_id`, `threshold`
+  y `observed_value` en `alert`. Motor en `intellops-ai-engine`
+  (`src/ml/rules/`): agregación en PostgreSQL (p95 para latencias y rage
+  clicks, `AVG` para `AVAILABILITY`, razón de excepciones sobre sesiones),
+  comparación inclusiva, datos insuficientes sin alerta y cooldown contra
+  `alert`. `POST`/`GET /alerts/config` con auth por rol (422
+  `invalid_alert_rule`, 404 `application_not_found` y
+  `metric_type_not_found`). La imagen del worker pasa a copiar `src/`
+  completo: antes arrancaba con `ModuleNotFoundError: ml.rules`.
 
 ### Changed
 

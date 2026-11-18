@@ -69,10 +69,15 @@ disponibilidad" no tiene sentido.
 | `TTFB`, `FCP`, `XHR_LATENCY` | `percentile_cont(0.95)` de `rum_metric.value` | filas de `rum_metric` en la ventana |
 | `JS_EXCEPTION_RATE` | `count(js_exception) / count(user_session)` | sesiones iniciadas en la ventana |
 | `AVAILABILITY` | `AVG(rum_metric.value)` (0/1 → uptime) | corridas de la sonda en la ventana |
-| `RAGE_CLICK` | `AVG(rum_metric.value)` | filas de `rum_metric` |
+| `RAGE_CLICK` | `percentile_cont(0.95)` de `rum_metric.value` | filas de `rum_metric` |
 
 `percentile_cont` corre en PostgreSQL: traer las muestras al worker para calcular el percentil
 inflaría el consumo del contenedor y duplicaría la lógica de agregación.
+
+`percentile_cont` interpola sobre `float8`, así que el observado se cuantiza a 6 decimales antes
+de compararlo: sin eso, un p95 que debería ser exactamente el umbral puede llegar como
+`954.9999999999999` y la comparación inclusiva (S4) fallaría por un artefacto binario del cálculo,
+no por el dato.
 
 ## 5. Comparación inclusiva
 
