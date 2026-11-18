@@ -157,6 +157,21 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Suite E2E en CI y carga con k6 (C.3, ISS-C-03, #78): job `e2e` bloqueante
+  (`needs: lint`, 25 min) que levanta la stack con el perfil `smoke`, intervalos
+  de los workers en 5 s, y corre el smoke de C.1 — es el único gate que ve
+  build + migraciones + colas + ciclos de los workers, y sube el smoke y los
+  logs como artefacto cuando falla. Escenario k6 versionado (`load/ingest.js`)
+  con `setup()` que se provisiona solo (login admin → aplicación → API key) y
+  los umbrales de la v1: `p(95) ≤ 500 ms` en la ingesta, `http_req_failed <
+  1 %` y 100 % de checks (`accepted > 0`), medidos con la imagen oficial
+  `grafana/k6` pinneada en la red del compose (`make load`,
+  `reports/k6-summary.json`). Carga estándar: 10 VUs, 1 min, lotes de 10
+  eventos. Medición local: p95 10.39 ms, 0 % de fallos, 600 iteraciones, los
+  tres umbrales en verde. El job `load` del CI corre sólo por
+  `workflow_dispatch` (la latencia de un runner compartido no es comparable
+  entre corridas) y el runbook aclara qué prueba y qué no el número.
+
 - Integración de punta a punta (C.1, ISS-C-01, #76): `make smoke` recorre el
   flujo completo sobre la stack real en ~10 s — health → login del admin del
   seed → alta de aplicación + API key → ingesta → lectura en
