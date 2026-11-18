@@ -50,3 +50,4 @@ Cada ADR sigue el formato [Nygard](https://cognitect.com/blog/2011/11/15/documen
 | 0010 | [Arquitectura de 4 contenedores para el MVP (monolito modular desacoplado)](0010-arquitectura-de-4-contenedores.md) | Aceptado | 2026-08-12 |
 | 0011 | [Sesiones RUM — creadas por la ingesta, expuestas en solo lectura y sin campos muertos](0011-sesiones-rum-solo-lectura.md) | Aceptado | 2026-11-08 |
 | 0012 | [Alerta independiente de la anomalía y lectura app-scoped de anomalías y alertas](0012-alerta-independiente-y-lectura-de-anomalias-y-alertas.md) | Aceptado | 2026-11-08 |
+| 0013 | [Motor determinístico de reglas de umbral en el `ai-engine`](0013-motor-de-reglas-de-umbral.md) | Aceptado | 2026-11-18 |
