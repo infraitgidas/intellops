@@ -81,7 +81,7 @@ S35. B.10 se verifica contra canales reales con credenciales que aporta el usuar
 | T3 | Quality gates bloqueantes en CI (coverage, lint, contrato) | S11–S14 | inline | 7ad824d, 1104d43, 00a936a, 196f424, 5430842, c237abf |
 | T4 | SPA React: vistas de latencias RUM y heatmap UX | S15–S19 | worker×2 + inline, test-first | 9e1ccc1, c934f78, 60c945f, 0ef44f3 |
 | T5 | Integración E2E del flujo completo | S20–S23 | worker + inline | 10419a6, 6a58a3e, f8244b6, 63536d0, f9aea30, d86961f |
-| T6 | Suite E2E automatizada + escenario k6 ≤ 500 ms | S24–S27 | inline | pendiente |
+| T6 | Suite E2E automatizada + escenario k6 ≤ 500 ms | S24–S27 | worker + inline | eaef520, 20e3908, 1ea6da5, 996a577, 6d6c0b1 |
 | T7 | Release v1.0: tag, compose, guía de despliegue y notes | S28–S32 | inline | pendiente |
 
 Orden por dependencia: T1 (alerta) → T2 (despacho de esa alerta) → T3 (gates antes de la SPA)
@@ -203,3 +203,24 @@ xpassed con 93.26 % de cobertura, `pytest tests/test_comms_dispatch.py` 36 passe
 origin/develop HEAD` sin conflictos (S20/S21 como *mergeable*, porque MVP1 no se pushea).
 Frontera de slice: los seis commits de T5 son la slice de este trabajo. Próxima task: T6 (suite E2E
 en CI + escenario k6 ≤ 500 ms).
+
+L11 (2026-11-18, T6 cerrado y `origin/develop` incorporado): cinco commits de C.3 (openspec → k6 +
+targets → jobs de CI + pin → runbook/CONTRIBUTING → changelog/tasks). Job `e2e` bloqueante
+(`needs: lint`) que corre el smoke de C.1 sobre la stack real con los intervalos en 5 s y sube
+smoke + logs como artefacto si falla; job `load` sólo por `workflow_dispatch`. `load/ingest.js`:
+`setup()` se provisiona solo (login → app `k6-load-<ts>` → API key) y declara los umbrales de la
+v1 (`p(95) ≤ 500 ms`, `http_req_failed < 1 %`, 100 % de checks con `accepted > 0`); corre con la
+imagen oficial `grafana/k6:0.57.0` en la red del compose y exporta `reports/k6-summary.json`.
+Evidencia: `make load` → p95 10.39 ms, 0 % de fallos (0/603), 1203/1203 checks, 600 iteraciones,
+tres umbrales en verde; un umbral cruzado a propósito sale con 99; `make e2e-ci` verde (8.4 s de
+flujo); `pytest tests/test_ci_gates.py` 15 passed. El worker sumó dos ajustes medidos: `parseInt`
+en `VUS` (k6 exige número en `scenarios`) y `--user "$(HOST_UID):$(HOST_GID)"` en el `docker run`
+(sin eso el summary sale `permission denied`); el `DELETE /applications/{id}` responde 409 cuando
+la app ya tiene sesiones, así que `teardown()` no limpia y el runbook documenta `down -v`/SQL.
+Merge con `origin/develop`: el remoto había avanzado de 057d46b a 0f7531b con exactamente los
+merges de #91 (s3-06) y #92 (b-03) — el mismo contenido que ya teníamos por los merges locales
+(`git diff 7eb68a1 origin/develop` vacío) —, así que `git merge origin/develop` entró sin
+conflictos y sin cambiar un byte (`git diff 6d6c0b1 7edb030` vacío); `origin/develop` queda
+ancestro de `MVP1` (43 commits adelante, 0 atrás) y lo subido a develop tiene prioridad por
+construcción. Frontera de slice: los cinco commits de T6 son la slice de este trabajo. Próxima
+task: T7 (release v1.0).
