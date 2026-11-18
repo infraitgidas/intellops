@@ -79,7 +79,7 @@ S35. B.10 se verifica contra canales reales con credenciales que aporta el usuar
 | T1 | Motor determinístico de reglas de umbral y `ALERT` Pending | S1–S5 | inline + worker, test-first | cd7a182, bcf1e87, fbc50ee, 0061877, 955ba88, 5bbe050, 31ec509 |
 | T2 | Dispatcher de notificaciones mail + Telegram con retry/backoff | S6–S10, S5 | worker + inline, test-first | 6ad623b, 1814b2f, 98a7030, d11a64b (bloqueado: `.env.example` y verificación real de S6) |
 | T3 | Quality gates bloqueantes en CI (coverage, lint, contrato) | S11–S14 | inline | 7ad824d, 1104d43, 00a936a, 196f424, 5430842, c237abf |
-| T4 | SPA React: vistas de latencias RUM y heatmap UX | S15–S19 | inline, test-first | pendiente |
+| T4 | SPA React: vistas de latencias RUM y heatmap UX | S15–S19 | worker×2 + inline, test-first | 9e1ccc1, c934f78, 60c945f, 0ef44f3 |
 | T5 | Integración E2E del flujo completo | S20–S23 | inline | pendiente |
 | T6 | Suite E2E automatizada + escenario k6 ≤ 500 ms | S24–S27 | inline | pendiente |
 | T7 | Release v1.0: tag, compose, guía de despliegue y notes | S28–S32 | inline | pendiente |
@@ -161,3 +161,22 @@ S14 (MVP1 es local y no se pushea): se reemplaza por `tests/test_ci_gates.py` + 
 negativa de arriba; cuando haya PRs reales se puede hacer igual. Frontera de slice: los seis
 commits de T3 son la slice de este trabajo; los ~13k líneas que acumula `MVP1` sobre
 `origin/develop` siguen siendo, en su mayoría, los merges de Santiago (L5). Próxima task: T4 (SPA).
+
+L9 (2026-11-18, T4 cerrado): cuatro commits (openspec → base de la SPA → heatmap + E2E → CI).
+Decisiones que el contrato no resolvía (`openspec/changes/ISS-B-05/design.md`): autenticación con
+la key que pega el operador en `sessionStorage` (D2: `/metrics/*` es `apiKey` y cablear JWT es
+backend nuevo), heatmap = tiempo × métrica normalizado por fila (D3: la API pública no expone
+`page_url` ni `metadata`, así que una grilla página × posición no es posible sin backend nuevo) y
+React 19 + TS + Vite sin D3 (D1: grilla y serie en SVG propio; desvío de ADR-0009 documentado).
+Evidencia en el host (Node 26): `npm run lint` 0 warnings, `npm test` 50 passed (7 archivos),
+`npm run build` OK (js 237.57 kB, gzip 74.17 kB), `npm run check-size` 243.1 kB raw / 74.9 kB
+gzip contra un presupuesto de 1 MB, `npm run test:e2e` 5 passed (Chromium de Playwright; fallback
+verificado con `PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium`). Gate negativo del tamaño probado con
+una copia del script: sin `dist/` → exit 1, `dist` de 1.1 MB → exit 1. El worker de la fase B
+encontró dos cosas que el padre tenía mal en el brief y las corrigió contra el código: el envelope
+de error real es `{"error":{code,message}}` de ADR-09 (no `{"detail":{...}}`) y `vite preview` en
+este host escucha en `::1`, así que el `baseURL` del E2E es `localhost`. La fuente de la API
+quedó sin tocar (el heatmap y las dos vistas salen de `/metrics/{query,list,probes}`). Frontera de
+slice: los cuatro commits de T4 son la slice de este trabajo; el árbol de `src/frontend/` es
+greenfield (sólo `.gitkeep`), por eso no hay baseline diferencial de comandos previos. Próxima
+task: T5 (integración E2E del flujo completo).
