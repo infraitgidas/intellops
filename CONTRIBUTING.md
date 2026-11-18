@@ -128,7 +128,7 @@ nunca se versiona.
 - **Integración**: `pytest + httpx.AsyncClient` — al menos flujo feliz + error
 - **Contrato**: `schemathesis` — validación automática contra OpenAPI
 - **Carga**: `Locust` o `k6` — para endpoints críticos (ingesta, detección)
-- **Cobertura mínima**: 70% (gate único en `[tool.coverage.report] fail_under` de `pyproject.toml`)
+- **Cobertura mínima**: 70% (gate único en `[tool.coverage.report] fail_under` de `pyproject.toml`, y `--cov-fail-under=70` en el CI: por debajo de ese valor el job falla)
 
 ### Capas: `unit` vs `integration`
 
@@ -156,7 +156,7 @@ make test-unit          # solo unit (sin DB, segundos)
 make test-integration   # solo integración (Postgres)
 make test-cov           # suite con cobertura (HTML en htmlcov/)
 make test-contract      # contract tests (schemathesis, OpenAPI 3.1)
-make lint               # flake8 + pylint ≥ 9.0
+make lint               # flake8 (0 hallazgos) + pylint --fail-on=W,E (≥ 9.0)
 make test-down          # borra contenedores y DB efímera
 ```
 
@@ -176,7 +176,7 @@ Corre en push a `main`/`develop`, en PRs hacia esas ramas y manualmente (`workfl
 
 | Job | Qué valida | Falla si |
 |-----|-----------|----------|
-| `Lint & Format` | `flake8 src/ tests/` + `pylint src/` | hay warnings de flake8 o pylint < 9.0 |
+| `Lint & Format` | `flake8 src/ tests/` + `pylint src/ --fail-under=9.0 --fail-on=W,E` | hay un warning o error de flake8, un warning o error de pylint, o el score < 9.0 |
 | `Unit Tests` | `pytest -m unit` sin Postgres | falla un test unitario |
 | `Unit & Integration Tests` | suite completa contra Postgres 16 + cobertura | falla un test o la cobertura < 70% |
 | `Reproducible Test Env (Docker)` | `make lock` sin diff + `make ci` en el entorno de testing | el lock está desactualizado o falla el pipeline en el contenedor |
@@ -184,15 +184,78 @@ Corre en push a `main`/`develop`, en PRs hacia esas ramas y manualmente (`workfl
 | `License Scan & SBOM` | SBOM CycloneDX + `pip-licenses` | hay dependencias SSPL/AGPL |
 | `Docker Build` | `docker compose build` | la imagen no construye |
 
+### Gates bloqueantes
+
+Tres gates **rompen el job** (no hay `continue-on-error` en ningún job ni
+step): un check en rojo no se puede mergear.
+
+| Gate | Job | Umbral / condición | Qué lo dispara |
+|------|-----|--------------------|----------------|
+| Cobertura (S11, #71) | `Unit & Integration Tests` | `--cov-fail-under=70` (y `fail_under = 70` en `pyproject.toml`) | la suite pasa pero el total de `src/` queda por debajo de 70% |
+| Lint (S12, #71) | `Lint & Format` | `flake8` sin hallazgos + `pylint --fail-under=9.0 --fail-on=W,E` | cualquier warning o error de flake8 o de pylint, o score < 9.0 |
+| Contrato (S13, #71) | `Contract Tests` | `pytest tests/test_contract.py` (aserciones estructurales + schemathesis) | el `openapi.yaml` no carga, pierde un path/schema/status esperado o una respuesta no valida |
+
+`Docker Build` depende de `Lint & Format`, `Unit & Integration Tests` y
+`Contract Tests`: si un gate falla, el flujo no llega a construir la imagen.
+Los umbrales están fijados por `tests/test_ci_gates.py`, que lee este workflow
+y falla si alguien los baja o agrega `continue-on-error`.
+
+#### Reproducir cada fallo localmente
+
+Mismo entorno que el CI (contenedor `tests` de `docker-compose.test.yml`):
+
+```bash
+# 1. Lint (S12): un warning de flake8 y uno de pylint rompen el job.
+#    flake8 sale con código 1 ante cualquier hallazgo; pylint, con
+#    --fail-on=W,E, también falla con un solo warning (--fail-under solo no
+#    alcanza porque un warning deja el score en 9.9x).
+docker compose -f docker-compose.test.yml run --rm --no-deps tests sh -c \
+  'printf "import os\n" > /tmp/warn.py && flake8 /tmp/warn.py'; echo "exit=$?"
+docker compose -f docker-compose.test.yml run --rm --no-deps tests sh -c \
+  'printf "import os\n" > /tmp/warn.py && pylint /tmp/warn.py --fail-on=W,E'; echo "exit=$?"
+
+# 2. Cobertura (S11): subí el umbral por encima del real y mirá el fallo.
+make test-cov                                                              # pasa (gate 70%)
+docker compose -f docker-compose.test.yml run --rm tests sh -c \
+  'alembic upgrade head && pytest --cov --cov-fail-under=99 -q'; echo "exit=$?"
+# → "Required test coverage of 99.0% not reached. Total coverage: <real>%" y exit 1
+
+# 3. Contrato (S13): rompé el spec en una copia y corré el mismo test.
+cp openspec/specs/openapi.yaml /tmp/openapi-broken.yaml
+$EDITOR /tmp/openapi-broken.yaml        # p. ej. borrá `security` de /telemetry/metrics
+docker compose -f docker-compose.test.yml run --rm \
+  -v /tmp/openapi-broken.yaml:/app/openspec/specs/openapi.yaml tests \
+  sh -c 'alembic upgrade head && pytest tests/test_contract.py -q'; echo "exit=$?"
+```
+
+**Calibración de pylint (S12)**: el gate corre sin `--disable` y sin mensajes
+desactivados en `pyproject.toml`: con las versiones fijadas en
+`requirements/dev.lock` (pylint 4.1.3 / astroid 4.3.4) el árbol pasa con **0
+warnings y 0 errores**. Las dos correcciones que hicieron falta son de código,
+no de configuración:
+
+- `src/api/presentation/routers/metrics.py`: `GET /metrics/list` es un catálogo
+  global, así que el parámetro que `Depends(require_api_key)` consume sin uso se
+  llama `_application`. W0613 sigue activo en todo el resto del repo.
+- Los imports `src.ml.*` pasaron a `ml.*` (como `api.*` y el resto del repo):
+  cargaban el mismo archivo como dos módulos distintos (`src.ml.schemas` y
+  `ml.schemas` → dos clases `MetricBatchInput`), lo que rompía `isinstance`
+  entre el loader del dataset y los tests, y no resolvían con el
+  `PYTHONPATH=/app/src` de las imágenes.
+
+Corré los linters en el entorno fijado (`make lint`), no en un venv propio: con
+`astroid` viejo (4.0.x) aparecen falsos positivos de pydantic (`E1101` sobre
+`FieldInfo.startswith`) que el lock ya no reporta.
+
 **Reporte de cobertura**: en la pestaña *Actions* de cada corrida, el resumen del job `Unit & Integration Tests` muestra el total y la tabla por archivo; el artefacto `coverage-report` trae `coverage.xml`, el HTML navegable (`htmlcov/index.html`) y `reports/junit.xml`.
 
 Reproducir el CI localmente sin Docker (con Python 3.11 y un Postgres accesible en `DATABASE_URL`):
 
 ```bash
 pip install --require-hashes -r requirements/dev.lock && pip install --no-deps -e .
-flake8 src/ tests/ && pylint src/ --fail-under=9.0
+flake8 src/ tests/ && pylint src/ --fail-under=9.0 --fail-on=W,E
 PYTHONPATH=. pytest -m unit
-alembic upgrade head && PYTHONPATH=. pytest --cov --cov-report=term-missing
+alembic upgrade head && PYTHONPATH=. pytest --cov --cov-fail-under=70 --cov-report=term-missing
 ```
 
 ## Pull Requests
