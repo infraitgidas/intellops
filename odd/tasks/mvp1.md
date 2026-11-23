@@ -66,8 +66,9 @@ S32. «Release notes.»
 
 S33. «no se van a mezclar por el momento, asi que mvp va a ser local por ahora» — sin merge a
 `develop` mientras dure MVP1. Actualizado el 18/11/2026 (L13): la rama `MVP1` **sí** se pushea
-(`origin/MVP1`), sin PR y con el tag `v1.0.0` todavía local; lo que sigue prohibido sin decisión
-explícita es el PR y el merge a `develop`.
+(`origin/MVP1`), con el tag `v1.0.0` todavía local. Actualizado el 23/11/2026 (L14): el PR a
+`develop` está autorizado y abierto (#94); el merge a `develop` sigue requiriendo decisión
+explícita.
 S34. Fuera de alcance: C.2 (acceso al sitio piloto), C.4 (datos reales del piloto), C.6 y C.7
 (informes de PPS, autoría humana).
 S35. B.10 se verifica contra canales reales con credenciales que aporta el usuario
@@ -251,3 +252,22 @@ merge a `develop` siguen requiriendo decisión explícita. Consecuencia a tener 
 workflow sólo dispara en `push` a `main`/`develop` y en PRs hacia esas ramas, así que los gates
 —incluido el job `e2e` nuevo— no corren con este push; la primera corrida real en GitHub Actions
 será al abrir el PR o al mergear.
+
+L14 (2026-11-23, verbatim): «hagamos un pr a develop de la rama mvp1». Se abre el PR **#94**
+(`MVP1` → `develop`, `https://github.com/infraitgidas/intellops/pull/94`) con label
+`type:feature` y `mergeable: MERGEABLE`. Decisión del usuario sobre la entrega: **un solo PR**
+con `size:exception` aceptado, en lugar de encadenar slices de ~400 líneas; el cuerpo del PR
+declara la excepción y remite a este documento. Estado medido al abrirlo: 50 commits sobre
+`origin/develop` (`0f7531b`), `+19.620/−95` en 140 archivos, `git merge-tree --write-tree
+origin/develop MVP1` sin conflictos, y `MVP1` sincronizada con `origin/MVP1` (0/0). Los issues
+que cierra son #74, #71, #69, #76, #78 y #80; #72 (B.10) queda como `Refs` porque S6 —envío por
+canales reales— y las variables en `.env.example` siguen pendientes. Riesgo externo declarado en
+el PR: la PR **#93** (`feat/ISS-B-14`, abierta) trae otra implementación de B.14; si entra a
+`develop` antes, el B.14 de `MVP1` va a chocar al mergear. Verificación previa a abrir el PR,
+sobre el HEAD `b2aa301` (el único commit de código posterior al release, un fix del heatmap):
+`npm run test` 50 passed (7 archivos), `npm run lint` exit 0, `npm run build` (tsc + vite) OK y
+`npm run check-size` 74,9 kB gzip contra el presupuesto de 1 MB. La suite Python y el smoke no se
+re-corrieron: el HEAD posterior al release sólo suma `b2aa301` (frontend) y `515d1cc` (docs), y
+la evidencia de la corrida completa del 18/11 sigue en L10. El tag `v1.0.0` no se pushea (queda
+local, en `3676ebc`, dos commits atrás del HEAD). Próximo paso: dejar correr CI en el PR —es la
+primera corrida real de los gates en GitHub Actions— y decidir el merge.
