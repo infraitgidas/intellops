@@ -14,10 +14,18 @@ from fastapi.responses import JSONResponse
 
 from api.config import get_settings
 from api.domain.exceptions import DomainError
+from api.infrastructure.alerting.evaluator import AlertEvaluator
+from api.infrastructure.db.repositories.sqlalchemy_alert_rule_repository import (
+    SQLAlchemyAlertRuleRepository,
+)
 from api.infrastructure.db.repositories.sqlalchemy_ingest_repository import (
     SQLAlchemyIngestRepository,
 )
-from api.infrastructure.db.session import check_connection, dispose_engine
+from api.infrastructure.db.session import (
+    check_connection,
+    dispose_engine,
+    get_session_factory,
+)
 from api.infrastructure.ingest.counters import IngestCounters
 from api.infrastructure.ingest.queue import AsyncioIngestQueue
 from api.infrastructure.security.api_keys import ApiKeyRedactionFilter
@@ -60,7 +68,20 @@ async def lifespan(_app: FastAPI):
     await queue.start()
     _app.state.ingest_queue = queue
     _app.state.ingest_counters = counters
+    evaluator: AlertEvaluator | None = None
+    if settings.alert_rules_enabled:
+        # ISS-B-14: reglas de umbral → alertas Pending; el loop duerme primero.
+        evaluator = AlertEvaluator(
+            session_factory=get_session_factory(),
+            repository_factory=SQLAlchemyAlertRuleRepository,
+            interval_seconds=settings.alert_rules_interval_seconds,
+        )
+        evaluator.start()
+        _app.state.alert_evaluator = evaluator
     yield
+    # El evaluador se detiene antes de cerrar la cola y liberar el pool.
+    if evaluator is not None:
+        await evaluator.stop()
     # RUM-7/D6: close() deja de aceptar (503) → join(timeout) drena →
     # lo no persistido se loguea → dispose_engine() al final.
     await queue.close()

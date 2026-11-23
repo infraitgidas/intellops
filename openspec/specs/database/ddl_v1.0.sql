@@ -325,9 +325,19 @@ CREATE TABLE alert (
     status_id SMALLINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     sent_at TIMESTAMPTZ,
+    -- Regla que creó la alerta, con su umbral y el valor observado (migración
+    -- 0008, ISS-B-14). NULL en las alertas previas y en las de ML (M3).
+    -- rule_id no es FK: los defaults viven en código y el cooldown se consulta
+    -- por (application_id, rule_id).
+    rule_id TEXT,
+    threshold DOUBLE PRECISION,
+    observed_value DOUBLE PRECISION,
 
     CONSTRAINT ck_alert_severity
         CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+
+    CONSTRAINT ck_alert_rule_id
+        CHECK (rule_id IN ('latency', 'error_rate', 'availability')),
 
     CONSTRAINT fk_alert_application
         FOREIGN KEY (application_id)
@@ -361,7 +371,48 @@ CREATE INDEX idx_alert_app_created
     ON alert(application_id, created_at DESC);
 
 -- ============================================================
--- 11. DATOS INICIALES DE CATÁLOGOS
+-- 11. ALERT_RULE
+-- ============================================================
+-- Reglas de umbral por aplicación (migración 0008, ISS-B-14). Una fila
+-- reemplaza por completo al default del código para su (application_id,
+-- rule_id); sin fila rige el default. enabled = FALSE saltea la regla.
+
+CREATE TABLE alert_rule (
+    application_id UUID NOT NULL,
+    rule_id TEXT NOT NULL,
+    threshold DOUBLE PRECISION NOT NULL,
+    severity TEXT NOT NULL,
+    window_seconds INTEGER NOT NULL,
+    min_samples INTEGER NOT NULL,
+    cooldown_seconds INTEGER NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+
+    CONSTRAINT pk_alert_rule
+        PRIMARY KEY (application_id, rule_id),
+
+    CONSTRAINT ck_alert_rule_rule_id
+        CHECK (rule_id IN ('latency', 'error_rate', 'availability')),
+
+    CONSTRAINT ck_alert_rule_severity
+        CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+
+    CONSTRAINT ck_alert_rule_window
+        CHECK (window_seconds >= 60),
+
+    CONSTRAINT ck_alert_rule_min_samples
+        CHECK (min_samples >= 1),
+
+    CONSTRAINT ck_alert_rule_cooldown
+        CHECK (cooldown_seconds >= 0),
+
+    CONSTRAINT fk_alert_rule_application
+        FOREIGN KEY (application_id)
+        REFERENCES application(app_id)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- 12. DATOS INICIALES DE CATÁLOGOS
 -- ============================================================
 
 INSERT INTO metric_type (name, description)
@@ -381,7 +432,7 @@ VALUES
     ('Researcher', 'Usuario investigador');
 
 -- ============================================================
--- 12. SEED ADMIN (migración 0002, solo dev/CI)
+-- 13. SEED ADMIN (migración 0002, solo dev/CI)
 -- ============================================================
 -- Usuario de bootstrap con UUID fijo; password_hash argon2id de la
 -- password dev (ADMIN_BOOTSTRAP_PASSWORD en .env.example). No usar en
