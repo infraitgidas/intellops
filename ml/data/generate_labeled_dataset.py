@@ -671,10 +671,10 @@ def load_labeled_dataset(path):
 
     Acepta la ruta del CSV o su carpeta. Si hay un `manifest.json` al lado,
     verifica el sha256 del CSV (ValueError si no coincide). Solo stdlib + el
-    contrato `src.ml.schemas` (sin ingesta, sin DB, sin HTTP).
+    contrato `ml.schemas` (sin ingesta, sin DB, sin HTTP).
     """
-    # Import diferido: generar el dataset no requiere pydantic ni el paquete src.
-    from src.ml.schemas import MetricBatchInput  # pylint: disable=import-outside-toplevel
+    # Import diferido: generar el dataset no requiere pydantic ni el paquete ml.
+    from ml.schemas import MetricBatchInput  # pylint: disable=import-outside-toplevel
 
     csv_path = pathlib.Path(path)
     if csv_path.is_dir():

@@ -185,8 +185,8 @@ y_train = [label.is_anomaly for label in train.labels]  # la única etiqueta
 ```
 
 - Features: solo de `train.rows` (contrato M4). El resto de `RowLabel` sirve para cortar métricas, nunca para entrenar.
-- Correr con `PYTHONPATH=.` (el lector importa `src.ml.schemas`). Generar el dataset no lo necesita.
-- Sin acoplamiento a la ingesta: el módulo no importa `src.api`, ni usa DB ni HTTP (está testeado).
+- Correr con el paquete instalado (`pip install -e .`) o `PYTHONPATH=src` (el lector importa `ml.schemas`). Generar el dataset no lo necesita.
+- Sin acoplamiento a la ingesta: el módulo no importa `api`, ni usa DB ni HTTP (está testeado).
 - Para métricas por evento (recall por evento, falsos positivos por evento) usar `event_id` y `manifest.json` → `events`.
 - Para la tasa de falsos positivos sobre casos difíciles, filtrar `hard_negative=1`.
 

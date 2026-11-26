@@ -57,6 +57,11 @@ Una configuración inválida (URL sin host como `http://`, esquema distinto de
 corrida. Validar solo el prefijo no alcanza: `http://` no es una URL medible y
 haría que la sonda arranque y pierda cada corrida con `connection_error`.
 
+Una variable de entorno con prefijo `PROBE_` o `INGEST_` que no corresponde a
+ningún campo también falla al construir: un typo como `PROBE_INTERVAL_SECOND`
+(sin la S final) dejaría la sonda corriendo con el intervalo por defecto sin
+ningún aviso.
+
 ## Cómo reporta
 
 El batch es un `RumEventBatch` normal contra `POST /telemetry/metrics`, con la
@@ -69,7 +74,15 @@ sesión y sus métricas se atribuirían o se descartarían al otro. El hash evit
 codificar la API key en un identificador persistido.
 
 El envío a la ingesta siempre lleva timeout acotado: una ingesta que no responde
-no puede colgar el ciclo ni detener el intervalo configurado.
+no puede colgar el ciclo ni detener el intervalo configurado. La URL de ingesta
+se arma con el **path** del base, descartando su query y su fragmento: un
+`INGEST_BASE_URL` con query no puede contaminar el endpoint
+(`http://api/?x=1` no produce `http://api/?x=1/telemetry/metrics`).
+
+El intervalo se compensa con la duración del ciclo y se **resincroniza** cuando
+un ciclo se pasa del intervalo: sin eso el atraso se acumularía y la espera
+quedaría en cero para siempre, o sea un bucle sin pausa en vez de recuperar el
+ritmo.
 
 Un `202` no significa "todo aceptado": es "recibido". El log del ciclo incluye
 `accepted` y las razones de rechazo del cuerpo de la respuesta, así un batch

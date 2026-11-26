@@ -32,8 +32,9 @@ REV_0004 = "0004"
 REV_0005 = "0005"
 REV_0006 = "0006"
 REV_0007 = "0007"
+REV_0008 = "0008"
 # Head actual de la cadena: cada migración nueva solo actualiza esta línea.
-REV_HEAD = REV_0007
+REV_HEAD = REV_0008
 
 DDL_PATH = "openspec/specs/database/ddl_v1.0.sql"
 
@@ -782,6 +783,144 @@ def test_upgrade_0007_with_rows_fails_and_stays_at_0006(seeded, alembic_cfg, con
         # La alerta referencia la anomalía (RESTRICT): borrarla antes del
         # teardown de `seeded`, que limpia anomaly y vuelve a head.
         conn.execute(text("DELETE FROM alert"))
+
+
+# -- DB-RULE-1/DB-RULE-2: migración 0008 (ISS-B-14) --------------------------
+
+ALERT_RULE_INSERT = text(
+    "INSERT INTO alert_rule (rule_id, application_id, metric_type_id, "
+    "comparison, threshold, window_minutes, min_samples, cooldown_minutes, "
+    "severity) VALUES (:rule_id, :app_id, "
+    "(SELECT metric_type_id FROM metric_type WHERE name = 'TTFB'), "
+    "'gt', 800, 15, 1, 15, 'high')"
+)
+
+
+def test_0008_adds_alert_rule_and_rule_columns(alembic_cfg, conn):
+    """DB-RULE-1/DB-RULE-2: alert_rule, índices y columnas de regla en alert."""
+    command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_HEAD == REV_0008
+
+    assert _column_names(conn, "alert_rule") == {
+        "rule_id",
+        "application_id",
+        "metric_type_id",
+        "comparison",
+        "threshold",
+        "window_minutes",
+        "min_samples",
+        "cooldown_minutes",
+        "severity",
+        "is_active",
+        "created_at",
+    }
+    for index in ("uq_alert_rule_key", "idx_alert_rule_app_active"):
+        assert _index_exists(conn, index) is True, index
+
+    alert_columns = _column_names(conn, "alert")
+    for column in ("rule_id", "threshold", "observed_value"):
+        assert column in alert_columns, column
+        assert _column_nullable(conn, "alert", column) is True, column
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    (
+        ("comparison", "'ge'"),
+        ("window_minutes", "0"),
+        ("window_minutes", "10081"),
+        ("min_samples", "0"),
+        ("cooldown_minutes", "0"),
+        ("severity", "'urgent'"),
+    ),
+)
+def test_0008_rejects_invalid_rule_domain(alembic_cfg, conn, column, value):
+    """DB-RULE-1: cada dominio cerrado de la regla lo impone un CHECK."""
+    command.upgrade(alembic_cfg, "head")
+    app_id, rule_id = uuid4(), uuid4()
+    conn.execute(
+        text(
+            "INSERT INTO application (app_id, name, description) "
+            "VALUES (:id, :name, 'test 0008')"
+        ),
+        {"id": str(app_id), "name": f"app-{app_id}"},
+    )
+    conn.execute(ALERT_RULE_INSERT, {"rule_id": str(rule_id), "app_id": str(app_id)})
+    try:
+        with pytest.raises(IntegrityError):
+            conn.execute(text(f"UPDATE alert_rule SET {column} = {value}"))
+    finally:
+        conn.execute(text("DELETE FROM alert_rule"))
+        conn.execute(
+            text("DELETE FROM application WHERE app_id = :id"), {"id": str(app_id)}
+        )
+
+
+def test_0008_downgrade_aborts_with_threshold_alerts(alembic_cfg, conn):
+    """DB-RULE-2: el downgrade no puede derivar rule_id/threshold/observed."""
+    command.upgrade(alembic_cfg, "head")
+    app_id, rule_id, alert_id = uuid4(), uuid4(), uuid4()
+    conn.execute(
+        text(
+            "INSERT INTO application (app_id, name, description) "
+            "VALUES (:id, :name, 'test 0008')"
+        ),
+        {"id": str(app_id), "name": f"app-{app_id}"},
+    )
+    conn.execute(ALERT_RULE_INSERT, {"rule_id": str(rule_id), "app_id": str(app_id)})
+    conn.execute(
+        text(
+            "INSERT INTO alert (alert_id, application_id, rule_id, severity, "
+            "message, status_id, threshold, observed_value) "
+            "VALUES (:alert_id, :app_id, :rule_id, 'high', 'TTFB p95 sobre el "
+            "umbral', (SELECT status_id FROM alert_status WHERE name = 'Pending'), "
+            "800, 912.4)"
+        ),
+        {
+            "alert_id": str(alert_id),
+            "app_id": str(app_id),
+            "rule_id": str(rule_id),
+        },
+    )
+    try:
+        with pytest.raises(RuntimeError, match="0008 downgrade abortado"):
+            command.downgrade(alembic_cfg, REV_0007)
+    finally:
+        conn.execute(text("DELETE FROM alert"))
+        conn.execute(text("DELETE FROM alert_rule"))
+        conn.execute(
+            text("DELETE FROM application WHERE app_id = :id"), {"id": str(app_id)}
+        )
+        command.upgrade(alembic_cfg, "head")
+    assert _current_revision(conn) == REV_HEAD
+
+
+def test_ddl_v1_0_sql_synced_with_0008():
+    """ddl_v1.0.sql declara alert_rule y las columnas de regla en alert."""
+    with open(DDL_PATH, encoding="utf-8") as handle:
+        ddl = handle.read()
+    rule_block = ddl.split("-- 11. ALERT_RULE", 1)[1].split("-- 12.", 1)[0]
+    for fragment in (
+        "application_id UUID NOT NULL",
+        "metric_type_id SMALLINT NOT NULL",
+        "comparison TEXT NOT NULL",
+        "threshold NUMERIC NOT NULL",
+        "window_minutes INTEGER NOT NULL",
+        "min_samples INTEGER NOT NULL",
+        "cooldown_minutes INTEGER NOT NULL",
+        "severity TEXT NOT NULL",
+        "ck_alert_rule_comparison",
+        "ck_alert_rule_severity",
+        "uq_alert_rule_key",
+        "0008",
+    ):
+        assert fragment in rule_block, fragment
+
+    alert_block = ddl.split("CREATE TABLE alert (", 1)[1].split(
+        "CREATE TABLE alert_rule (", 1
+    )[0]
+    for fragment in ("rule_id UUID", "threshold NUMERIC", "observed_value NUMERIC"):
+        assert fragment in alert_block, fragment
 
 
 def test_ddl_v1_0_sql_synced_with_0007():

@@ -1,0 +1,5 @@
+# Artefactos locales del paquete frontend (el .gitignore del repo cubre dist/
+# y node_modules/). El build E2E y los reportes de Playwright no se versionan.
+dist-e2e/
+playwright-report/
+test-results/

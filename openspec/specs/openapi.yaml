@@ -113,7 +113,7 @@ paths:
     get:
       summary: Consulta de métricas históricas
       operationId: queryMetrics
-      description: "Read path app-scoped (OAS-14): métricas RUM de la aplicación autenticada agregadas por bucket temporal (TQ-1), shape ML (application_id, metric_type_id, timestamp, value, session_count). Requiere X-API-Key; el tenant se deriva EXCLUSIVAMENTE de la key. Ventana default 15 min, máximo 7 días, bucket mínimo 60 s (TQ-2)."
+      description: "Read path app-scoped (OAS-14): métricas RUM de la aplicación autenticada agregadas por bucket temporal (TQ-1), shape ML (application_id, metric_type_id, timestamp, value, session_count). Requiere X-API-Key; el tenant se deriva EXCLUSIVAMENTE de la key. Ventana default 15 min, máximo 7 días, bucket mínimo 60 s (TQ-2). Excluye las filas de la sonda de disponibilidad (metadata con probe_target) de todos los tipos de métrica salvo AVAILABILITY, de modo que TTFB y FCP son RUM puro."
       security:
         - apiKey: []
       parameters:
@@ -536,24 +536,99 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
   /alerts/config:
     post:
-      summary: Configurar regla de alerta
-      operationId: configAlert
+      summary: Crea o actualiza una regla de umbral
+      operationId: upsertAlertRule
+      description: "Configuración de umbrales por aplicación y por métrica (ISS-B-14, OAS-B14-1, ADR-0013). Requiere bearer (solo Admin): la configuración es CRUD de administración, no lectura de tenant por API key, así que la aplicación viaja explícita en el cuerpo. Valida que la aplicación y el metric_type_id existan (404) y los dominios del umbral (422 invalid_alert_rule) antes de escribir. Es idempotente por (application_id, metric_type_id, comparison, threshold): si la regla equivalente ya existe, actualiza window_minutes, min_samples, cooldown_minutes, severity e is_active y responde 200 en vez de duplicar la fila (201)."
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                rule:
-                  type: string
-                  description: "Regla de alerta"
-                condition:
-                  type: object
-                  description: "Condición de la alerta"
+              $ref: '#/components/schemas/AlertRuleInput'
+      responses:
+        '201':
+          description: "Regla creada"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRule'
+        '200':
+          description: "Regla equivalente actualizada (idempotente por application_id, metric_type_id, comparison y threshold)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRule'
+        '400':
+          description: "JSON malformado (error al parsear el body)"
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Usuario inactivo o sin permiso (solo Admin)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: "application_id inexistente (application_not_found) o metric_type_id fuera del catálogo (metric_type_not_found); no se escribe la regla"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "Regla semánticamente inválida (invalid_alert_rule: threshold no finito, window_minutes fuera de 1..10080, min_samples o cooldown_minutes menores que 1, comparison o severity fuera de su dominio) o payload inválido (schema validation error); no se escribe la regla"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: Lista las reglas de umbral de una aplicación
+      operationId: listAlertRules
+      description: "Reglas de la aplicación pedida, activas e inactivas, ordenadas por created_at ascendente (ISS-B-14, OAS-B14-2). Requiere bearer (Admin o Researcher); la aplicación viaja explícita en el query porque la autenticación es por rol y no deriva tenant (design §9)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: application_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: "Aplicación cuyas reglas se listan"
       responses:
         '200':
-          description: Regla configurada
+          description: "Reglas de la aplicación, activas e inactivas, por created_at ascendente"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlertRule'
+        '401':
+          description: "Bearer ausente, malformado, expirado o de firma inválida"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: "Usuario inactivo o sin permiso"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: "application_id inexistente (application_not_found)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: "application_id ausente o no es un UUID válido (query parameter validation error)"
   /alerts/{id}/ack:
     put:
       summary: Acknowledge de alerta
@@ -1656,12 +1731,92 @@ components:
           type: [string, "null"]
           format: date-time
           description: "Cuándo se despachó la alerta; null mientras está pendiente"
+    AlertRuleInput:
+      type: object
+      description: "Cuerpo de POST /alerts/config: umbral sobre una métrica de una aplicación (ISS-B-14, OAS-B14-1, ADR-0013). Los dominios se validan en el servicio para responder 422 invalid_alert_rule con el contrato ErrorResponse."
+      required: [application_id, metric_type_id, comparison, threshold, window_minutes, min_samples, cooldown_minutes, severity]
+      properties:
+        application_id:
+          type: string
+          format: uuid
+          description: "Aplicación dueña de la regla (tenant explícito: la auth es por rol, no por API key)"
+        metric_type_id:
+          type: integer
+          description: "metric_type_id del catálogo (OAS-13); fuera del catálogo → 404 metric_type_not_found"
+        comparison:
+          type: string
+          enum: [gt, lt]
+          description: "gt dispara con observado >= threshold; lt con observado <= threshold (comparación inclusiva, ADR-0013 §5). Otro valor → 422 invalid_alert_rule"
+        threshold:
+          type: number
+          description: "Umbral NUMERIC (no punto flotante: la frontera del SLO no admite redondeo). Debe ser finito: NaN o infinito → 422 invalid_alert_rule"
+        window_minutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+          description: "Ventana de evaluación en minutos (1..10080); fuera de rango → 422 invalid_alert_rule"
+        min_samples:
+          type: integer
+          minimum: 1
+          description: "Muestras mínimas de la ventana para evaluar la regla (>= 1); menor → 422 invalid_alert_rule"
+        cooldown_minutes:
+          type: integer
+          minimum: 1
+          description: "Minutos durante los que no se repite una alerta de la misma regla (>= 1); menor → 422 invalid_alert_rule"
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          description: "Severidad de la alerta creada; fuera del dominio → 422 invalid_alert_rule"
+        is_active:
+          type: boolean
+          default: true
+          description: "Estado de la regla. Opcional (default true): el POST reactiva la regla equivalente salvo que se pida desactivarla"
+    AlertRule:
+      type: object
+      description: "Regla de umbral persistida (migración 0008): respuesta del POST y item de GET /alerts/config."
+      required: [rule_id, application_id, metric_type_id, comparison, threshold, window_minutes, min_samples, cooldown_minutes, severity, is_active, created_at]
+      properties:
+        rule_id:
+          type: string
+          format: uuid
+        application_id:
+          type: string
+          format: uuid
+          description: "Aplicación dueña de la regla"
+        metric_type_id:
+          type: integer
+          description: "metric_type_id del catálogo (OAS-13)"
+        comparison:
+          type: string
+          enum: [gt, lt]
+        threshold:
+          type: number
+          description: "Umbral evaluado (NUMERIC en la base)"
+        window_minutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+        min_samples:
+          type: integer
+          minimum: 1
+        cooldown_minutes:
+          type: integer
+          minimum: 1
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          description: "Alta de la regla (el orden del GET es ascendente por este campo; una actualización no lo cambia)"
   securitySchemes:
     apiKey:
       type: apiKey
       in: header
       name: X-API-Key
-      description: "Credencial de ingesta (ISS-S2-02): key ilp_ emitida por POST /applications/{id}/api-key; se persiste solo su hash SHA-256. Aplicado a los paths de ingesta POST /telemetry/metrics y POST /telemetry/exceptions (OAS-6, ISS-S2-03) y a los read paths app-scoped GET /metrics/* y GET /sessions* (ADR-0003, ISS-S3-03): 401 invalid_api_key + WWW-Authenticate, 403 app_inactive."
+      description: "Credencial de ingesta (ISS-S2-02): key ilp_ emitida por POST /applications/{id}/api-key; se persiste solo su hash SHA-256. Aplicado a los paths de ingesta POST /telemetry/metrics y POST /telemetry/exceptions (OAS-6, ISS-S2-03) y a los read paths app-scoped GET /metrics/* y GET /sessions* (ADR-0003, ISS-S3-03): 401 invalid_api_key + WWW-Authenticate, 403 app_inactive. La configuración de reglas de umbral (/alerts/config) usa bearerAuth: es CRUD de administración por rol, no lectura de tenant (ISS-B-14)."
     bearerAuth:
       type: http
       scheme: bearer

@@ -7,9 +7,17 @@ escriben a mano (env.py target_metadata=None).
 # pylint: disable=too-few-public-methods,unsubscriptable-object
 
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, SmallInteger, Text, text
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Numeric,
+    SmallInteger,
+    Text,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -48,3 +56,11 @@ class Alert(Base):
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Columnas de las alertas de reglas de umbral (migración 0008, ADR-0013):
+    # se copian al disparar la regla, así la alerta histórica explica por qué
+    # se emitió aunque el umbral se edite después. NULL en las alertas de ML.
+    rule_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("alert_rule.rule_id", ondelete="RESTRICT")
+    )
+    threshold: Mapped[Decimal | None] = mapped_column(Numeric)
+    observed_value: Mapped[Decimal | None] = mapped_column(Numeric)

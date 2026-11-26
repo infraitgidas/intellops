@@ -3,7 +3,7 @@ import json
 import os
 from typing import List
 
-from src.ml.schemas import MetricBatchInput
+from ml.schemas import MetricBatchInput
 
 
 def load_mock_data() -> List[MetricBatchInput]:

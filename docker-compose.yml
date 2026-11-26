@@ -20,6 +20,12 @@ services:
     environment:
       - INTELLOPS_ENV=development
       - DATABASE_URL=postgresql://${POSTGRES_USER:-intellops}:${POSTGRES_PASSWORD:-intellops}@intellops-db:5432/${POSTGRES_DB:-intellops}
+      # Firma HS256 de los tokens (AUTH-6). OBLIGATORIO y sin default: un
+      # `docker compose up` sin la variable aborta en vez de firmar tokens con
+      # un secreto publicado en el repo (ISS-C-05). Se define en `.env`
+      # (`cp .env.example .env`, ver docs/operations/deploy-v1.0.md); el CI y
+      # `make smoke` pasan el suyo.
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required (see docs/operations/deploy-v1.0.md)}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 30s
@@ -60,6 +66,10 @@ services:
     environment:
       - INTELLOPS_ENV=development
       - DATABASE_URL=postgresql://${POSTGRES_USER:-intellops}:${POSTGRES_PASSWORD:-intellops}@intellops-db:5432/${POSTGRES_DB:-intellops}
+      # Ciclo del motor de reglas (ISS-B-14). `RulesSettings` no tolera el
+      # valor vacío (no usa `env_ignore_empty`), así que el default del compose
+      # es el mismo del código: 60 s. `make smoke` lo baja a 5 s (ISS-C-01).
+      - INTELLOPS_RULES_INTERVAL_SECONDS=${INTELLOPS_RULES_INTERVAL_SECONDS:-60}
     restart: unless-stopped
     mem_limit: 1000m
     depends_on:
@@ -76,12 +86,58 @@ services:
     environment:
       - INTELLOPS_ENV=development
       - DATABASE_URL=postgresql://${POSTGRES_USER:-intellops}:${POSTGRES_PASSWORD:-intellops}@intellops-db:5432/${POSTGRES_DB:-intellops}
+      # Despacho de alertas (ISS-B-10). Todas con default vacío: el stack
+      # levanta sin secretos y las alertas quedan Pending hasta configurarlos
+      # (OAS-B10-2: falta de credenciales no es un fallo, ni un crash-loop).
+      - INTELLOPS_COMMS_INTERVAL_SECONDS=${INTELLOPS_COMMS_INTERVAL_SECONDS:-}
+      - INTELLOPS_COMMS_BATCH_SIZE=${INTELLOPS_COMMS_BATCH_SIZE:-}
+      - INTELLOPS_COMMS_CHANNEL_CRITICAL=${INTELLOPS_COMMS_CHANNEL_CRITICAL:-}
+      - INTELLOPS_COMMS_CHANNEL_HIGH=${INTELLOPS_COMMS_CHANNEL_HIGH:-}
+      - INTELLOPS_COMMS_CHANNEL_MEDIUM=${INTELLOPS_COMMS_CHANNEL_MEDIUM:-}
+      - INTELLOPS_COMMS_CHANNEL_LOW=${INTELLOPS_COMMS_CHANNEL_LOW:-}
+      - INTELLOPS_COMMS_RETRY_ATTEMPTS=${INTELLOPS_COMMS_RETRY_ATTEMPTS:-}
+      - INTELLOPS_COMMS_RETRY_BASE_SECONDS=${INTELLOPS_COMMS_RETRY_BASE_SECONDS:-}
+      - INTELLOPS_COMMS_RETRY_FACTOR=${INTELLOPS_COMMS_RETRY_FACTOR:-}
+      - INTELLOPS_COMMS_RETRY_BUDGET_SECONDS=${INTELLOPS_COMMS_RETRY_BUDGET_SECONDS:-}
+      - INTELLOPS_COMMS_DELIVERY_TIMEOUT_SECONDS=${INTELLOPS_COMMS_DELIVERY_TIMEOUT_SECONDS:-}
+      - INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN=${INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN:-}
+      - INTELLOPS_COMMS_TELEGRAM_CHAT_ID=${INTELLOPS_COMMS_TELEGRAM_CHAT_ID:-}
+      # Base de la Bot API (ISS-C-01): default vacío = la constante del código
+      # (`https://api.telegram.org`). `make smoke` la apunta al servicio
+      # `intellops-telegram-stub` del compose (`http://intellops-telegram-stub:8099`).
+      - INTELLOPS_COMMS_TELEGRAM_API_BASE=${INTELLOPS_COMMS_TELEGRAM_API_BASE:-}
+      - INTELLOPS_COMMS_SMTP_HOST=${INTELLOPS_COMMS_SMTP_HOST:-}
+      - INTELLOPS_COMMS_SMTP_PORT=${INTELLOPS_COMMS_SMTP_PORT:-}
+      - INTELLOPS_COMMS_SMTP_USER=${INTELLOPS_COMMS_SMTP_USER:-}
+      - INTELLOPS_COMMS_SMTP_PASSWORD=${INTELLOPS_COMMS_SMTP_PASSWORD:-}
+      - INTELLOPS_COMMS_SMTP_FROM=${INTELLOPS_COMMS_SMTP_FROM:-}
+      - INTELLOPS_COMMS_SMTP_TO=${INTELLOPS_COMMS_SMTP_TO:-}
+      - INTELLOPS_COMMS_SMTP_STARTTLS=${INTELLOPS_COMMS_SMTP_STARTTLS:-}
     restart: unless-stopped
     mem_limit: 150m
     depends_on:
       intellops-db:
         condition: service_healthy
     # Sin `ports:` — solo hace llamadas salientes a proveedores de notificaciones.
+    networks:
+      - intellops-net
+
+  # Stub de la Bot API de Telegram para el smoke E2E (ISS-C-01, E2E-3/D3).
+  # Bajo `profiles: ["smoke"]`: `docker compose up` NO lo levanta, así la stack
+  # por defecto sigue siendo de cuatro servicios. Vive en la red del compose —
+  # el despacho le llega por DNS (`http://intellops-telegram-stub:8099`) sin depender de
+  # que el host acepte tráfico de contenedores — y publica el puerto en
+  # loopback para que el smoke lea `/_messages` desde el host.
+  intellops-telegram-stub:
+    image: python:3.11-slim
+    profiles: ["smoke"]
+    command: ["python", "/app/telegram_stub.py"]
+    volumes:
+      - ./scripts:/app:ro
+    ports:
+      - "127.0.0.1:8099:8099"
+    mem_limit: 80m
+    restart: "no"
     networks:
       - intellops-net
 

@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 
 from pydantic import ValidationError
 
-from src.ml.schemas import MetricBatchInput
+from ml.schemas import MetricBatchInput
 
 _FIELDS = ("application_id", "metric_type_id", "timestamp", "value", "session_count")
 

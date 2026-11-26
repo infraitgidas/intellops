@@ -40,12 +40,13 @@ except ImportError:
 
 # Paths implementados en la app (ISS-S2-03 agrega /telemetry/*; ISS-S3-01
 # agrega /metrics/*; ISS-S3-03 agrega /sessions*; ISS-B-03 agrega /anomalies*
-# y GET /alerts; dashboard/ML viven en slices posteriores; OAS-10 los
-# declara en el documento).
-# `/alerts` va anclado: /alerts/config y /alerts/{id}/ack no están implementados.
+# y GET /alerts; ISS-B-14 agrega /alerts/config; dashboard/ML viven en slices
+# posteriores; OAS-10 los declara en el documento).
+# `/alerts/config` va anclado junto a `/alerts`: /alerts/{id}/ack no está
+# implementado.
 _SCOPED_PATH_RE = (
     r"/(health|ready|auth|users|applications|telemetry|metrics|sessions|anomalies)"
-    r"|^/alerts$"
+    r"|^/alerts(/config)?$"
 )
 
 
@@ -490,13 +491,84 @@ def test_b03_anomaly_and_alert_schemas_match_response_models():
 
 def test_b03_schemathesis_subset_includes_reads_and_excludes_unimplemented():
     """OAS-B3-1: el subset de schemathesis DEBE incluir los tres endpoints de
-    lectura y excluir `/alerts/config` y `/alerts/{id}/ack`, que no están
-    implementados."""
+    lectura y excluir `/alerts/{id}/ack`, que no está implementado."""
     scoped = from_path(OPENAPI_PATH).include(path_regex=_SCOPED_PATH_RE)
     paths = {operation.ok().path for operation in scoped.get_all_operations()}
 
     assert {"/anomalies", "/anomalies/{anomaly_id}", "/alerts"} <= paths
-    assert not {"/alerts/config", "/alerts/{id}/ack"} & paths
+    assert not {"/alerts/{id}/ack"} & paths
+
+
+# -- ISS-B-14: configuración de reglas de umbral (OAS-B14-1/OAS-B14-2) -------
+
+def test_b14_alerts_config_paths_contract():
+    """`POST /alerts/config` y `GET /alerts/config` DEBEN exigir bearer (auth
+    por rol, no por API key), declarar AlertRule/AlertRuleInput y los status
+    de OAS-B14-1/OAS-B14-2: 201 al crear, 200 al actualizar la equivalente,
+    401, 403, 404 y 422."""
+    doc = _contract()
+    config = doc["paths"]["/alerts/config"]
+
+    assert set(config) == {"post", "get"}
+    post, listing = config["post"], config["get"]
+    for operation in (post, listing):
+        assert operation["security"] == [{"bearerAuth": []}], operation[
+            "operationId"
+        ]
+        assert {"401", "403", "404", "422"} <= set(operation["responses"])
+
+    assert post["operationId"] == "upsertAlertRule"
+    assert (
+        post["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/AlertRuleInput"
+    )
+    for code in ("200", "201"):
+        assert (
+            post["responses"][code]["content"]["application/json"]["schema"][
+                "$ref"
+            ]
+            == "#/components/schemas/AlertRule"
+        ), code
+
+    assert listing["operationId"] == "listAlertRules"
+    (param,) = listing["parameters"]
+    assert param["name"] == "application_id"
+    assert param["in"] == "query"
+    assert param["required"] is True
+    assert param["schema"]["format"] == "uuid"
+    list_200 = listing["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    assert list_200["items"]["$ref"] == "#/components/schemas/AlertRule"
+
+
+def test_b14_alert_rule_schemas_match_the_models():
+    """`AlertRule` y `AlertRuleInput` DEBEN declarar los dominios de la tabla
+    (0008) y coincidir con los schemas Pydantic que la app usa."""
+    from api.presentation.schemas.alert_rule import AlertRule, AlertRuleInput
+
+    schemas = _contract()["components"]["schemas"]
+    rule, rule_in = schemas["AlertRule"], schemas["AlertRuleInput"]
+
+    assert set(rule["properties"]) == set(AlertRule.model_fields)
+    assert set(rule["required"]) == set(AlertRule.model_fields)
+    assert rule["properties"]["threshold"]["type"] == "number"
+    assert rule["properties"]["comparison"]["enum"] == ["gt", "lt"]
+    assert rule["properties"]["severity"]["enum"] == [
+        "low", "medium", "high", "critical",
+    ]
+
+    assert set(rule_in["properties"]) == set(AlertRuleInput.model_fields)
+    assert "is_active" not in rule_in["required"]
+    assert rule_in["properties"]["is_active"]["default"] is True
+    assert rule_in["properties"]["comparison"]["enum"] == ["gt", "lt"]
+    assert rule_in["properties"]["severity"]["enum"] == [
+        "low", "medium", "high", "critical",
+    ]
+    window = rule_in["properties"]["window_minutes"]
+    assert (window["minimum"], window["maximum"]) == (1, 10080)
+    assert rule_in["properties"]["min_samples"]["minimum"] == 1
+    assert rule_in["properties"]["cooldown_minutes"]["minimum"] == 1
 
 
 # -- OAS-14 (ISS-S3-02/ARCH-6): enum unit ampliado + nota error_type ---------

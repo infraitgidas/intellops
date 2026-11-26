@@ -7,7 +7,7 @@
 #   make test       → Corre tests
 #   make lint       → Corre linters
 
-.PHONY: setup up down test test-unit test-integration test-cov test-contract test-down ci lint lock clean help migrate makemigrations
+.PHONY: setup up down test test-unit test-integration test-cov test-contract test-down ci lint lock clean help migrate makemigrations fe-install fe-lint fe-test fe-build fe-e2e smoke e2e-ci load
 
 # Entorno reproducible de testing (ISS-S2-05): imagen con dependencias fijadas
 # (requirements/dev.lock) + Postgres efímero, aislado del stack de dev.
@@ -15,6 +15,13 @@ export HOST_UID := $(shell id -u)
 export HOST_GID := $(shell id -g)
 TEST_COMPOSE = docker compose -f docker-compose.test.yml
 TEST_RUN = $(TEST_COMPOSE) run --rm --build tests
+
+# `docker-compose.yml` exige JWT_SECRET (ISS-C-05): sin default público, todo
+# `docker compose` sobre ese archivo aborta si falta, incluso `down`, `ps` y
+# `logs`, que no firman nada. Esos targets usan un valor de relleno cuando la
+# variable no está en el entorno ni en `.env`; `up`, `migrate` y compañía NO:
+# necesitan el secreto real (`cp .env.example .env`, o `make setup`).
+COMPOSE_NO_SECRET = JWT_SECRET=$${JWT_SECRET:-unused-by-this-command}
 
 help:
 	@echo "IntellOps — Comandos disponibles"
@@ -30,12 +37,16 @@ help:
 	@echo "  make test-cov       → Suite completa con cobertura (gate 70%, HTML en htmlcov/)"
 	@echo "  make test-contract  → Contract tests (schemathesis, OpenAPI 3.1)"
 	@echo "  make test-down      → Elimina contenedores y DB efímera del entorno de testing"
+	@echo "  make smoke          → Smoke E2E sobre la stack real (build + flujo completo + stub de Telegram)"
+	@echo "  make e2e-ci         → Lo mismo que el job e2e del CI (perfil smoke + intervalos de 5 s + smoke)"
+	@echo "  make load           → Carga estándar k6 de la ingesta (10 VUs, 1 min) → reports/k6-summary.json"
 	@echo "  make lint           → Linters (flake8 + pylint)"
 	@echo "  make lock           → Regenera requirements/dev.lock desde pyproject.toml (uv)"
 	@echo "  make clean          → Limpia artefactos"
 	@echo "  make logs           → Logs de servicios"
 
 setup:
+	@test -f .env || { cp .env.example .env && echo "→ .env creado desde .env.example (valores de dev; para un despliegue real ver docs/operations/deploy-v1.0.md)"; }
 	docker compose build
 	docker compose run --rm intellops-core python -c "print('✅ Entorno listo')"
 
@@ -47,7 +58,7 @@ up:
 	@echo "   Health: http://localhost:8000/health"
 
 down:
-	docker compose down
+	$(COMPOSE_NO_SECRET) docker compose down
 
 migrate:
 	docker compose run --rm intellops-core alembic upgrade head
@@ -56,7 +67,7 @@ makemigrations:
 	docker compose run --rm intellops-core alembic revision -m "$(m)"
 
 logs:
-	docker compose logs -f
+	$(COMPOSE_NO_SECRET) docker compose logs -f
 
 # Todos los targets de test/lint corren en el entorno de testing, no en el
 # contenedor de dev: misma imagen y mismos pasos que el CI.
@@ -81,8 +92,82 @@ test-contract:
 test-down:
 	$(TEST_COMPOSE) down -v --remove-orphans
 
+# Smoke E2E (ISS-C-01): levanta la stack de docker-compose.yml con los
+# intervalos de los workers en 5 s y el stub de Telegram (`intellops-telegram-stub`,
+# profile `smoke`), y apunta el proveedor de Telegram al stub por el DNS del
+# compose. Después corre el flujo completo. `SMOKE_NO_BUILD=1` reusa las
+# imágenes ya construidas. Bajar todo (stub incluido):
+# `docker compose --profile smoke down`. Ver docs/operations/smoke-e2e.md.
+# `JWT_SECRET` es obligatorio en el compose (ISS-C-05): el smoke usa el del
+# entorno o, si no hay, uno propio de la stack efímera del smoke (no es un
+# valor de despliegue).
+SMOKE_ENV = \
+	JWT_SECRET=$${JWT_SECRET:-smoke-only-jwt-secret-not-for-deploy-0123456789abcdef} \
+	INTELLOPS_RULES_INTERVAL_SECONDS=5 \
+	INTELLOPS_COMMS_INTERVAL_SECONDS=5 \
+	INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN=smoke-token \
+	INTELLOPS_COMMS_TELEGRAM_CHAT_ID=smoke-chat \
+	INTELLOPS_COMMS_TELEGRAM_API_BASE=http://intellops-telegram-stub:8099
+
+smoke:
+	$(SMOKE_ENV) sh -c 'set -e; if [ "$$SMOKE_NO_BUILD" = "1" ]; then \
+		docker compose --profile smoke up -d; \
+		else docker compose --profile smoke up -d --build; fi; \
+		python3 scripts/smoke.py'
+
+# E2E del CI (ISS-C-03, LT-1/D1): el mismo comando que el job `e2e`, sin
+# atajos. Levanta la stack con el perfil `smoke` y los intervalos de los
+# workers en 5 s, y corre el smoke de C.1. Un fallo acá frena el PR: el job no
+# declara `continue-on-error`.
+e2e-ci:
+	$(SMOKE_ENV) docker compose --profile smoke up -d --build
+	python3 scripts/smoke.py
+
+# Carga estándar (ISS-C-03, LT-3/LT-4): k6 corre en la imagen oficial —nada que
+# instalar en el repo— dentro de la red del compose, así alcanza la API por DNS
+# (`http://intellops-core:8000`) sin depender de que el host acepte tráfico de
+# contenedores. La red se resuelve desde `docker compose ps`, sin hardcodear el
+# nombre del proyecto. El summary queda en `reports/k6-summary.json` (ignorado
+# por git). Overrides: `make load VUS=20 DURATION=30s`. Ver
+# docs/operations/load-test.md.
+K6_IMAGE = grafana/k6:0.57.0
+VUS ?= 10
+DURATION ?= 1m
+
+load:
+	@mkdir -p reports
+	@net=$$($(COMPOSE_NO_SECRET) docker compose ps --format json | python3 -c 'import json, sys; print(next(json.loads(l)["Networks"] for l in sys.stdin if l.strip()))'); \
+	echo "→ k6 en la red $$net (VUS=$(VUS), DURATION=$(DURATION))"; \
+	docker run --rm -i --network "$$net" \
+		--user "$(HOST_UID):$(HOST_GID)" \
+		-v "$$PWD/load:/scripts:ro" \
+		-v "$$PWD/reports:/reports" \
+		-e BASE_URL=$${BASE_URL:-http://intellops-core:8000} \
+		-e ADMIN_EMAIL=$${ADMIN_EMAIL:-admin@intellops.local} \
+		-e ADMIN_PASSWORD=$${ADMIN_PASSWORD:-admin-dev-password} \
+		-e VUS=$(VUS) \
+		-e DURATION=$(DURATION) \
+		$(K6_IMAGE) run --summary-export=/reports/k6-summary.json /scripts/ingest.js
+
 lint:
-	$(TEST_COMPOSE) run --rm --build --no-deps tests sh -c "flake8 src/ tests/ && pylint src/ --fail-under=9.0"
+	$(TEST_COMPOSE) run --rm --build --no-deps tests sh -c "flake8 src/ tests/ && pylint src/ --fail-under=9.0 --fail-on=W,E"
+
+# SPA React (ISS-B-05): build estático, no es un contenedor del compose
+# (ADR-0010). Node ≥ 22 (`src/frontend/.nvmrc`); corre en el host, no en Docker.
+fe-install:
+	cd src/frontend && npm ci
+
+fe-lint:
+	cd src/frontend && npm run lint
+
+fe-test:
+	cd src/frontend && npm test
+
+fe-build:
+	cd src/frontend && npm run build && npm run check-size
+
+fe-e2e:
+	cd src/frontend && npm run test:e2e
 
 # Requiere uv (https://docs.astral.sh/uv/); corre la versión fijada en
 # UV_VERSION (la misma que setup-uv en .github/workflows/ci.yml) para que el
@@ -97,7 +182,7 @@ lock:
 		$(UV_FLAGS) -o requirements/dev.lock
 
 clean:
-	docker compose down -v
+	$(COMPOSE_NO_SECRET) docker compose down -v
 	$(TEST_COMPOSE) down -v --remove-orphans
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete

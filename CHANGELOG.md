@@ -7,6 +7,14 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-18
+
+Primera versión completa del MVP v1 sobre la rama local `MVP1`: agente RUM, ingesta asíncrona,
+lectura de métricas y sesiones, sonda de disponibilidad, motor determinístico de umbrales,
+despacho por Telegram y mail, SPA de latencias y heatmap, gates de calidad bloqueantes, smoke E2E
+reproducible y carga con k6. Detalle funcional y limitaciones conocidas en
+`docs/release-notes-v1.0.md`; despliegue y rollback en `docs/operations/deploy-v1.0.md`.
+
 ### Added
 
 - Estructura SDD: `openspec/config.yaml`, `openspec/specs/`, `openspec/changes/` (#1)
@@ -123,8 +131,118 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `channel_id` pasan a nullable; índices `idx_alert_app_created` e
   `idx_anomaly_app_timestamp`. Aborta si `alert` tiene filas. Espejo en
   `ddl_v1.0.sql`.
+- Motor determinístico de reglas de umbral (ISS-B-14, #74, ADR-0013): la v1
+  crea alertas sin detección ML (D1). Migración 0008: tabla `alert_rule`
+  (umbral por aplicación y por métrica, comparación `gt`/`lt`, ventana,
+  muestras mínimas, cooldown y severidad) y columnas `rule_id`, `threshold`
+  y `observed_value` en `alert`. Motor en `intellops-ai-engine`
+  (`src/ml/rules/`): agregación en PostgreSQL (p95 para latencias y rage
+  clicks, `AVG` para `AVAILABILITY`, razón de excepciones sobre sesiones),
+  comparación inclusiva, datos insuficientes sin alerta y cooldown contra
+  `alert`. `POST`/`GET /alerts/config` con auth por rol (422
+  `invalid_alert_rule`, 404 `application_not_found` y
+  `metric_type_not_found`). La imagen del worker pasa a copiar `src/`
+  completo: antes arrancaba con `ModuleNotFoundError: ml.rules`.
+- Despacho de alertas por Telegram y Email (B.10, ISS-B-10, #72, ADR-0010):
+  `intellops-comms` deja de ser un placeholder y pasa a ser el worker que
+  consume las alertas `Pending` del motor de reglas. Ciclo propio cada
+  `INTELLOPS_COMMS_INTERVAL_SECONDS` (default 30 s) con lote acotado
+  (default 20) reclamado con `SELECT ... WHERE status = Pending ORDER BY
+  created_at FOR UPDATE SKIP LOCKED LIMIT :batch`; routing por severidad
+  configurable por entorno (`critical`/`high` → Telegram, `medium`/`low` →
+  Email por defecto, sin WhatsApp en la v1); un destino por canal desde el
+  entorno (`INTELLOPS_COMMS_TELEGRAM_CHAT_ID`, `INTELLOPS_COMMS_SMTP_TO`)
+  persistido en `alert.recipient`; retry con backoff exponencial (4 intentos,
+  1/2/4 s, presupuesto total acotado) donde Telegram 400/403 y SMTP 5xx van a
+  `Failed` sin reintento; éxito → `Sent` con `sent_at`, canal y destinatario,
+  intentos agotados → `Failed` con `sent_at` NULL. Un canal sin credenciales
+  no es un fallo: la alerta queda `Pending`, el canal se loguea una vez y el
+  stack levanta sin secretos. Sin dependencias nuevas (`httpx` para Telegram,
+  `smtplib`/`email.message` para el correo). La imagen pasa a copiar `src/`
+  completo y arranca con `python -m comms.entrypoint` (antes solo empaquetaba
+  el `entrypoint.py` del placeholder); `docker-compose.yml` pasa las
+  variables con default vacío.
 
 ### Changed
+
+- Release v1.0.0 (C.5, ISS-C-05, #80): tag local `v1.0.0` sobre `MVP1` con la verificación de
+  despliegue en máquina limpia (`docker compose down -v` + `up -d --build` → `/health` 200 y los
+  cuatro servicios arriba), el smoke post-deploy en verde sobre la base recién migrada, la guía de
+  despliegue y rollback (`docs/operations/deploy-v1.0.md`) y las notas de release
+  (`docs/release-notes-v1.0.md`). `docker-compose.yml` pasa `JWT_SECRET` al core (antes el
+  contenedor usaba el default del código y el `.env` del operador no tenía efecto).
+
+- Suite E2E en CI y carga con k6 (C.3, ISS-C-03, #78): job `e2e` bloqueante
+  (`needs: lint`, 25 min) que levanta la stack con el perfil `smoke`, intervalos
+  de los workers en 5 s, y corre el smoke de C.1 — es el único gate que ve
+  build + migraciones + colas + ciclos de los workers, y sube el smoke y los
+  logs como artefacto cuando falla. Escenario k6 versionado (`load/ingest.js`)
+  con `setup()` que se provisiona solo (login admin → aplicación → API key) y
+  los umbrales de la v1: `p(95) ≤ 500 ms` en la ingesta, `http_req_failed <
+  1 %` y 100 % de checks (`accepted > 0`), medidos con la imagen oficial
+  `grafana/k6` pinneada en la red del compose (`make load`,
+  `reports/k6-summary.json`). Carga estándar: 10 VUs, 1 min, lotes de 10
+  eventos. Medición local: p95 10.39 ms, 0 % de fallos, 600 iteraciones, los
+  tres umbrales en verde. El job `load` del CI corre sólo por
+  `workflow_dispatch` (la latencia de un runner compartido no es comparable
+  entre corridas) y el runbook aclara qué prueba y qué no el número.
+
+- Integración de punta a punta (C.1, ISS-C-01, #76): `make smoke` recorre el
+  flujo completo sobre la stack real en ~10 s — health → login del admin del
+  seed → alta de aplicación + API key → ingesta → lectura en
+  `/metrics/query` → regla de umbral → alerta → notificación — y falla
+  nombrando la etapa, el status y el cuerpo de la respuesta
+  (`scripts/smoke.py`, sólo stdlib). La notificación se verifica contra
+  `scripts/telegram_stub.py`, un servicio opcional del compose
+  (`profiles: ["smoke"]`) que imita `POST /bot<token>/sendMessage` y expone
+  `/_messages`: el despacho apunta ahí con
+  `INTELLOPS_COMMS_TELEGRAM_API_BASE`, settings nuevo y aditivo (sin la
+  variable, la URL es la de siempre). Un stub en el host no servía: el
+  firewall de esta máquina dropea el tráfico contenedor→host. Se documenta el
+  runbook (`docs/operations/smoke-e2e.md`, con el chequeo de mergeabilidad
+  contra `origin/develop`) y el guion de la demo de punta a punta
+  (`docs/operations/demo-mvp1.md`). Evidencia: 10/10 etapas verdes, alerta
+  `sent` y mensaje `[CRITICAL] TTFB p95 1500,0 ms supera el umbral de 500,0
+  ms` en el stub.
+
+- SPA de operación (B.5, ISS-B-05, #69): `src/frontend/` deja de ser
+  placeholders y pasa a una app React 19 + TypeScript + Vite con las dos
+  vistas de la v1. **Latencias**: selector de métrica (`/metrics/list`),
+  ventanas 15 min/1 h/6 h/24 h con bucket 60/60/300/900 s, serie SVG del AVG
+  por bucket con `session_count`, resumen y tabla de corridas de la sonda
+  (`/metrics/probes`). **Heatmap UX**: grilla tiempo × métrica con una sola
+  llamada a `/metrics/query` sin filtro, color normalizado por fila, celda sin
+  dato neutra, tooltip y tabla accesible (la API pública no expone `page_url`
+  ni `metadata`, así que no es una grilla página × posición). La API key la
+  pega el operador y vive sólo en `sessionStorage` (401/403 la descarta): el
+  JWT no está cableado a `/metrics/*` y hacerlo es backend nuevo, fuera de
+  B.5. Build estático reproducible (`npm ci` + lock, Node ≥ 22) con
+  presupuesto de bundle verificado por script: ~243 kB raw / ~75 kB gzip.
+  50 tests de componentes (Vitest + Testing Library) y 5 de smoke E2E
+  (Playwright sobre el build con un stub de API). Sin librería de gráficos:
+  D3 queda para cuando haga falta interacción (desvío de ADR-0009
+  documentado).
+
+- Gates de calidad bloqueantes en CI (B.9, ISS-B-09, #71): la suite declara
+  `--cov-fail-under=70` en el job (además de `fail_under = 70` en
+  `pyproject.toml`), pylint pasa a `--fail-under=9.0 --fail-on=W,E` sin ningún
+  `--disable`, el job `contract` corre `tests/test_contract.py` como `needs` de
+  `Docker Build` y `make lint` usa el mismo comando que el CI. El árbol quedó
+  con 0 warnings y 0 errores de lint sin mensajes desactivados: se corrigió el
+  `W0613` real de `GET /metrics/list` (`_application`, catálogo global) en vez
+  de desactivar `unused-argument`. `tests/test_ci_gates.py` fija umbral, orden
+  de `needs`, `--fail-on`, la paridad de `make lint` y la ausencia de
+  `continue-on-error`; `CONTRIBUTING.md` documenta cada gate y cómo
+  reproducir su fallo localmente.
+- CI (ISS-B-05, #69): job `frontend` bloqueante (`npm ci` → eslint → Vitest →
+  build → `check-size` < 1 MB → Chromium + smoke E2E), fijado por
+  `tests/test_ci_gates.py`; `make fe-install/fe-lint/fe-test/fe-build/fe-e2e`
+  para correr lo mismo en local.
+- Imports `src.ml.*` → `ml.*` (ISS-B-09, #71): `src/ml/` y los tests cargaban
+  el mismo archivo como dos módulos distintos (`src.ml.schemas` y
+  `ml.schemas` → dos clases `MetricBatchInput`), lo que rompía `isinstance`
+  entre el loader del dataset y sus tests y no resolvía con el
+  `PYTHONPATH=/app/src` de las imágenes.
 
 - Contrato OpenAPI de `Anomaly` y `Alert` (ISS-B-03, #68): se reemplazan los
   campos del borrador (`score`, `detector`, `description`,
@@ -162,6 +280,18 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/telemetry/*` hasta implementar el rate limit (el de `/assistant/query` se
   mantiene); se corrige la redacción de secretos al inicio del texto
   (`SECRET_PAIR_RE`, `28181c2`).
+- Las filas de la sonda HTTP (`metadata` con `probe_target`) dejan de mezclarse
+  con la latencia real de usuarios (ISS-B-14, ISS-B-05): el p95 del motor de
+  reglas (`src/ml/rules/aggregates.py`) y `GET /metrics/query` las excluyen en
+  todos los tipos de métrica salvo `AVAILABILITY`, que proviene únicamente de
+  la sonda. El contrato de `/metrics/query` (parámetros, shape y orden) no
+  cambia; una fila sin `metadata` sigue contando como RUM.
+- `docker-compose.yml` exige `JWT_SECRET` (`${JWT_SECRET:?...}`) en lugar de caer a un
+  valor por defecto publicado en el repo (ISS-C-05): un despliegue sin la variable ya
+  no firma tokens con un secreto público, aborta con el mensaje. Los consumidores del
+  compose pasan el suyo: los jobs `docker`, `e2e` y `load` del CI (valor solo de CI),
+  `make smoke`/`make e2e-ci` (valor propio del smoke) y `make setup`, que crea `.env`
+  desde `.env.example`. `docker-compose.test.yml` conserva su valor propio.
 
 ### Security
 
@@ -182,5 +312,6 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Documentación de RRHH con planes de trabajo de estudiantes PS
 - Definición de módulos: Seguridad (Cavallero), ML (Monfroglio), QA (Montanari)
 
-[Unreleased]: https://github.com/gidas/intellops/compare/v0.0.0...HEAD
+[Unreleased]: https://github.com/gidas/intellops/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/gidas/intellops/releases/tag/v1.0.0
 [0.0.0]: https://github.com/gidas/intellops/releases/tag/v0.0.0

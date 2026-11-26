@@ -1,6 +1,6 @@
 """Módulo principal del worker de Inteligencia Artificial."""
 from fastapi import FastAPI
-from src.ml.pipeline.mock_reader import load_mock_data
+from ml.pipeline.mock_reader import load_mock_data
 
 app = FastAPI(title="IntellOps AI Engine Worker", version="1.0.0")
 

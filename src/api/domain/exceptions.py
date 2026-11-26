@@ -76,3 +76,16 @@ class QueryRangeError(DomainError):
 
     http_code = 422
     default_code = "invalid_query_range"
+
+
+class InvalidAlertRuleError(DomainError):
+    """422 — regla de umbral fuera de dominio (ISS-B-14, OAS-B14-1).
+
+    La configuración de umbrales se rechaza con `invalid_alert_rule` sin
+    escribir: comparación o severidad fuera del catálogo, ventana fuera de
+    1..10080 min, muestras mínimas o cooldown menores a 1, o umbral no
+    finito.
+    """
+
+    http_code = 422
+    default_code = "invalid_alert_rule"

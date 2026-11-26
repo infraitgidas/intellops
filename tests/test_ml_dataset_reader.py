@@ -11,9 +11,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from src.ml.config import MLDatasetSettings
-from src.ml.pipeline.api_reader import align_window, read_dataset
-from src.ml.pipeline.mapper import DatasetReadError, to_batch
+from ml.config import MLDatasetSettings
+from ml.pipeline.api_reader import align_window, read_dataset
+from ml.pipeline.mapper import DatasetReadError, to_batch
 
 pytestmark = pytest.mark.unit
 
@@ -356,7 +356,7 @@ def test_reader_malformed_row_returns_no_partial_data(monkeypatch):
 def test_reader_does_not_fall_back_to_mock_and_does_not_log_key(monkeypatch, caplog):
     calls = []
     monkeypatch.setattr(
-        "src.ml.pipeline.mock_reader.load_mock_data", lambda: calls.append(1)
+        "ml.pipeline.mock_reader.load_mock_data", lambda: calls.append(1)
     )
     s = _settings(monkeypatch)
     with caplog.at_level(logging.DEBUG):
@@ -378,7 +378,7 @@ def test_reader_creates_default_client_when_not_injected(monkeypatch):
             super().__init__(transport=httpx.MockTransport(
                 lambda r: httpx.Response(200, json=[])))
 
-    monkeypatch.setattr("src.ml.pipeline.api_reader.httpx.Client", FakeClient)
+    monkeypatch.setattr("ml.pipeline.api_reader.httpx.Client", FakeClient)
     s = _settings(monkeypatch)
     assert read_dataset(s, now=NOW) == []
     assert created["kwargs"]["timeout"] == 10

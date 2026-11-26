@@ -69,4 +69,9 @@ directory = "htmlcov"
 [tool.pylint.MASTER]
 # Alembic genera nombres (revision, target_metadata) y usa un proxy
 # dinámico (alembic.op) que pylint no puede resolver estáticamente.
-ignore-paths = ["^src/api/infrastructure/db/migrations/.*$"]
+ignore-paths = [
+    "^src/api/infrastructure/db/migrations/.*$",
+    # Artefactos del frontend (ISS-B-05): dependencias y build no son código
+    # del repo; pylint no lee .gitignore.
+    "^src/frontend/(node_modules|dist|dist-e2e|playwright-report|test-results)/.*$",
+]

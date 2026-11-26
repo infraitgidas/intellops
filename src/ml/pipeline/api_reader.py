@@ -5,9 +5,9 @@ from typing import List, Optional, Tuple
 
 import httpx
 
-from src.ml.config import MLDatasetSettings
-from src.ml.pipeline.mapper import DatasetReadError, to_batch
-from src.ml.schemas import MetricBatchInput
+from ml.config import MLDatasetSettings
+from ml.pipeline.mapper import DatasetReadError, to_batch
+from ml.schemas import MetricBatchInput
 
 _MAX_WINDOW = timedelta(days=7)
 _TS_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
