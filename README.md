@@ -196,7 +196,7 @@ observabilidad/
 git clone https://github.com/infraitgidas/intellops.git
 cd intellops
 
-make setup   # Construye imágenes
+make setup   # Crea .env desde .env.example (si falta) y construye imágenes
 make up      # Levanta servicios → http://localhost:8000
 make test    # Corre tests → todo verde ✅
 ```

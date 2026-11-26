@@ -286,6 +286,12 @@ reproducible y carga con k6. Detalle funcional y limitaciones conocidas en
   todos los tipos de métrica salvo `AVAILABILITY`, que proviene únicamente de
   la sonda. El contrato de `/metrics/query` (parámetros, shape y orden) no
   cambia; una fila sin `metadata` sigue contando como RUM.
+- `docker-compose.yml` exige `JWT_SECRET` (`${JWT_SECRET:?...}`) en lugar de caer a un
+  valor por defecto publicado en el repo (ISS-C-05): un despliegue sin la variable ya
+  no firma tokens con un secreto público, aborta con el mensaje. Los consumidores del
+  compose pasan el suyo: los jobs `docker`, `e2e` y `load` del CI (valor solo de CI),
+  `make smoke`/`make e2e-ci` (valor propio del smoke) y `make setup`, que crea `.env`
+  desde `.env.example`. `docker-compose.test.yml` conserva su valor propio.
 
 ### Security
 

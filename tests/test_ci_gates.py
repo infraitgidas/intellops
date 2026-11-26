@@ -26,6 +26,7 @@ WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 CONTRIBUTING_PATH = REPO_ROOT / "CONTRIBUTING.md"
 MAKEFILE_PATH = REPO_ROOT / "Makefile"
+COMPOSE_PATH = REPO_ROOT / "docker-compose.yml"
 LOAD_SCRIPT_PATH = REPO_ROOT / "load" / "ingest.js"
 
 COVERAGE_THRESHOLD = 70
@@ -373,3 +374,59 @@ def test_e2e_and_load_jobs_are_wired():
     assert "k6-summary.json" in recipe, (
         "`make load` DEBE exportar el summary a `reports/k6-summary.json` (LT-4)"
     )
+
+
+# -- ISS-C-05: JWT_SECRET obligatorio en el compose de despliegue --------------
+
+# Sin default público: un `docker compose up` sin la variable no debe firmar
+# tokens con un secreto publicado en el repo. Los consumidores del compose
+# (CI, Makefile) declaran su propio valor.
+JWT_SECRET_REQUIRED = re.compile(r"JWT_SECRET=\$\{JWT_SECRET:\?[^}]+\}")
+COMPOSE_COMMAND = re.compile(r"docker compose|make (smoke|e2e-ci|load|up|setup)\b")
+MIN_JWT_SECRET_LENGTH = 32  # `Settings._validate_jwt_secret_length` (AUTH-6)
+
+
+def test_compose_requires_jwt_secret_and_has_no_public_default():
+    """`docker-compose.yml` DEBE fallar sin `JWT_SECRET` (`:?`), no caer a un
+    valor por defecto publicado en el repo (ISS-C-05)."""
+    compose = COMPOSE_PATH.read_text(encoding="utf-8")
+    assert JWT_SECRET_REQUIRED.search(compose), (
+        "`JWT_SECRET` DEBE ser obligatorio en el compose (`${JWT_SECRET:?...}`)"
+    )
+    assert "JWT_SECRET:-" not in compose, (
+        "`JWT_SECRET` NO DEBE tener default en el compose (`:-`)"
+    )
+    assert "dev-only-jwt-secret" not in compose, (
+        "el compose NO DEBE embeber el secreto de dev publicado en el repo"
+    )
+
+
+def test_ci_jobs_that_run_compose_provide_their_own_jwt_secret():
+    """Todo job que corre `docker compose` (directo o vía `make`) DEBE declarar
+    un `JWT_SECRET` propio a nivel de job: sin él el compose aborta (ISS-C-05)."""
+    offenders = []
+    for job_id, job in _jobs().items():
+        runs = "\n".join(step.get("run", "") for step in job.get("steps", []))
+        if not COMPOSE_COMMAND.search(runs):
+            continue
+        secret = str(job.get("env", {}).get("JWT_SECRET", ""))
+        if len(secret) < MIN_JWT_SECRET_LENGTH:
+            offenders.append(job_id)
+    assert not offenders, (
+        f"los jobs {offenders} corren docker compose sin `env.JWT_SECRET` "
+        f"(>= {MIN_JWT_SECRET_LENGTH} chars) a nivel de job"
+    )
+
+
+def test_make_smoke_targets_provide_a_jwt_secret_for_the_compose():
+    """`make smoke` y `make e2e-ci` levantan el compose: DEBEN pasar
+    `JWT_SECRET` (el del entorno o uno propio del smoke) (ISS-C-05)."""
+    makefile = MAKEFILE_PATH.read_text(encoding="utf-8")
+    smoke_env = makefile.split("SMOKE_ENV = ", 1)[1].split("\n\n", 1)[0]
+    assert "JWT_SECRET=" in smoke_env, (
+        "`SMOKE_ENV` DEBE definir `JWT_SECRET` para los targets smoke y e2e-ci"
+    )
+    for target in ("smoke", "e2e-ci"):
+        assert "$(SMOKE_ENV)" in _make_recipe(target), (
+            f"`make {target}` DEBE correr con `$(SMOKE_ENV)`"
+        )

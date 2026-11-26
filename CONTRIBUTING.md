@@ -157,7 +157,7 @@ make test-integration   # solo integración (Postgres)
 make test-cov           # suite con cobertura (HTML en htmlcov/)
 make test-contract      # contract tests (schemathesis, OpenAPI 3.1)
 make lint               # flake8 (0 hallazgos) + pylint --fail-on=W,E (≥ 9.0)
-make smoke              # smoke E2E: stack real + stub de Telegram (docs/operations/smoke-e2e.md)
+make smoke              # smoke E2E: stack real + stub de Telegram (docs/operations/smoke-e2e.md); usa su propio JWT_SECRET
 make e2e-ci             # lo mismo que el job `e2e` del CI (perfil smoke, intervalos de 5 s, smoke)
 make load               # carga estándar k6 de la ingesta → reports/k6-summary.json (docs/operations/load-test.md)
 make test-down          # borra contenedores y DB efímera
@@ -188,6 +188,11 @@ Corre en push a `main`/`develop`, en PRs hacia esas ramas y manualmente (`workfl
 | `Docker Build` | `docker compose build` | la imagen no construye |
 | `E2E (smoke completo)` | `docker compose --profile smoke up -d --build` + `python3 scripts/smoke.py` con los intervalos de los workers en 5 s | una etapa del smoke falla sobre la stack real (health, login, app, ingesta, lectura, regla, alerta o notificación) |
 | `Carga k6 (ingesta)` | `make load` (sólo manual, `workflow_dispatch` con `vus`/`duration`) | un umbral de k6 se cruza: p95 > 500 ms, errores ≥ 1 % o un `check` en rojo |
+
+`docker-compose.yml` exige `JWT_SECRET` (sin default público, ISS-C-05): los
+jobs que levantan el compose (`docker`, `e2e`, `load`) declaran el suyo a
+nivel de job, con un valor solo de CI. En local, `make setup` crea `.env`
+desde `.env.example` antes del primer `make up`.
 
 El job `e2e` corre el mismo flujo que `make smoke` en cada push/PR y es
 bloqueante; el job `load` es **manual** (no corre en PRs: la latencia de un

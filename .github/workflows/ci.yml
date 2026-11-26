@@ -294,6 +294,10 @@ jobs:
     name: Docker Build
     needs: [lint, test, license-scan, contract]
     runs-on: ubuntu-latest
+    env:
+      # ISS-C-05: el compose exige JWT_SECRET (sin default público), incluso
+      # para `build`. Valor solo de CI: nunca firma tokens fuera del runner.
+      JWT_SECRET: ci-only-jwt-secret-not-for-deploy-0123456789abcdef
     steps:
       - uses: actions/checkout@v4
       - run: docker compose build
@@ -311,6 +315,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
+      # ISS-C-05: el compose exige JWT_SECRET; valor solo de CI. Cubre todos
+      # los steps, incluidos `ps`, `logs` y `down`, que también interpolan.
+      JWT_SECRET: ci-only-jwt-secret-not-for-deploy-0123456789abcdef
       INTELLOPS_RULES_INTERVAL_SECONDS: "5"
       INTELLOPS_COMMS_INTERVAL_SECONDS: "5"
       INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN: smoke-token
@@ -359,6 +366,10 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      # ISS-C-05: el compose exige JWT_SECRET; valor solo de CI (también lo
+      # necesita `make load`, que resuelve la red con `docker compose ps`).
+      JWT_SECRET: ci-only-jwt-secret-not-for-deploy-0123456789abcdef
     steps:
       - uses: actions/checkout@v4
       - name: Levantar la stack

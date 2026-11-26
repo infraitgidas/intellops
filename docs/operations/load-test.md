@@ -89,6 +89,7 @@ los contenedores. La primera corrida baja la imagen (~50 MB).
 |---|---|
 | Docker con Compose v2 | `docker compose version` |
 | Stack arriba con la API en verde | `curl -fsS http://localhost:8000/health` |
+| `JWT_SECRET` definido en `.env` (el compose lo exige, sin default) | `cp .env.example .env` antes de `make up` |
 | El Admin del seed en la base | lo siembra la migración `0002`; si el login falla, `docker compose down -v && make up` |
 | Imagen `grafana/k6:0.57.0` | se baja sola en la primera corrida |
 

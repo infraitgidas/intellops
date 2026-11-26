@@ -20,8 +20,9 @@ personas.
 ## 0. Preparación (una vez, antes de la demo)
 
 ```bash
-# 1. Stack (build incluido la primera vez)
-make up
+# 1. Stack (build incluido la primera vez). El compose exige JWT_SECRET sin
+#    default: `make setup` crea `.env` desde `.env.example` si falta.
+make setup && make up
 
 # 2. Agente RUM: genera src/agent/dist/rum.js (está en .gitignore)
 cd src/agent && npm ci && npm run build && cd ../..

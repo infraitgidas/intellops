@@ -48,6 +48,7 @@ cada etapa.
 | Imagen `python:3.11-slim` (ya la usan los builds del compose) | `docker image ls python` |
 | El Admin del seed en la base (`admin@intellops.local`) | lo siembra la migración `0002`; una base vieja puede no tenerlo |
 | Stack propia o reutilizable | `make smoke` reconstruye imágenes; `SMOKE_NO_BUILD=1` las reusa |
+| `JWT_SECRET` | el compose lo exige (sin default). `make smoke` usa el del entorno o uno propio de la stack del smoke; para los `docker compose ...` manuales (`ps`, `logs`, `down`) hace falta `.env` (`cp .env.example .env`) o la variable exportada |
 
 No hace falta ninguna credencial externa: ni bot de Telegram, ni SMTP, ni
 cuenta real. Tampoco hace falta que el host acepte tráfico desde los

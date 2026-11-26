@@ -16,6 +16,13 @@ export HOST_GID := $(shell id -g)
 TEST_COMPOSE = docker compose -f docker-compose.test.yml
 TEST_RUN = $(TEST_COMPOSE) run --rm --build tests
 
+# `docker-compose.yml` exige JWT_SECRET (ISS-C-05): sin default público, todo
+# `docker compose` sobre ese archivo aborta si falta, incluso `down`, `ps` y
+# `logs`, que no firman nada. Esos targets usan un valor de relleno cuando la
+# variable no está en el entorno ni en `.env`; `up`, `migrate` y compañía NO:
+# necesitan el secreto real (`cp .env.example .env`, o `make setup`).
+COMPOSE_NO_SECRET = JWT_SECRET=$${JWT_SECRET:-unused-by-this-command}
+
 help:
 	@echo "IntellOps — Comandos disponibles"
 	@echo "  make setup          → Construye imágenes y prepara entorno"
@@ -39,6 +46,7 @@ help:
 	@echo "  make logs           → Logs de servicios"
 
 setup:
+	@test -f .env || { cp .env.example .env && echo "→ .env creado desde .env.example (valores de dev; para un despliegue real ver docs/operations/deploy-v1.0.md)"; }
 	docker compose build
 	docker compose run --rm intellops-core python -c "print('✅ Entorno listo')"
 
@@ -50,7 +58,7 @@ up:
 	@echo "   Health: http://localhost:8000/health"
 
 down:
-	docker compose down
+	$(COMPOSE_NO_SECRET) docker compose down
 
 migrate:
 	docker compose run --rm intellops-core alembic upgrade head
@@ -59,7 +67,7 @@ makemigrations:
 	docker compose run --rm intellops-core alembic revision -m "$(m)"
 
 logs:
-	docker compose logs -f
+	$(COMPOSE_NO_SECRET) docker compose logs -f
 
 # Todos los targets de test/lint corren en el entorno de testing, no en el
 # contenedor de dev: misma imagen y mismos pasos que el CI.
@@ -90,7 +98,11 @@ test-down:
 # compose. Después corre el flujo completo. `SMOKE_NO_BUILD=1` reusa las
 # imágenes ya construidas. Bajar todo (stub incluido):
 # `docker compose --profile smoke down`. Ver docs/operations/smoke-e2e.md.
+# `JWT_SECRET` es obligatorio en el compose (ISS-C-05): el smoke usa el del
+# entorno o, si no hay, uno propio de la stack efímera del smoke (no es un
+# valor de despliegue).
 SMOKE_ENV = \
+	JWT_SECRET=$${JWT_SECRET:-smoke-only-jwt-secret-not-for-deploy-0123456789abcdef} \
 	INTELLOPS_RULES_INTERVAL_SECONDS=5 \
 	INTELLOPS_COMMS_INTERVAL_SECONDS=5 \
 	INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN=smoke-token \
@@ -124,7 +136,7 @@ DURATION ?= 1m
 
 load:
 	@mkdir -p reports
-	@net=$$(docker compose ps --format json | python3 -c 'import json, sys; print(next(json.loads(l)["Networks"] for l in sys.stdin if l.strip()))'); \
+	@net=$$($(COMPOSE_NO_SECRET) docker compose ps --format json | python3 -c 'import json, sys; print(next(json.loads(l)["Networks"] for l in sys.stdin if l.strip()))'); \
 	echo "→ k6 en la red $$net (VUS=$(VUS), DURATION=$(DURATION))"; \
 	docker run --rm -i --network "$$net" \
 		--user "$(HOST_UID):$(HOST_GID)" \
@@ -170,7 +182,7 @@ lock:
 		$(UV_FLAGS) -o requirements/dev.lock
 
 clean:
-	docker compose down -v
+	$(COMPOSE_NO_SECRET) docker compose down -v
 	$(TEST_COMPOSE) down -v --remove-orphans
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete

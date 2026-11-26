@@ -23,6 +23,12 @@ sólo existe bajo el perfil `smoke`.
 `docker compose` lee `.env` de la raíz del repo (está en `.gitignore`; **nunca** se versiona). El
 template es `.env.example`.
 
+> **`JWT_SECRET` es obligatorio y no tiene default.** `docker-compose.yml` lo exige
+> (`${JWT_SECRET:?...}`): sin la variable, `docker compose up` aborta con
+> `required variable JWT_SECRET is missing a value`, en vez de firmar tokens con un secreto
+> publicado en el repo. Como compose interpola el archivo entero, **todos** los comandos
+> (`ps`, `logs`, `down`, `build`) necesitan que `.env` exista o la variable esté exportada.
+
 ```bash
 cp .env.example .env
 $EDITOR .env
@@ -31,7 +37,7 @@ $EDITOR .env
 | Variable | Para qué | En producción |
 |---|---|---|
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | credenciales de la DB | cambiar la password |
-| `JWT_SECRET` | firma HS256 de los tokens (≥ 32 bytes) | **cambiar**: el default es dev/CI |
+| `JWT_SECRET` | firma HS256 de los tokens (≥ 32 bytes) | **obligatorio, sin default**: generá uno propio (`openssl rand -hex 32`); el valor de `.env.example` es sólo dev/CI |
 | `INTELLOPS_ENV` | etiqueta de entorno | `production` |
 | `INTELLOPS_COMMS_TELEGRAM_BOT_TOKEN` / `_CHAT_ID` | canal Telegram | opcional: sin esto la alerta queda `Pending` |
 | `INTELLOPS_COMMS_SMTP_*` | canal mail | opcional, mismo criterio |
@@ -136,4 +142,4 @@ docker compose exec -T intellops-db psql -U intellops -d intellops < backup-v1.0
 - [ ] La SPA abre, pide la API key y muestra las dos vistas con datos.
 - [ ] `pg_dump` de respaldo tomado antes de exponer el entorno.
 - [ ] Password del Admin semilla rotada o usuario semilla desactivado.
-- [ ] `JWT_SECRET` propio (no el default de dev/CI).
+- [ ] `JWT_SECRET` propio, definido en `.env` (no el valor de dev/CI de `.env.example`); sin él el compose no levanta.
