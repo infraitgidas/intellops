@@ -323,6 +323,166 @@ async def test_metrics_query_and_list_401_without_key(client):
         assert resp.headers.get("www-authenticate") == "ApiKey"
 
 
+# -- B.5 (HM-11, R1): /metrics/query no mezcla filas de la sonda en RUM --------
+
+async def _type_id(db_session, name: str) -> int:
+    from sqlalchemy import text
+
+    return (
+        await db_session.execute(
+            text("SELECT metric_type_id FROM metric_type WHERE name = :n"),
+            {"n": name},
+        )
+    ).scalar_one()
+
+
+async def test_metrics_query_excludes_probe_rows_from_rum_types(
+    client, make_admin, db_session
+):
+    """HM-11.1: 3 filas TTFB RUM de 500 ms y 5 filas TTFB de la sonda de
+    9000 ms en el mismo bucket DEBEN dar `value` 500 y `session_count` solo
+    de sesiones RUM; la sonda no contamina las series de latencia."""
+    app_id, key = await _make_app_with_key(client, make_admin, "probe-excl-app")
+    ref = datetime.now(timezone.utc).replace(microsecond=0)
+    rum_sessions = [uuid4() for _ in range(3)]
+    for offset, rum_session in enumerate(rum_sessions):
+        await _seed_metric(
+            db_session, app_id, rum_session, value=500.0,
+            ts=ref + timedelta(seconds=10 + offset),
+        )
+    probe_session = uuid4()  # sesión sintética de la sonda (D4)
+    for offset in range(5):
+        await _seed_probe_run(
+            db_session, app_id, ts=ref + timedelta(seconds=20 + offset),
+            value=9000.0, session_id=probe_session, metric_type="TTFB",
+            metadata={"probe_target": "https://piloto.example/"},
+        )
+
+    resp = await client.get(
+        "/metrics/query",
+        headers={"X-API-Key": key},
+        params={
+            "start": _ts(ref),
+            "end": _ts(ref + timedelta(seconds=60)),
+            "bucket_seconds": 60,
+            "metric_type": await _type_id(db_session, "TTFB"),
+        },
+    )
+
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert len(rows) == 1
+    assert rows[0]["value"] == 500.0  # sin los 9000 ms de la sonda
+    assert rows[0]["session_count"] == 3  # la sesión de la sonda no cuenta
+
+
+async def test_metrics_query_returns_nothing_when_only_probe_rows_exist(
+    client, make_admin, db_session
+):
+    """HM-11.1 (triangulación): si en la ventana solo hay filas TTFB de la
+    sonda, el bucket NO DEBE existir (no un bucket con valor de sonda)."""
+    app_id, key = await _make_app_with_key(client, make_admin, "probe-only-app")
+    ref = datetime.now(timezone.utc).replace(microsecond=0)
+    await _seed_probe_run(
+        db_session, app_id, ts=ref + timedelta(seconds=5), value=9000.0,
+        metric_type="TTFB", metadata={"probe_target": "https://piloto.example/"},
+    )
+
+    resp = await client.get(
+        "/metrics/query",
+        headers={"X-API-Key": key},
+        params={
+            "start": _ts(ref),
+            "end": _ts(ref + timedelta(seconds=60)),
+            "bucket_seconds": 60,
+            "metric_type": await _type_id(db_session, "TTFB"),
+        },
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+async def test_metrics_query_keeps_availability_rows_of_the_probe(
+    client, make_admin, db_session
+):
+    """HM-11.2: las filas AVAILABILITY de la sonda (con `probe_target`) se
+    agregan igual que antes: son el único consumidor legítimo de la sonda en
+    este endpoint (razón de uptime)."""
+    app_id, key = await _make_app_with_key(client, make_admin, "probe-avail-app")
+    ref = datetime.now(timezone.utc).replace(microsecond=0)
+    probe_session = uuid4()
+    for offset, value in enumerate((1.0, 1.0, 0.0)):
+        await _seed_probe_run(
+            db_session, app_id, ts=ref + timedelta(seconds=10 + offset),
+            value=value, session_id=probe_session,
+            metadata={"probe_target": "https://piloto.example/"},
+        )
+
+    resp = await client.get(
+        "/metrics/query",
+        headers={"X-API-Key": key},
+        params={
+            "start": _ts(ref),
+            "end": _ts(ref + timedelta(seconds=60)),
+            "bucket_seconds": 60,
+            "metric_type": await _type_id(db_session, "AVAILABILITY"),
+        },
+    )
+
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert len(rows) == 1
+    assert rows[0]["value"] == pytest.approx(2.0 / 3.0)
+    assert rows[0]["session_count"] == 1
+
+
+async def test_metrics_query_keeps_rum_rows_with_other_or_null_metadata(
+    client, make_admin, db_session
+):
+    """R1/DT-10: solo la clave `probe_target` marca a la sonda. Una fila RUM
+    con `metadata` NULL o con otras claves sigue contando como RUM, y sin
+    filtro de tipo la sonda sale de TTFB pero AVAILABILITY se conserva."""
+    app_id, key = await _make_app_with_key(client, make_admin, "probe-null-md-app")
+    ref = datetime.now(timezone.utc).replace(microsecond=0)
+    # TTFB RUM: una con metadata NULL (_seed_metric), otra con otras claves.
+    await _seed_metric(
+        db_session, app_id, uuid4(), value=100.0, ts=ref + timedelta(seconds=10)
+    )
+    await _seed_probe_run(
+        db_session, app_id, ts=ref + timedelta(seconds=11), value=300.0,
+        metric_type="TTFB", metadata={"browser": "firefox"},
+    )
+    # Sonda: TTFB (excluida) y AVAILABILITY (conservada).
+    await _seed_probe_run(
+        db_session, app_id, ts=ref + timedelta(seconds=12), value=9000.0,
+        metric_type="TTFB", metadata={"probe_target": "https://piloto.example/"},
+    )
+    await _seed_probe_run(
+        db_session, app_id, ts=ref + timedelta(seconds=13), value=1.0,
+        metadata={"probe_target": "https://piloto.example/"},
+    )
+
+    resp = await client.get(
+        "/metrics/query",
+        headers={"X-API-Key": key},
+        params={
+            "start": _ts(ref),
+            "end": _ts(ref + timedelta(seconds=60)),
+            "bucket_seconds": 60,
+        },
+    )
+
+    assert resp.status_code == 200
+    by_type = {row["metric_type_id"]: row for row in resp.json()}
+    ttfb = by_type[await _type_id(db_session, "TTFB")]
+    assert ttfb["value"] == pytest.approx(200.0)  # (100 + 300) / 2, sin 9000
+    assert ttfb["session_count"] == 2
+    availability = by_type[await _type_id(db_session, "AVAILABILITY")]
+    assert availability["value"] == 1.0
+    assert len(by_type) == 2
+
+
 # -- OAS-13: /metrics/list — catálogo metric_type ------------------------------
 
 async def test_metrics_list_returns_catalog(client, make_admin):

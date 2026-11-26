@@ -6,6 +6,8 @@ el proceso): JOIN `user_session`→`rum_metric` con `app_id = tenant`, GROUP BY
 `COUNT(DISTINCT session_id)` → shape ML C6 `MetricAggregate`. Los índices
 existentes (`idx_user_session_app_id`, `idx_rum_metric_*`) acotan el plan;
 la ventana default (15 min) escanea miles de filas → < 2 s, CPU-only (TQ-2).
+Excluye las filas de la sonda (`metadata ? 'probe_target'`) salvo en
+`AVAILABILITY`, para que TTFB y FCP sean RUM puro (ISS-B-14, ISS-B-05).
 
 `list_metric_types` devuelve el catálogo `metric_type` (id, name, description)
 para `GET /metrics/list` (OAS-13). Sin DDL nuevo.
@@ -30,7 +32,10 @@ from sqlalchemy import (
     SmallInteger,
     Text,
     bindparam,
+    false,
     func,
+    not_,
+    or_,
     select,
     table,
     text,
@@ -56,6 +61,21 @@ _METRIC_TYPE = table(
     Column("metric_type_id", SmallInteger),
     Column("name", Text),
 )
+
+
+def _not_probe() -> Any:
+    """Predicado: la fila `rum_metric` NO es de la sonda HTTP.
+
+    La sonda marca sus filas con la clave `probe_target` en `metadata`.
+    `coalesce(..., false)` hace que un `metadata` NULL cuente como RUM, y
+    `has_key` evita subindexar el `Mapped[dict | None]`.
+    """
+    return not_(
+        func.coalesce(
+            RumMetric.metadata_json.has_key("probe_target"),
+            false(),
+        )
+    )
 
 
 def _as_int(raw: Any) -> int | None:
@@ -120,6 +140,8 @@ class SQLAlchemyQueryRepository(QueryRepository):
             + func.floor((epoch_ts - epoch_start) / bucket_p) * bucket_p
         )
 
+        # La sonda solo cuenta en AVAILABILITY; en el resto de los tipos sus
+        # filas (p. ej. TTFB) no se mezclan con las series RUM.
         stmt = (
             select(
                 UserSession.app_id.label("application_id"),
@@ -131,10 +153,18 @@ class SQLAlchemyQueryRepository(QueryRepository):
                 ),
             )
             .join(UserSession, UserSession.session_id == RumMetric.session_id)
+            .join(
+                _METRIC_TYPE,
+                _METRIC_TYPE.c.metric_type_id == RumMetric.metric_type_id,
+            )
             .where(
                 UserSession.app_id == bindparam("app_id"),
                 RumMetric.timestamp >= start_p,
                 RumMetric.timestamp < end_p,
+                or_(
+                    _METRIC_TYPE.c.name == PROBE_METRIC_TYPE_NAME,
+                    _not_probe(),
+                ),
             )
             .group_by(UserSession.app_id, RumMetric.metric_type_id, bucket_expr)
             .order_by(bucket_expr, RumMetric.metric_type_id)

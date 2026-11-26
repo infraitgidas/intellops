@@ -7,6 +7,12 @@ consulta queda acotada al tenant de la regla y a la ventana
 
 Tablas locales al contenedor: ADR-0010 prohíbe cross-imports con `api`, así
 que este módulo declara solo las columnas que lee.
+
+La sonda HTTP (B.13) ingesta filas sintéticas `TTFB` y `AVAILABILITY` marcadas
+con `metadata ? 'probe_target'`. Esas filas se EXCLUYEN del percentil de
+latencia (un TTFB sintético no es latencia de usuario real y distorsiona el
+p95 de las reglas), pero se CONSERVAN en el promedio de `AVAILABILITY`: la
+disponibilidad proviene únicamente de la sonda.
 """
 
 # pylint: disable=not-callable  # percentile_cont/within_group son funciones SQL
@@ -20,12 +26,16 @@ from sqlalchemy import (
     DateTime,
     Float,
     SmallInteger,
+    false,
     func,
+    not_,
     select,
     table,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from ml.rules.engine import LATENCY_METRICS, PERCENTILE, Evaluation
 
@@ -34,6 +44,7 @@ _RUM_METRIC = table(
     Column("session_id", PGUUID(as_uuid=True)),
     Column("metric_type_id", SmallInteger),
     Column("value", Float),
+    Column("metadata", JSONB),
     Column("timestamp", DateTime(timezone=True)),
 )
 _USER_SESSION = table(
@@ -82,6 +93,17 @@ def _window(now: datetime, window_minutes: int) -> tuple[datetime, datetime]:
     return now - timedelta(minutes=window_minutes), now
 
 
+def _not_probe() -> ColumnElement[bool]:
+    """Predicado: la fila `rum_metric` NO es de la sonda HTTP.
+
+    `coalesce(..., false)` hace que un `metadata` NULL cuente como RUM real:
+    `NOT NULL` sería NULL y descartaría las filas del agente.
+    """
+    return not_(
+        func.coalesce(_RUM_METRIC.c.metadata.has_key("probe_target"), false())
+    )
+
+
 async def _percentile(
     session: AsyncSession,
     application_id: UUID,
@@ -89,7 +111,11 @@ async def _percentile(
     start: datetime,
     end: datetime,
 ) -> Evaluation:
-    """p95 de `rum_metric.value` (TTFB, FCP, XHR_LATENCY, RAGE_CLICK)."""
+    """p95 de `rum_metric.value` (TTFB, FCP, XHR_LATENCY, RAGE_CLICK).
+
+    Excluye las filas de la sonda: su `TTFB` sintético no es latencia de
+    usuario real y no debe disparar (ni enmascarar) reglas de latencia.
+    """
     p95 = func.percentile_cont(PERCENTILE).within_group(
         _RUM_METRIC.c.value.asc()
     )
@@ -106,6 +132,7 @@ async def _percentile(
             _RUM_METRIC.c.metric_type_id == metric_type_id,
             _RUM_METRIC.c.timestamp >= start,
             _RUM_METRIC.c.timestamp < end,
+            _not_probe(),
         )
     )
     row = (await session.execute(stmt)).one()
@@ -121,7 +148,10 @@ async def _average(
     start: datetime,
     end: datetime,
 ) -> Evaluation:
-    """`AVG(rum_metric.value)`: uptime de AVAILABILITY (0/1)."""
+    """`AVG(rum_metric.value)`: uptime de AVAILABILITY (0/1).
+
+    NO excluye la sonda: la disponibilidad proviene únicamente de sus filas.
+    """
     stmt = (
         select(
             func.avg(_RUM_METRIC.c.value).label("observed"),

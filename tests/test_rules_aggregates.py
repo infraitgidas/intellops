@@ -6,6 +6,8 @@ Postgres real: la agregación corre EN SQL (design §4), así que el test usa
 - `TTFB`, `FCP`, `XHR_LATENCY` y `RAGE_CLICK` por `percentile_cont(0.95)`
   de `rum_metric.value` (AR-2);
 - `AVAILABILITY` por `AVG(rum_metric.value)`: 1,1,1,0 → 0,75 (AR-2);
+- las filas de la sonda (`metadata ? 'probe_target'`) no entran al p95 de
+  latencia pero sí al promedio de `AVAILABILITY` (ISS-B-14);
 - `JS_EXCEPTION_RATE` por `count(js_exception)/count(user_session)` en la
   ventana (AR-2);
 - aislamiento por tenant y ventana `[now - window_minutes, now)` (AR-1);
@@ -15,6 +17,7 @@ Las filas se insertan con SQL directo: la agregación no depende de la API de
 configuración ni del motor.
 """
 
+import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -65,23 +68,28 @@ async def _metric(
     value: float,
     *,
     timestamp: datetime,
+    metadata: dict | None = None,
 ) -> None:
     await db_session.execute(
         text(
             "INSERT INTO rum_metric (metric_id, session_id, metric_type_id, "
-            "value, unit, timestamp) "
+            'value, unit, "metadata", timestamp) '
             "VALUES (:metric_id, :session_id, :metric_type_id, :value, 'ms', "
-            ":timestamp)"
+            "CAST(:metadata AS jsonb), :timestamp)"
         ),
         {
             "metric_id": uuid4(),
             "session_id": session_id,
             "metric_type_id": metric_type_id,
             "value": value,
+            "metadata": None if metadata is None else json.dumps(metadata),
             "timestamp": timestamp,
         },
     )
     await db_session.commit()
+
+
+PROBE_METADATA = {"probe_target": "https://piloto.example/"}
 
 
 async def _js_exception(
@@ -175,6 +183,86 @@ async def test_all_latency_metrics_use_p95(db_session):
         assert evaluation.samples == 10, name
 
 
+async def test_probe_ttfb_rows_are_excluded_from_the_p95(db_session):
+    """GIVEN diez TTFB reales 100..1000 y cinco TTFB de la sonda de 9000 ms
+    WHEN se agrega TTFB THEN el p95 sigue siendo 955 y samples cuenta solo las
+    filas RUM: la latencia sintética de la sonda no dispara reglas de latencia
+    (ISS-B-14)."""
+    app_id = await _application(db_session, "agg-probe-ttfb")
+    metric_id = await _metric_type_id(db_session, "TTFB")
+    rum_session = await _session(db_session, app_id, start=NOW - timedelta(minutes=10))
+    probe_session = await _session(db_session, app_id, start=NOW - timedelta(minutes=10))
+    for value in (100, 200, 300, 400, 500, 600, 700, 800, 900, 1000):
+        await _metric(
+            db_session,
+            rum_session,
+            metric_id,
+            value,
+            timestamp=NOW - timedelta(minutes=5),
+        )
+    for _ in range(5):
+        await _metric(
+            db_session,
+            probe_session,
+            metric_id,
+            9000,
+            timestamp=NOW - timedelta(minutes=4),
+            metadata=PROBE_METADATA,
+        )
+
+    evaluation = await _aggregate(db_session, app_id, metric_id, "TTFB")
+
+    assert evaluation.observed == Decimal("955")
+    assert evaluation.samples == 10
+
+
+async def test_only_probe_ttfb_rows_means_an_empty_window(db_session):
+    """GIVEN solo TTFB de la sonda en la ventana WHEN se agrega TTFB THEN
+    observed es NULL y samples = 0 (insufficient), no el latido de la sonda
+    (ISS-B-14)."""
+    app_id = await _application(db_session, "agg-probe-only")
+    metric_id = await _metric_type_id(db_session, "TTFB")
+    probe_session = await _session(db_session, app_id, start=NOW - timedelta(minutes=10))
+    await _metric(
+        db_session,
+        probe_session,
+        metric_id,
+        9000,
+        timestamp=NOW - timedelta(minutes=4),
+        metadata=PROBE_METADATA,
+    )
+
+    evaluation = await _aggregate(db_session, app_id, metric_id, "TTFB")
+
+    assert evaluation.observed is None
+    assert evaluation.samples == 0
+
+
+async def test_rum_rows_with_other_or_null_metadata_still_count(db_session):
+    """Solo la clave `probe_target` marca a la sonda: una fila RUM con
+    `metadata` NULL o con otras claves (sample_rate, agent_version) sigue
+    entrando al p95 (ISS-B-14)."""
+    app_id = await _application(db_session, "agg-rum-metadata")
+    metric_id = await _metric_type_id(db_session, "TTFB")
+    session_id = await _session(db_session, app_id, start=NOW - timedelta(minutes=10))
+    await _metric(
+        db_session, session_id, metric_id, 100, timestamp=NOW - timedelta(minutes=5)
+    )
+    await _metric(
+        db_session,
+        session_id,
+        metric_id,
+        300,
+        timestamp=NOW - timedelta(minutes=5),
+        metadata={"sample_rate": 1, "agent_version": "1.0.0"},
+    )
+
+    evaluation = await _aggregate(db_session, app_id, metric_id, "TTFB")
+
+    assert evaluation.observed == Decimal("290")
+    assert evaluation.samples == 2
+
+
 # -- AR-2: disponibilidad ----------------------------------------------------
 
 
@@ -191,6 +279,29 @@ async def test_availability_is_the_average_of_the_probe_runs(db_session):
             metric_id,
             value,
             timestamp=NOW - timedelta(minutes=4),
+        )
+
+    evaluation = await _aggregate(db_session, app_id, metric_id, "AVAILABILITY")
+
+    assert evaluation.observed == Decimal("0.75")
+    assert evaluation.samples == 4
+
+
+async def test_availability_keeps_the_probe_rows(db_session):
+    """AVAILABILITY proviene SOLO de la sonda: sus filas (con `probe_target`)
+    DEBEN seguir entrando al promedio; la exclusión aplica a la latencia, no
+    al uptime (ISS-B-14)."""
+    app_id = await _application(db_session, "agg-availability-probe")
+    metric_id = await _metric_type_id(db_session, "AVAILABILITY")
+    session_id = await _session(db_session, app_id, start=NOW - timedelta(minutes=10))
+    for value in (1.0, 1.0, 1.0, 0.0):
+        await _metric(
+            db_session,
+            session_id,
+            metric_id,
+            value,
+            timestamp=NOW - timedelta(minutes=4),
+            metadata=PROBE_METADATA,
         )
 
     evaluation = await _aggregate(db_session, app_id, metric_id, "AVAILABILITY")

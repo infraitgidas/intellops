@@ -280,6 +280,12 @@ reproducible y carga con k6. Detalle funcional y limitaciones conocidas en
   `/telemetry/*` hasta implementar el rate limit (el de `/assistant/query` se
   mantiene); se corrige la redacción de secretos al inicio del texto
   (`SECRET_PAIR_RE`, `28181c2`).
+- Las filas de la sonda HTTP (`metadata` con `probe_target`) dejan de mezclarse
+  con la latencia real de usuarios (ISS-B-14, ISS-B-05): el p95 del motor de
+  reglas (`src/ml/rules/aggregates.py`) y `GET /metrics/query` las excluyen en
+  todos los tipos de métrica salvo `AVAILABILITY`, que proviene únicamente de
+  la sonda. El contrato de `/metrics/query` (parámetros, shape y orden) no
+  cambia; una fila sin `metadata` sigue contando como RUM.
 
 ### Security
 

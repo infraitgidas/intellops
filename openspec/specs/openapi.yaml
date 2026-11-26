@@ -113,7 +113,7 @@ paths:
     get:
       summary: Consulta de métricas históricas
       operationId: queryMetrics
-      description: "Read path app-scoped (OAS-14): métricas RUM de la aplicación autenticada agregadas por bucket temporal (TQ-1), shape ML (application_id, metric_type_id, timestamp, value, session_count). Requiere X-API-Key; el tenant se deriva EXCLUSIVAMENTE de la key. Ventana default 15 min, máximo 7 días, bucket mínimo 60 s (TQ-2)."
+      description: "Read path app-scoped (OAS-14): métricas RUM de la aplicación autenticada agregadas por bucket temporal (TQ-1), shape ML (application_id, metric_type_id, timestamp, value, session_count). Requiere X-API-Key; el tenant se deriva EXCLUSIVAMENTE de la key. Ventana default 15 min, máximo 7 días, bucket mínimo 60 s (TQ-2). Excluye las filas de la sonda de disponibilidad (metadata con probe_target) de todos los tipos de métrica salvo AVAILABILITY, de modo que TTFB y FCP son RUM puro."
       security:
         - apiKey: []
       parameters:
